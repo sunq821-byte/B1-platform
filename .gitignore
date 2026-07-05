@@ -1,0 +1,12 @@
+# Ignore everything
+*
+
+# Allow .gitignore itself
+!.gitignore
+
+# Track only these three
+!README.md
+!server/
+!server/**
+!B1_Platform/
+!B1_Platform/**

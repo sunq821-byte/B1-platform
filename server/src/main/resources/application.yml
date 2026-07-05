@@ -1,0 +1,75 @@
+spring:
+  application:
+    name: b1-platform
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      minimum-idle: 5
+      maximum-pool-size: 20
+      idle-timeout: 300000
+      max-lifetime: 1800000
+      connection-timeout: 30000
+      leak-detection-threshold: 60000
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 100MB
+  jackson:
+    date-format: yyyy-MM-dd'T'HH:mm:ss.SSSXXX
+    time-zone: Asia/Shanghai
+    default-property-inclusion: non_null
+
+mybatis-plus:
+  global-config:
+    db-config:
+      id-type: assign_id
+      logic-delete-field: deleted
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+  configuration:
+    log-impl: org.apache.ibatis.logging.slf4j.Slf4jImpl
+    map-underscore-to-camel-case: true
+  mapper-locations: classpath*:mapper/**/*.xml
+
+sa-token:
+  token-name: Authorization
+  timeout: 7200
+  active-timeout: -1
+  is-concurrent: true
+  is-share: false
+  token-style: uuid
+  is-log: false
+  token-prefix: Bearer
+  is-print: false
+
+knife4j:
+  enable: true
+  setting:
+    language: zh-CN
+    swagger-model-name: B1 Platform API
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+  api-docs:
+    path: /v3/api-docs
+
+logging:
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] [%X{traceId}] %-5level %logger{50} - %msg%n"
+
+b1:
+  upload:
+    max-size: 52428800
+    allowed-types: zip,pdf,doc,docx,xls,xlsx,java,py,c,cpp,txt,md,png,jpg,jpeg
+  ai:
+    provider: deepseek
+    timeout: 120000
+    max-retries: 3
+  git:
+    clone-dir: /tmp/b1-git-clones
+    clone-timeout: 60000
+  report:
+    export-dir: /tmp/b1-exports
