@@ -10,3 +10,6 @@
 !server/**
 !B1_Platform/
 !B1_Platform/**
+
+# Exclude build outputs
+server/target/
