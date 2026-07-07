@@ -185,8 +185,10 @@ public class TeacherServiceImpl implements TeacherService {
 
         Set<Long> recentUserIds = recentSubs.stream()
                 .map(Submission::getUserId).collect(Collectors.toSet());
-        Map<Long, User> userMap = userMapper.selectBatchIds(new ArrayList<>(recentUserIds)).stream()
-                .collect(Collectors.toMap(User::getId, u -> u, (a, b) -> a));
+        Map<Long, User> userMap = recentUserIds.isEmpty()
+                ? Collections.emptyMap()
+                : userMapper.selectBatchIds(new ArrayList<>(recentUserIds)).stream()
+                        .collect(Collectors.toMap(User::getId, u -> u, (a, b) -> a));
 
         Map<Long, TrainingTask> taskMap = allTasks.stream()
                 .collect(Collectors.toMap(TrainingTask::getId, t -> t, (a, b) -> a));
