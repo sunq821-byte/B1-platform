@@ -165,7 +165,8 @@ public class AiServiceImpl implements AiService {
             String taskDescription = task != null && task.getDescription() != null ? task.getDescription() : "";
 
             List<StandardDimension> dimensions = getDimensions(task);
-            String systemPrompt = promptBuilder.buildSystemPrompt(dimensions);
+            String gradingRule = task != null ? task.getGradingRule() : null;
+            String systemPrompt = promptBuilder.buildSystemPrompt(dimensions, gradingRule);
 
             List<SubmissionFile> files = submissionFileMapper.selectList(
                     new LambdaQueryWrapper<SubmissionFile>()

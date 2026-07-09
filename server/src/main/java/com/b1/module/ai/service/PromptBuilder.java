@@ -21,7 +21,7 @@ public class PromptBuilder {
 
             ## 评价维度
             {dimensions}
-
+            {gradingRule}
             ## 输出格式
             必须严格返回以下JSON格式（不要包含任何其他文字）：
             {
@@ -75,7 +75,7 @@ public class PromptBuilder {
             请严格按照JSON格式返回结果。
             """;
 
-    public String buildSystemPrompt(List<StandardDimension> dimensions) {
+    public String buildSystemPrompt(List<StandardDimension> dimensions, String gradingRule) {
         StringBuilder dimDesc = new StringBuilder();
         for (int i = 0; i < dimensions.size(); i++) {
             StandardDimension dim = dimensions.get(i);
@@ -89,7 +89,13 @@ public class PromptBuilder {
                     .append(escape(dim.getDimDescription() != null ? dim.getDimDescription() : "无描述"))
                     .append("\n");
         }
-        return SYSTEM_TEMPLATE.replace("{dimensions}", dimDesc.toString());
+        String ruleSection = "";
+        if (gradingRule != null && !gradingRule.isBlank()) {
+            ruleSection = "\n## 本任务特定评分细则(教师指定)\n" + escape(gradingRule) + "\n";
+        }
+        return SYSTEM_TEMPLATE
+                .replace("{dimensions}", dimDesc.toString())
+                .replace("{gradingRule}", ruleSection);
     }
 
     private static String escape(String s) {
