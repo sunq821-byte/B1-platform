@@ -44,6 +44,7 @@ declare module 'vue' {
     EmptyState: typeof import('./../components/common/EmptyState.vue')['default']
     ErrorState: typeof import('./../components/common/ErrorState.vue')['default']
     FileUploader: typeof import('./../components/business/FileUploader.vue')['default']
+    GradingRuleForm: typeof import('./../components/business/GradingRuleForm.vue')['default']
     LineChart: typeof import('./../components/chart/LineChart.vue')['default']
     LoadingState: typeof import('./../components/common/LoadingState.vue')['default']
     Navbar: typeof import('./../components/layout/Navbar.vue')['default']

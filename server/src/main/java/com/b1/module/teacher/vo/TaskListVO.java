@@ -29,4 +29,6 @@ public class TaskListVO {
     private Integer submissionCount;
 
     private Integer reviewedCount;
+
+    private String gradingRule;
 }

@@ -94,6 +94,7 @@ public class TeacherTaskServiceImpl implements TeacherTaskService {
             vo.setStatus(task.getStatus());
             vo.setDeadline(task.getEndTime());
             vo.setPublishTime(task.getPublishTime());
+            vo.setGradingRule(task.getGradingRule());
 
             List<Submission> submissions = submissionMapper.selectList(
                     new LambdaQueryWrapper<Submission>()
@@ -415,6 +416,7 @@ public class TeacherTaskServiceImpl implements TeacherTaskService {
             vo.setStatus(task.getStatus());
             vo.setDeadline(task.getEndTime());
             vo.setPublishTime(task.getPublishTime());
+            vo.setGradingRule(task.getGradingRule());
 
             List<Submission> submissions = submissionMapper.selectList(
                     new LambdaQueryWrapper<Submission>()
