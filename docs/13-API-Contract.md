@@ -7,10 +7,10 @@
 | 字段 | 值 |
 |---|---|
 | **文档名称** | API Contract（接口契约） |
-| **文档版本** | v1.0 |
+| **文档版本** | v1.1 |
 | **文档状态** | Formal Release |
 | **作者** | Backend Architect |
-| **最后更新** | 2026-07-04 |
+| **最后更新** | 2026-07-09 |
 | **适用范围** | 前端 Axios、后端 Controller、Mock.js、OpenAPI 文档生成 |
 | **文档定位** | 本项目唯一接口真相（Single Source of Truth）。所有 API 接口以本文档为准 |
 | **前置文档** | 00-Architecture-Baseline, 01-PRD, 02-SDS, 06-API-Mock-Spec, 10-Backend-Architecture-Design, 11-Database-Design, 12-Backend-Specification |
@@ -1325,6 +1325,9 @@ Frontend (SubmissionDetailPage → "开始AI分析" button)
   → [Validate] submission.status != ANALYZING
   → AiAnalysisMapper.insert(analysisId, status=PENDING)
   → [Async] @Async AIAnalysisTask.run(analysisId)
+  → PromptBuilder.buildSystemPrompt(dimensions, task.gradingRule)
+      · dimensions ← task.standardId(=1000) 的四维度
+      · gradingRule ← 教师任务级评分细则，非空时追加"本任务特定评分细则"段落
   → Response: Result<AIAnalyzeVO>
 ```
 
@@ -2052,25 +2055,28 @@ Frontend (ClassListPage)
 |---|---|---|---|---|
 | `taskName` | String | Yes | `@NotBlank`, max 256 chars | Task name |
 | `courseId` | String | Yes | `@NotBlank` | Course ID |
-| `classIds` | Array[String] | Yes | `@NotEmpty` | Target class IDs |
-| `description` | String | Yes | `@NotBlank` | Task description (Markdown) |
-| `deadline` | String | Yes | `@NotBlank`, ISO 8601, must be future | Submission deadline |
-| `totalScore` | Integer | Yes | `@Min(1) @Max(1000)` | Total score (default 100) |
-| `submissionType` | String | Yes | enum: `GIT_ZIP`/`ZIP_ONLY`/`ONLINE_CODE`/`FILE_UPLOAD` | Submission method |
-| `submitLimit` | Integer | No | `@Min(1) @Max(10)`, default 3 | Max submission attempts |
-| `evaluationTemplateId` | String | No | — | Evaluation standard template ID |
-| `attachments` | Array[String] | No | — | Attachment file IDs |
+| `submissionType` | String | Yes | `@NotBlank`, enum: `GIT_URL`/`ZIP_ONLY`/`ONLINE_CODE`/`FILE_UPLOAD` | Submission method |
+| `maxSubmitCount` | Integer | Yes | `@NotNull` | Max submission attempts |
+| `totalScore` | Number | Yes | `@NotNull` | Total score |
+| `description` | String | No | — | Task description (Markdown) |
+| `requirement` | String | No | — | Task requirement (Markdown) |
+| `endTime` | String | No | ISO 8601 datetime | Submission deadline |
+| `allowLate` | Integer | No | 0=不允许, 1=允许 | Whether late submission allowed |
+| `gradingRule` | String | No | — | 教师自定义评分细则（R/S/R/O 原文，`Role：…\nSkill：…\nRule：…` 拼接，注入 AI 提示） |
+| `trainingClassId` | Long | No | — | Target class ID |
+
+> **融合说明**：`standardId` 不再由前端传入。后端在 `createTask` 时固定写入系统默认标准 `id=1000`（提供四维评分框架）。教师的个性化评分诉求通过 `gradingRule` 表达。
 
 ```json
 {
   "taskName": "Spring Boot 图书管理系统实训",
-  "courseId": "2222222222222222222",
-  "classIds": ["1111111111111111111", "2222222222222222222"],
-  "description": "使用 Spring Boot + MyBatis + MySQL 实现图书管理系统的增删改查功能...",
-  "deadline": "2026-07-15T23:59:59.000+08:00",
+  "courseId": "1",
+  "submissionType": "GIT_URL",
+  "maxSubmitCount": 3,
   "totalScore": 100,
-  "submissionType": "GIT_ZIP",
-  "submitLimit": 3
+  "description": "使用 Spring Boot + MyBatis + MySQL 实现图书管理系统的增删改查功能...",
+  "endTime": "2026-07-15T23:59:59",
+  "gradingRule": "Role：资深阅卷教师\nSkill：精准打分\nRule：命名不规范扣2分"
 }
 ```
 
@@ -2160,6 +2166,8 @@ Frontend (TaskCreatePage)
 | **Path Variables** | `taskId` — String |
 
 **Request Body**: Same structure as Create, all fields optional (partial update semantics used — only sent fields are updated).
+
+> **融合说明**：`gradingRule` 采用非空判定更新（`dto.getGradingRule() != null` 时才写入）。编辑弹窗回填依赖列表/详情接口回传的 `gradingRule` 原文，避免以空串覆盖已存细则。`standardId` 不参与更新，始终保持系统默认标准。
 
 ---
 

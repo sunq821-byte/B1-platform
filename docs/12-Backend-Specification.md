@@ -24,6 +24,7 @@
 | 版本 | 日期 | 作者 | 变更说明 |
 |---|---|---|---|
 | v1.0 | 2026-07-04 | Principal Java Architect | 初始版本，覆盖 MVP 全部后端开发规范 |
+| v1.1 | 2026-07-09 | Claude Code | 评分融合：标准模块保留实体/Mapper 移除教师端标准增删改；PromptBuilder 支持任务级 gradingRule 注入 |
 
 ---
 
@@ -106,7 +107,7 @@ server/src/main/java/com/b1/
 │   ├── ai/                                # AI 分析模块
 │   ├── review/                            # 教师复核模块
 │   ├── report/                            # 报表模块
-│   ├── standard/                          # 评价标准模块
+│   ├── standard/                          # 评价标准模块（保留实体/Mapper，供 AI 读取四维度；教师端标准增删改接口已在"融合"改动中移除）
 │   ├── system/                            # 系统管理模块
 │   ├── file/                              # 文件模块
 │   ├── git/                               # Git 模块
@@ -865,6 +866,7 @@ Key 命名格式：`{业务域}:{实体类型}:{标识符}`
 - Prompt 模板内容通过 `@ConfigurationProperties` 加载为配置 Bean
 - 禁止在 Java 代码中硬编码 Prompt 文本（超过 2 行的 Prompt 必须抽取到模板文件）
 - 每次 Prompt 模板变更需经过评审（记录的 Prompt 历史版本）
+- **任务级评分细则融合**：`PromptBuilder.buildSystemPrompt(dimensions, gradingRule)` 在四维度框架基础上，当任务的 `grading_rule` 非空时追加"本任务特定评分细则(教师指定)"段落；细则文本经 `escape()`（`%`→`%%`）处理后再进入 `String.format` 路径，避免格式化占位符冲突
 
 ### 17.2 Token 管理
 

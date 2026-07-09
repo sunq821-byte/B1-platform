@@ -24,6 +24,7 @@
 | 版本 | 日期 | 作者 | 变更说明 |
 |---|---|---|---|
 | v1.0 | 2026-07-04 | Senior Database Architect | 初始版本，覆盖 MVP 全部 26 张表 |
+| v1.1 | 2026-07-09 | Claude Code | 评分融合（V5 迁移）：training_task 新增 grading_rule 字段；预置系统默认标准 id=1000 + 四维度；教师端标准增删改移除 |
 
 ---
 
@@ -694,10 +695,11 @@ erDiagram
 |---|---|---|---|---|
 | `id` | `BIGINT` | ❌ | Snowflake | 主键，任务 ID |
 | `course_id` | `BIGINT` | ❌ | — | 所属课程 ID |
-| `standard_id` | `BIGINT` | ✅ | NULL | 引用的评价标准模板 ID |
+| `standard_id` | `BIGINT` | ✅ | NULL | 引用的评价标准 ID（融合后统一指向系统默认标准 id=1000，提供四维评分框架） |
 | `task_name` | `VARCHAR(256)` | ❌ | — | 任务名称，如 "Spring Boot 在线商城系统开发" |
 | `description` | `TEXT` | ✅ | NULL | 任务描述（支持 Markdown） |
 | `requirement` | `TEXT` | ✅ | NULL | 任务要求（支持 Markdown，详细列出交付物、评分要点） |
+| `grading_rule` | `LONGTEXT` | ✅ | NULL | 教师自定义评分细则（R/S/R/O 原文：Role/Skill/Rule 三段拼接，Output Format 由系统固定），注入 AI 提示词 |
 | `start_time` | `DATETIME` | ✅ | NULL | 任务开始时间 |
 | `end_time` | `DATETIME` | ✅ | NULL | 截止日期（提交 DDL） |
 | `allow_late` | `TINYINT` | ❌ | `0` | 是否允许逾期提交：0=不允许, 1=允许 |
@@ -939,10 +941,10 @@ erDiagram
 
 | 属性 | 值 |
 |---|---|
-| **表用途** | 存储评价标准模板，定义评分框架（引用于 training_task） |
-| **数据来源** | 教师创建 / 从标准库复制 |
+| **表用途** | 存储评价标准，定义四维评分框架（引用于 training_task） |
+| **数据来源** | 系统预置默认标准（id=1000，V5 迁移种子）。教师端标准增删改功能已在"融合"改动中移除，教师不再直接维护标准，改为在任务上填写 `grading_rule` 自定义评分细则 |
 | **关联表** | standard_dimension, training_task |
-| **数据生命周期** | 长期保留，支持版本迭代和回滚 |
+| **数据生命周期** | 长期保留；系统默认标准 id=1000 固定不变 |
 
 | 字段 | 类型 | 可空 | 默认值 | 说明 |
 |---|---|---|---|---|
