@@ -149,6 +149,7 @@ public class TeacherTaskServiceImpl implements TeacherTaskService {
         vo.setPublishTime(task.getPublishTime());
         vo.setTotalScore(task.getMaxScore());
         vo.setStatus(task.getStatus());
+        vo.setGradingRule(task.getGradingRule());
         vo.setStandardId(task.getStandardId());
 
         Course course = courseMapper.selectById(task.getCourseId());
