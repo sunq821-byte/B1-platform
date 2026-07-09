@@ -115,7 +115,7 @@ public class TaskServiceImpl implements TaskService {
         TaskDetailVO vo = new TaskDetailVO();
         vo.setTaskId(task.getId());
         vo.setTaskName(task.getTaskName());
-        vo.setDescription(task.getRequirement());
+        vo.setDescription(task.getDescription());
         vo.setDeadline(task.getEndTime());
         vo.setTotalScore(task.getMaxScore());
         vo.setSubmissionType(task.getSubmissionType());
