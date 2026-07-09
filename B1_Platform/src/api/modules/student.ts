@@ -1,4 +1,5 @@
 import request from "@/api/request"
+import { downloadFile } from "@/api/download"
 import type {
   IDashboardData,
   ICourseItem,
@@ -147,6 +148,10 @@ export async function fetchAIResultDetail(submissionId: string): Promise<IAIResu
 
 export function fetchStudentReport(): Promise<IStudentReportData> {
   return request.get("/api/v1/student/student-report") as Promise<IStudentReportData>
+}
+
+export function exportStudentReport(format: "xlsx" | "pdf"): Promise<void> {
+  return downloadFile("/api/v1/student/student-report/export", { format })
 }
 
 export function fetchGrowth(): Promise<IGrowthData> {

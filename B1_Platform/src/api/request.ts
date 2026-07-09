@@ -37,6 +37,11 @@ instance.interceptors.request.use(
 // 响应拦截器：统一处理
 instance.interceptors.response.use(
   (response: AxiosResponse<ApiResponse>) => {
+    // 二进制下载（导出等）绕过 JSON 解包，返回完整响应
+    if (response.config.responseType === "blob") {
+      return response
+    }
+
     const { code, data, message } = response.data
 
     if (code === 0) {

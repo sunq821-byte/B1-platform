@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { onMounted } from "vue"
+import { ref, onMounted } from "vue"
 import { ElMessage } from "element-plus"
 import { useStudentStore } from "@/stores/useStudentStore"
 import { useUserStore } from "@/stores/useUserStore"
+import { exportStudentReport } from "@/api/modules/student"
 import PageHeader from "@/components/layout/PageHeader.vue"
 import LineChart from "@/components/chart/LineChart.vue"
 import RadarChart from "@/components/chart/RadarChart.vue"
@@ -10,11 +11,21 @@ import EmptyState from "@/components/common/EmptyState.vue"
 
 const store = useStudentStore()
 const userStore = useUserStore()
+const exporting = ref(false)
 
 onMounted(() => { store.fetchStudentReport() })
 
-function handleExport() {
-  ElMessage.success("导出功能演示：Excel 文件将包含当前页面数据")
+async function handleExport(format: "xlsx" | "pdf") {
+  if (!store.studentReport || store.studentReport.rows.length === 0) {
+    ElMessage.warning("当前无数据可导出")
+    return
+  }
+  exporting.value = true
+  try {
+    await exportStudentReport(format)
+    ElMessage.success("导出成功")
+  } catch { /* error already surfaced by download helper */ }
+  finally { exporting.value = false }
 }
 
 function fmtScore(s: number | null): string {
@@ -80,7 +91,10 @@ function scoreColor(score: number) {
       <div class="section mt-24">
         <div class="section-header">
           <h2 class="section-title">成绩明细</h2>
-          <button class="btn btn-outline btn-sm" @click="handleExport">导出 Excel</button>
+          <div class="export-actions">
+            <button class="btn btn-outline btn-sm" :disabled="exporting" @click="handleExport('xlsx')">导出 Excel</button>
+            <button class="btn btn-outline btn-sm" :disabled="exporting" @click="handleExport('pdf')">导出 PDF</button>
+          </div>
         </div>
         <div v-if="store.studentReport.rows.length === 0" class="p-8">
           <EmptyState description="暂无成绩记录" />
@@ -127,3 +141,8 @@ function scoreColor(score: number) {
     </template>
   </div>
 </template>
+
+<style scoped>
+.export-actions { display: flex; gap: 8px; }
+</style>
+

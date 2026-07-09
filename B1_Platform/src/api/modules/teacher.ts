@@ -1,4 +1,5 @@
 import request from "@/api/request"
+import { downloadFile } from "@/api/download"
 import type {
   ICourseItem,
   ICourseFormData,
@@ -126,4 +127,8 @@ export function fetchClassReport(params?: {
 
 export function fetchCollegeReport(): Promise<ICollegeReport> {
   return request.get("/api/v1/teacher/reports-college") as Promise<ICollegeReport>
+}
+
+export function exportClassReport(className: string | undefined, format: "xlsx" | "pdf"): Promise<void> {
+  return downloadFile("/api/v1/teacher/reports/export", { className, format })
 }

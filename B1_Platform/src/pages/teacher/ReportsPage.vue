@@ -2,11 +2,13 @@
 import { ref, computed, onMounted, watch } from "vue"
 import { ElMessage } from "element-plus"
 import { useTeacherStore } from "@/stores/useTeacherStore"
+import { exportClassReport } from "@/api/modules/teacher"
 import PageHeader from "@/components/layout/PageHeader.vue"
 import BarChart from "@/components/chart/BarChart.vue"
 
 const store = useTeacherStore()
 const filterClass = ref("all")
+const exporting = ref(false)
 
 const classes = computed(() => {
   const set = new Set(store.students.map((s) => s.className))
@@ -34,40 +36,17 @@ const scoreColor = (score: number) => {
   return "danger"
 }
 
-function handleExport() {
+async function handleExport(format: "xlsx" | "pdf") {
   if (!store.classReport || store.classReport.rows.length === 0) {
     ElMessage.warning("当前无数据可导出")
     return
   }
-
-  const className = filterClass.value === "all" ? "全部班级" : filterClass.value
-  const BOM = "﻿"
-  const header = "学号,姓名,班级,已完成,平均分,最高分,最低分"
-  const lines = store.classReport.rows.map((r) =>
-    `${r.studentId},${r.name},${r.className},${r.completedCount},${r.avgScore.toFixed(1)},${r.maxScore.toFixed(1)},${r.minScore.toFixed(1)}`,
-  )
-
-  // Stats summary rows
-  const s = store.classReport.stats
-  const summary = [
-    "",
-    `班级人数:,${s.totalStudents}`,
-    `已评阅数:,${s.totalReviewed}`,
-    `班级均分:,${s.classAverage}`,
-    `及格率:,${s.passRate}%`,
-  ]
-
-  const csv = BOM + header + "\n" + lines.join("\n") + "\n" + summary.join("\n")
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" })
-  const url = URL.createObjectURL(blob)
-
-  const a = document.createElement("a")
-  a.href = url
-  a.download = `成绩报表_${className}_${new Date().toISOString().substring(0, 10)}.csv`
-  a.click()
-  URL.revokeObjectURL(url)
-
-  ElMessage.success(`已导出 ${store.classReport.rows.length} 条成绩数据`)
+  exporting.value = true
+  try {
+    await exportClassReport(filterClass.value === "all" ? undefined : filterClass.value, format)
+    ElMessage.success("导出成功")
+  } catch { /* error already surfaced by download helper */ }
+  finally { exporting.value = false }
 }
 
 const subtitle = computed(() => {
@@ -85,7 +64,10 @@ const subtitle = computed(() => {
         <option value="all">全部班级</option>
         <option v-for="c in classes" :key="c" :value="c">{{ c }}</option>
       </select>
-      <button class="btn btn-outline btn-sm" style="margin-left: auto;" @click="handleExport">📥 导出成绩</button>
+      <div class="export-actions" style="margin-left: auto;">
+        <button class="btn btn-outline btn-sm" :disabled="exporting" @click="handleExport('xlsx')">导出 Excel</button>
+        <button class="btn btn-outline btn-sm" :disabled="exporting" @click="handleExport('pdf')">导出 PDF</button>
+      </div>
     </div>
 
     <template v-if="store.classReport">
@@ -181,4 +163,6 @@ const subtitle = computed(() => {
   box-sizing: border-box;
 }
 .form-select:focus { border-color: var(--color-primary, #3b82f6); }
+.export-actions { display: flex; gap: 8px; }
+
 </style>

@@ -132,6 +132,12 @@
             <artifactId>openpdf</artifactId>
             <version>${openpdf.version}</version>
         </dependency>
+        <!-- OpenPDF 内置 CJK 字体 (STSong-Light)，用于 PDF 中文渲染 -->
+        <dependency>
+            <groupId>com.github.librepdf</groupId>
+            <artifactId>openpdf-fonts-extra</artifactId>
+            <version>${openpdf.version}</version>
+        </dependency>
 
         <!-- Flyway -->
         <dependency>
