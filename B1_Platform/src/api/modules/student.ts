@@ -10,8 +10,10 @@ import type {
   IGitVerifyRequest,
   IGitVerifyResponse,
   IAIResult,
-  IEvaluationDetail,
+  IAIDimensionScore,
   IAIResultDetail,
+  IAIDeductionItem,
+  IEvaluationDetail,
   IStudentReportData,
   IGrowthData,
 } from "@/types/student"
@@ -90,8 +92,57 @@ export function fetchEvaluation(submissionId: string): Promise<IEvaluationDetail
   return request.get(`/api/v1/student/submissions/${submissionId}/evaluation`) as Promise<IEvaluationDetail>
 }
 
-export function fetchAIResultDetail(submissionId: string): Promise<IAIResult> {
-  return fetchAIResult(submissionId) as Promise<IAIResult>
+function severityFromDeduct(deduct: number): IAIDeductionItem["severity"] {
+  if (deduct >= 10) return "critical"
+  if (deduct >= 5) return "major"
+  return "minor"
+}
+
+function summaryByAgent(dimensions: IAIDimensionScore[], agent: string, fallback: string): string {
+  const matched = dimensions.filter((d) => (d.agentType ?? "").toUpperCase() === agent)
+  const text = matched.map((d) => d.comment).filter(Boolean).join(" ")
+  return text || fallback
+}
+
+function toDeductions(dimensions: IAIDimensionScore[]): IAIDeductionItem[] {
+  return dimensions
+    .filter((d) => !!d.issueType)
+    .map((d) => {
+      const deduct = d.suggestDeduct ?? 0
+      return {
+        agentType: d.agentType ?? "CODE",
+        severity: severityFromDeduct(deduct),
+        issueType: d.issueType ?? "",
+        suggestDeduct: deduct,
+        reason: d.comment ?? "",
+        filePath: d.filePath ?? "",
+        lineNumber: d.lineNumber ?? 0,
+        confidence: d.confidence ?? 0,
+      }
+    })
+}
+
+export async function fetchAIResultDetail(submissionId: string): Promise<IAIResultDetail> {
+  const raw = await fetchAIResult(submissionId)
+  const result = raw.result
+  const dimensions = result?.dimensions ?? []
+  const deductions = toDeductions(dimensions)
+  const totalDeductScore = deductions.reduce((sum, d) => sum + d.suggestDeduct, 0)
+  const fallback = result?.summary ?? ""
+  return {
+    submissionId,
+    taskId: "",
+    taskName: "",
+    aiScore: result?.overallScore ?? 0,
+    totalDeductions: deductions.length,
+    totalDeductScore,
+    modelVersion: "",
+    analyzedAt: raw.completedAt ?? raw.startedAt ?? "",
+    codeSummary: summaryByAgent(dimensions, "CODE", fallback),
+    docSummary: summaryByAgent(dimensions, "DOC", fallback),
+    reqSummary: summaryByAgent(dimensions, "REQ", fallback),
+    deductions,
+  }
 }
 
 export function fetchStudentReport(): Promise<IStudentReportData> {

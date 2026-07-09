@@ -118,7 +118,7 @@ export interface IPendingSubmission {
 
 export interface IAIDeduction {
   issueType: string
-  agentType: "CODE" | "DOC" | "REQ"
+  agentType: string
   reason: string
   suggestDeduct: number
   adjustedDeduct?: number

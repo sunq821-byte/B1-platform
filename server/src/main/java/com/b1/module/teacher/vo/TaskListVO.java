@@ -14,6 +14,8 @@ public class TaskListVO {
 
     private String courseName;
 
+    private String description;
+
     private String submissionType;
 
     private Integer maxSubmitCount;

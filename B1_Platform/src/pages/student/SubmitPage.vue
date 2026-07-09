@@ -61,6 +61,7 @@ async function initPage() {
   loadError.value = ""
   try {
     await store.fetchTaskDetail(taskId.value)
+    await loadHistory()
   } catch (err: unknown) {
     loadError.value = (err as Error)?.message || "加载任务信息失败"
   } finally {

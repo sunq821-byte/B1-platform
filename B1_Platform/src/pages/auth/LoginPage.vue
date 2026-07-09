@@ -79,7 +79,6 @@ const ERROR_MESSAGES: Record<number, string> = {
 }
 
 // ---- Computed ----
-const stepDots = computed(() => [1, 2, 3].map((n) => n <= currentStep.value))
 const stepLabel = computed(() => {
   const labels: Record<number, string> = { 1: "选择角色", 2: "账号登录", 3: "找回密码" }
   return labels[currentStep.value]

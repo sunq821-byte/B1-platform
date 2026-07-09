@@ -44,7 +44,16 @@ async function handleDelete(c: IClassItem) {
   ElMessage.success("班级已删除")
 }
 
-onMounted(() => { store.fetchClasses() })
+async function loadClasses() {
+  loadError.value = ""
+  try {
+    await store.fetchClasses()
+  } catch (e: unknown) {
+    loadError.value = (e as Error)?.message || "加载失败"
+  }
+}
+
+onMounted(() => { loadClasses() })
 </script>
 
 <template>
@@ -52,6 +61,7 @@ onMounted(() => { store.fetchClasses() })
     <PageHeader title="班级管理" :subtitle="`共 ${store.classes.length} 个班级`" />
 
     <LoadingState v-if="store.classesLoading" text="加载班级列表..." />
+    <ErrorState v-else-if="loadError" :message="loadError" @retry="loadClasses" />
 
     <template v-else>
     <div class="filter-bar">

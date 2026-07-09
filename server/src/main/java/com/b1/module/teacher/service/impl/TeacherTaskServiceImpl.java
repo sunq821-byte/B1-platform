@@ -88,6 +88,7 @@ public class TeacherTaskServiceImpl implements TeacherTaskService {
             vo.setTaskId(task.getId());
             vo.setTaskName(task.getTaskName());
             vo.setCourseName(courseName);
+            vo.setDescription(task.getDescription());
             vo.setSubmissionType(task.getSubmissionType());
             vo.setMaxSubmitCount(task.getMaxSubmitCount());
             vo.setTotalScore(task.getMaxScore());
@@ -410,6 +411,7 @@ public class TeacherTaskServiceImpl implements TeacherTaskService {
             vo.setTaskName(task.getTaskName());
             Course c = courseMap.get(task.getCourseId());
             vo.setCourseName(c != null ? c.getCourseName() : "");
+            vo.setDescription(task.getDescription());
             vo.setSubmissionType(task.getSubmissionType());
             vo.setMaxSubmitCount(task.getMaxSubmitCount());
             vo.setTotalScore(task.getMaxScore());

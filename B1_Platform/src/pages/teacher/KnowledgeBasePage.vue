@@ -2,7 +2,7 @@
 import { ref, computed, onMounted } from "vue"
 import { ElMessage, ElMessageBox } from "element-plus"
 import {
-  UploadCloud, FileText, Database, Search, Upload, Eye,
+  UploadCloud, FileText, Database, Upload, Eye,
 } from "lucide-vue-next"
 import PageHeader from "@/components/layout/PageHeader.vue"
 import BaseButton from "@/components/base/BaseButton.vue"

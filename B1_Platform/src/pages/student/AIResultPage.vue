@@ -97,16 +97,6 @@ const scoreClass = computed(() => {
   return "danger"
 })
 
-const gradeLabel = computed(() => {
-  const s = displayScore.value
-  if (s >= 90) return "优秀"
-  if (s >= 80) return "良好"
-  if (s >= 60) return "及格"
-  return "不及格"
-})
-
-const sevLabels: Record<string, string> = { critical: "严重", major: "主要", minor: "轻微" }
-
 const dimBars = computed(() => {
   if (!teacherEval.value) return []
   return teacherEval.value.dimensions.map((d) => ({

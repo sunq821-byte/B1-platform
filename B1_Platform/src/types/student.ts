@@ -162,6 +162,13 @@ export interface IAIDimensionScore {
   comment: string
   suggestions: string[]
   codeReferences: string[]
+  // Per-issue fields carried by backend AiDimensionScoreVO (optional; absent in plain scoring rows)
+  agentType?: string
+  issueType?: string
+  suggestDeduct?: number
+  filePath?: string
+  lineNumber?: number
+  confidence?: number
 }
 
 export interface IAIScoreResult {
