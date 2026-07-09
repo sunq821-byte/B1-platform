@@ -16,4 +16,7 @@ public final class SystemConstants {
     public static final int TOKEN_REFRESH_TTL = 604800;
 
     public static final int MAX_UPLOAD_SIZE_MB = 50;
+
+    /** 系统默认评价标准 ID（固定四维度基线，见 V5 迁移）。所有新建任务固定引用此标准。 */
+    public static final long DEFAULT_STANDARD_ID = 1000L;
 }
