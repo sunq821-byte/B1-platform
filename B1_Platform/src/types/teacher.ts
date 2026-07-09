@@ -20,29 +20,6 @@ export interface ICourseFormData {
   credits: number
 }
 
-// ========== Standard ==========
-
-export interface IDimensionItem {
-  name: string
-  weight: number
-}
-
-export interface IStandardItem {
-  standardId: string
-  name: string
-  courseType: string
-  dimensionCount: number
-  version: string
-  status: "published" | "draft"
-  updatedAt: string | null
-}
-
-export interface IDimensionConfig {
-  standardId: string
-  standardName: string
-  dimensions: IDimensionItem[]
-}
-
 // ========== Task ==========
 
 export interface ITeacherTaskItem {
@@ -171,18 +148,6 @@ export interface IPublishRequest {
   comment: string
   manualDeductions: IManualDeduction[]
   deductionOverrides: Record<number, { action: string; adjustedDeduct?: number; reason?: string }>
-}
-
-// ========== Standards Library ==========
-
-export interface IStandardTemplate {
-  id: string
-  name: string
-  type: string
-  dims: number
-  version: string
-  status: "published" | "draft"
-  updatedAt: string
 }
 
 // ========== Reports ==========
