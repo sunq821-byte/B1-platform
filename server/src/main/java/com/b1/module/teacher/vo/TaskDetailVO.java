@@ -33,6 +33,8 @@ public class TaskDetailVO {
 
     private String status;
 
+    private String gradingRule;
+
     private Long standardId;
 
     private String standardName;
