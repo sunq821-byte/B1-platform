@@ -22,3 +22,7 @@ server/BOOT-INF/
 # Exclude secrets (local-only config, never commit)
 server/src/main/resources/application-local.yml
 
+# Exclude runtime logs
+server/run.log
+B1_Platform/dev.log
+

@@ -273,7 +273,7 @@ const remainingTime = computed(() => {
 }
 
 .ai-score-panel__suggestion-item::before {
-  content: "â€¢";
+  content: "\2022";
   position: absolute;
   left: 4px;
 }

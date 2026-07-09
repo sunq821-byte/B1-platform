@@ -4,6 +4,8 @@ import cn.dev33.satoken.stp.StpUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.b1.common.exception.BusinessException;
 import com.b1.common.exception.ErrorCode;
+import com.b1.module.ai.entity.AiAnalysis;
+import com.b1.module.ai.mapper.AiAnalysisMapper;
 import com.b1.module.file.service.FileService;
 import com.b1.module.file.vo.FileUploadVO;
 import com.b1.module.submission.dto.GitVerifyDTO;
@@ -13,6 +15,7 @@ import com.b1.module.submission.mapper.SubmissionMapper;
 import com.b1.module.submission.service.SubmissionService;
 import com.b1.module.submission.vo.GitVerifyResultVO;
 import com.b1.module.submission.vo.ReportUploadVO;
+import com.b1.module.submission.vo.SubmissionHistoryVO;
 import com.b1.module.submission.vo.SubmissionVO;
 import com.b1.module.task.entity.TrainingTask;
 import com.b1.module.task.mapper.TrainingTaskMapper;
@@ -21,6 +24,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -30,6 +34,7 @@ public class SubmissionServiceImpl implements SubmissionService {
     private final TrainingTaskMapper trainingTaskMapper;
     private final SubmissionMapper submissionMapper;
     private final FileService fileService;
+    private final AiAnalysisMapper aiAnalysisMapper;
 
     @Override
     public SubmissionVO submit(Long taskId, SubmitRequestDTO dto) {
@@ -46,57 +51,41 @@ public class SubmissionServiceImpl implements SubmissionService {
             throw new BusinessException(ErrorCode.OPERATION_NOT_ALLOWED, "该实训任务已截止");
         }
 
-        // Check for an existing REJECTED submission that can be re-submitted
-        Submission rejectedSubmission = submissionMapper.selectOne(
-                new LambdaQueryWrapper<Submission>()
-                        .eq(Submission::getTrainingTaskId, taskId)
-                        .eq(Submission::getUserId, userId)
-                        .eq(Submission::getStatus, "REJECTED")
-                        .eq(Submission::getDeleted, 0));
-
-        if (rejectedSubmission != null) {
-            // Re-submit: update the existing rejected submission in-place
-            int newSubmitCount = (rejectedSubmission.getSubmitCount() != null ? rejectedSubmission.getSubmitCount() : 0) + 1;
-            int isLate = (task.getEndTime() != null && now.isAfter(task.getEndTime())) ? 1 : 0;
-
-            rejectedSubmission.setSubmitType(dto.getSubmissionType());
-            rejectedSubmission.setGitUrl(dto.getGitUrl());
-            rejectedSubmission.setGitBranch(dto.getGitBranch());
-            rejectedSubmission.setSummary(dto.getRemark());
-            rejectedSubmission.setSubmitCount(newSubmitCount);
-            rejectedSubmission.setSubmitTime(now);
-            rejectedSubmission.setIsLate(isLate);
-            rejectedSubmission.setStatus("SUBMITTED");
-
-            submissionMapper.updateById(rejectedSubmission);
-
-            SubmissionVO vo = new SubmissionVO();
-            vo.setSubmissionId(rejectedSubmission.getId());
-            vo.setTaskId(taskId);
-            vo.setSubmissionType(dto.getSubmissionType());
-            vo.setStatus("SUBMITTED");
-            vo.setSubmitCount(newSubmitCount);
-            vo.setMaxSubmitCount(task.getMaxSubmitCount() != null ? task.getMaxSubmitCount() : 1);
-            vo.setSubmittedAt(now);
-
-            return vo;
-        }
-
-        Long existingCount = submissionMapper.selectCount(
-                new LambdaQueryWrapper<Submission>()
-                        .eq(Submission::getTrainingTaskId, taskId)
-                        .eq(Submission::getUserId, userId)
-                        .eq(Submission::getDeleted, 0));
-
         int maxSubmitCount = task.getMaxSubmitCount() != null ? task.getMaxSubmitCount() : 1;
-        if (existingCount >= maxSubmitCount) {
-            throw new BusinessException(ErrorCode.OPERATION_NOT_ALLOWED,
-                    "已达到提交次数上限（" + maxSubmitCount + "次），无法再次提交");
-        }
-
-        int newSubmitCount = existingCount.intValue() + 1;
-
         int isLate = (task.getEndTime() != null && now.isAfter(task.getEndTime())) ? 1 : 0;
+
+        // One row per (user, task): the unique key uk_submission_user_task enforces this,
+        // so a re-submission overwrites the existing row instead of inserting a new one.
+        Submission existing = submissionMapper.selectOne(
+                new LambdaQueryWrapper<Submission>()
+                        .eq(Submission::getTrainingTaskId, taskId)
+                        .eq(Submission::getUserId, userId)
+                        .eq(Submission::getDeleted, 0));
+
+        if (existing != null) {
+            int currentCount = existing.getSubmitCount() != null ? existing.getSubmitCount() : 0;
+            // A teacher-rejected submission may always be redone; otherwise enforce the limit.
+            boolean rejected = "REJECTED".equals(existing.getStatus());
+            if (!rejected && currentCount >= maxSubmitCount) {
+                throw new BusinessException(ErrorCode.OPERATION_NOT_ALLOWED,
+                        "已达到提交次数上限（" + maxSubmitCount + "次），无法再次提交");
+            }
+            int newSubmitCount = currentCount + 1;
+
+            existing.setSubmitType(dto.getSubmissionType());
+            existing.setGitUrl(dto.getGitUrl());
+            existing.setGitBranch(dto.getGitBranch());
+            existing.setSummary(dto.getRemark());
+            existing.setSubmitCount(newSubmitCount);
+            existing.setSubmitTime(now);
+            existing.setIsLate(isLate);
+            existing.setStatus("SUBMITTED");
+
+            submissionMapper.updateById(existing);
+
+            return buildSubmissionVO(existing.getId(), taskId, dto.getSubmissionType(),
+                    newSubmitCount, maxSubmitCount, now);
+        }
 
         Submission submission = new Submission();
         submission.setTrainingTaskId(taskId);
@@ -105,23 +94,62 @@ public class SubmissionServiceImpl implements SubmissionService {
         submission.setGitUrl(dto.getGitUrl());
         submission.setGitBranch(dto.getGitBranch());
         submission.setSummary(dto.getRemark());
-        submission.setSubmitCount(newSubmitCount);
+        submission.setSubmitCount(1);
         submission.setSubmitTime(now);
         submission.setIsLate(isLate);
         submission.setStatus("SUBMITTED");
 
         submissionMapper.insert(submission);
 
-        SubmissionVO vo = new SubmissionVO();
-        vo.setSubmissionId(submission.getId());
-        vo.setTaskId(taskId);
-        vo.setSubmissionType(dto.getSubmissionType());
-        vo.setStatus("SUBMITTED");
-        vo.setSubmitCount(newSubmitCount);
-        vo.setMaxSubmitCount(maxSubmitCount);
-        vo.setSubmittedAt(now);
+        return buildSubmissionVO(submission.getId(), taskId, dto.getSubmissionType(),
+                1, maxSubmitCount, now);
+    }
 
+    private SubmissionVO buildSubmissionVO(Long submissionId, Long taskId, String submissionType,
+                                           int submitCount, int maxSubmitCount, LocalDateTime submittedAt) {
+        SubmissionVO vo = new SubmissionVO();
+        vo.setSubmissionId(submissionId);
+        vo.setTaskId(taskId);
+        vo.setSubmissionType(submissionType);
+        vo.setStatus("SUBMITTED");
+        vo.setSubmitCount(submitCount);
+        vo.setMaxSubmitCount(maxSubmitCount);
+        vo.setSubmittedAt(submittedAt);
         return vo;
+    }
+
+    @Override
+    public List<SubmissionHistoryVO> listHistory(Long taskId) {
+        Long userId = StpUtil.getLoginIdAsLong();
+
+        List<Submission> submissions = submissionMapper.selectList(
+                new LambdaQueryWrapper<Submission>()
+                        .eq(Submission::getTrainingTaskId, taskId)
+                        .eq(Submission::getUserId, userId)
+                        .eq(Submission::getDeleted, 0)
+                        .orderByAsc(Submission::getSubmitCount));
+
+        List<SubmissionHistoryVO> result = new ArrayList<>();
+        for (Submission s : submissions) {
+            SubmissionHistoryVO vo = new SubmissionHistoryVO();
+            vo.setSubmissionId(s.getId());
+            vo.setStatus(s.getStatus());
+            vo.setSubmitCount(s.getSubmitCount());
+            vo.setSubmittedAt(s.getSubmitTime());
+
+            AiAnalysis analysis = aiAnalysisMapper.selectOne(
+                    new LambdaQueryWrapper<AiAnalysis>()
+                            .eq(AiAnalysis::getSubmissionId, s.getId())
+                            .eq(AiAnalysis::getAnalysisStatus, "COMPLETED")
+                            .orderByDesc(AiAnalysis::getId)
+                            .last("LIMIT 1"));
+            if (analysis != null) {
+                vo.setAiScore(analysis.getTotalScore());
+            }
+
+            result.add(vo);
+        }
+        return result;
     }
 
     @Override

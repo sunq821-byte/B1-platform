@@ -191,8 +191,9 @@ onMounted(() => { initPage() })
         <div class="form-group">
           <label class="form-label">提交方式</label>
           <select v-model="form.submissionType" class="form-select">
+            <option value="ZIP_UPLOAD">文件上传</option>
+            <option value="ZIP_UPLOAD">代码提交</option>
             <option value="GIT_URL">Git 仓库</option>
-            <option value="ZIP_UPLOAD">ZIP 文件</option>
           </select>
         </div>
         <div class="form-group">

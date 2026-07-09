@@ -7,7 +7,7 @@ withDefaults(defineProps<{
   cancelText?: string
   loading?: boolean
 }>(), {
-  width: '480px',
+  width: '600px',
   confirmText: '确认',
   cancelText: '取消',
   loading: false,
@@ -38,7 +38,9 @@ function handleCancel() {
     v-bind="$attrs"
     @update:model-value="(val: boolean) => emit('update:modelValue', val)"
   >
-    <slot />
+    <div class="base-modal__body">
+      <slot />
+    </div>
     <template #footer>
       <slot name="footer">
         <div class="base-modal__footer">
@@ -55,6 +57,11 @@ function handleCancel() {
 </template>
 
 <style scoped>
+.base-modal__body {
+  max-height: 60vh;
+  overflow-y: auto;
+  padding-right: 4px;
+}
 .base-modal__footer {
   display: flex;
   justify-content: flex-end;

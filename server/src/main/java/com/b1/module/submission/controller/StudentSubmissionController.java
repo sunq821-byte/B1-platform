@@ -6,6 +6,7 @@ import com.b1.module.submission.dto.SubmitRequestDTO;
 import com.b1.module.submission.service.SubmissionService;
 import com.b1.module.submission.vo.GitVerifyResultVO;
 import com.b1.module.submission.vo.ReportUploadVO;
+import com.b1.module.submission.vo.SubmissionHistoryVO;
 import com.b1.module.submission.vo.SubmissionVO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -13,6 +14,8 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+
+import java.util.List;
 
 @Tag(name = "学生-提交")
 @RestController
@@ -28,6 +31,12 @@ public class StudentSubmissionController {
             @PathVariable Long taskId,
             @Valid @RequestBody SubmitRequestDTO dto) {
         return Result.ok(submissionService.submit(taskId, dto));
+    }
+
+    @Operation(summary = "提交历史")
+    @GetMapping("/tasks/{taskId}/submissions")
+    public Result<List<SubmissionHistoryVO>> listHistory(@PathVariable Long taskId) {
+        return Result.ok(submissionService.listHistory(taskId));
     }
 
     @Operation(summary = "验证 Git 仓库")
