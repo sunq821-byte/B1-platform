@@ -9,6 +9,7 @@ import BaseInput from "@/components/base/BaseInput.vue"
 import BaseModal from "@/components/base/BaseModal.vue"
 import LoadingState from "@/components/common/LoadingState.vue"
 import ErrorState from "@/components/common/ErrorState.vue"
+import GradingRuleForm from "@/components/business/GradingRuleForm.vue"
 
 const store = useTeacherStore()
 const loadError = ref("")
@@ -30,12 +31,15 @@ const form = ref({
   dueDate: "2026-07-15",
   weight: 25,
   priority: "medium" as "high" | "medium" | "low",
+  roleText: "",
+  skillText: "",
+  ruleText: "",
 })
 
 const modalTitle = computed(() => (isEdit.value ? "编辑任务" : "新建任务"))
 
 function resetForm() {
-  form.value = { taskName: "", courseId: store.courses[0]?.courseId || "", description: "", dueDate: "2026-07-15", weight: 25, priority: "medium" }
+  form.value = { taskName: "", courseId: store.courses[0]?.courseId || "", description: "", dueDate: "2026-07-15", weight: 25, priority: "medium", roleText: "", skillText: "", ruleText: "" }
   isEdit.value = false
   editingId.value = ""
 }
@@ -45,9 +49,22 @@ function openCreate() {
   showModal.value = true
 }
 
+function parseGradingRule(text?: string): { roleText: string; skillText: string; ruleText: string } {
+  const result = { roleText: "", skillText: "", ruleText: "" }
+  if (!text) return result
+  const roleMatch = text.match(/Role：([\s\S]*?)(?=\nSkill：|\nRule：|$)/)
+  const skillMatch = text.match(/Skill：([\s\S]*?)(?=\nRole：|\nRule：|$)/)
+  const ruleMatch = text.match(/Rule：([\s\S]*?)(?=\nRole：|\nSkill：|$)/)
+  if (roleMatch) result.roleText = roleMatch[1].trim()
+  if (skillMatch) result.skillText = skillMatch[1].trim()
+  if (ruleMatch) result.ruleText = ruleMatch[1].trim()
+  return result
+}
+
 function openEdit(task: ITeacherTaskItem) {
   isEdit.value = true
   editingId.value = task.taskId
+  const parsed = parseGradingRule(task.gradingRule)
   form.value = {
     taskName: task.taskName,
     courseId: store.courses.find((c) => c.courseName === task.courseName)?.courseId || "",
@@ -55,6 +72,9 @@ function openEdit(task: ITeacherTaskItem) {
     dueDate: task.deadline ? task.deadline.substring(0, 10) : "",
     weight: task.totalScore,
     priority: task.priority,
+    roleText: parsed.roleText,
+    skillText: parsed.skillText,
+    ruleText: parsed.ruleText,
   }
   showModal.value = true
 }
@@ -184,6 +204,7 @@ onMounted(() => { initPage() })
             <option value="low">低</option>
           </select>
         </div>
+        <GradingRuleForm v-model="form" />
         <template v-if="isEdit" #footer>
           <BaseButton @click="showModal = false">取消</BaseButton>
           <BaseButton type="primary" :loading="saving" @click="handlePublish">发布任务</BaseButton>
