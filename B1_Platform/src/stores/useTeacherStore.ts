@@ -3,9 +3,6 @@ import { ref } from "vue"
 import type {
   ICourseItem,
   ICourseFormData,
-  IStandardItem,
-  IDimensionConfig,
-  IDimensionItem,
   ITeacherTaskItem,
   ITaskFormData,
   IStudentItem,
@@ -13,7 +10,6 @@ import type {
   IPendingSubmission,
   IAIDiagnosis,
   IPublishRequest,
-  IStandardTemplate,
   IClassReport,
   ICollegeReport,
   IDashboardData,
@@ -33,12 +29,6 @@ export const useTeacherStore = defineStore("teacher", () => {
   const courses = ref<ICourseItem[]>([])
   const coursesLoading = ref(false)
 
-  // Standards
-  const standards = ref<IStandardItem[]>([])
-  const standardsLoading = ref(false)
-  const currentDimensions = ref<IDimensionConfig | null>(null)
-  const isEditingDimensions = ref(false)
-
   // Tasks
   const tasks = ref<ITeacherTaskItem[]>([])
   const tasksLoading = ref(false)
@@ -54,10 +44,6 @@ export const useTeacherStore = defineStore("teacher", () => {
   const submissionsTotal = ref(0)
   const currentDiagnosis = ref<IAIDiagnosis | null>(null)
   const currentSubmissionId = ref("")
-
-  // Standards Library
-  const standardTemplates = ref<IStandardTemplate[]>([])
-  const templatesLoading = ref(false)
 
   // Dashboard
   const dashboardData = ref<IDashboardData | null>(null)
@@ -106,43 +92,6 @@ export const useTeacherStore = defineStore("teacher", () => {
   async function deleteCourse(courseId: string): Promise<void> {
     await teacherApi.deleteCourse(courseId)
     courses.value = courses.value.filter((c) => c.courseId !== courseId)
-  }
-
-  // === Standards ===
-  function mapStandard(raw: Record<string, unknown>): IStandardItem {
-    return {
-      standardId: String(raw.standardId ?? ''),
-      name: String(raw.standardName || raw.name || ''),
-      courseType: String(raw.courseType ?? ''),
-      dimensionCount: Number(raw.dimensionCount ?? 0),
-      version: String(raw.version || 'v1'),
-      status: (String(raw.status ?? '').toLowerCase() === 'published' ? 'published' : 'draft') as "published" | "draft",
-      updatedAt: raw.updateTime ? String(raw.updateTime) : (raw.createTime ? String(raw.createTime) : null),
-    }
-  }
-
-  async function fetchStandards(): Promise<void> {
-    standardsLoading.value = true
-    try {
-      standards.value = extractList(await teacherApi.fetchStandards(), mapStandard)
-    } finally { standardsLoading.value = false }
-  }
-
-  async function fetchStandardDimensions(standardId: string): Promise<void> {
-    currentDimensions.value = await teacherApi.fetchStandardDimensions(standardId)
-    isEditingDimensions.value = true
-  }
-
-  async function saveDimensions(standardId: string, dimensions: IDimensionItem[]): Promise<void> {
-    await teacherApi.updateStandardDimensions(standardId, dimensions)
-    if (currentDimensions.value) currentDimensions.value.dimensions = [...dimensions]
-    const s = standards.value.find((x) => x.standardId === standardId)
-    if (s) s.dimensionCount = dimensions.length
-  }
-
-  function resetDimensions(): void {
-    currentDimensions.value = null
-    isEditingDimensions.value = false
   }
 
   // === Tasks ===
@@ -320,55 +269,6 @@ export const useTeacherStore = defineStore("teacher", () => {
     currentSubmissionId.value = ""
   }
 
-  // === Standards Library ===
-  function mapTemplate(raw: Record<string, unknown>): IStandardTemplate {
-    const status = String(raw.status ?? '').toLowerCase()
-    return {
-      id: String(raw.standardId ?? ''),
-      name: String(raw.standardName ?? ''),
-      type: String(raw.courseType || '通用'),
-      dims: Number(raw.dimensionCount ?? 0),
-      version: 'v1',
-      status: status === 'published' ? 'published' : 'draft',
-      updatedAt: raw.createTime ? String(raw.createTime).substring(0, 10) : '',
-    }
-  }
-
-  async function fetchStandardTemplates(): Promise<void> {
-    templatesLoading.value = true
-    try {
-      standardTemplates.value = extractList(await teacherApi.fetchStandardTemplates() as unknown as Record<string, unknown>, mapTemplate)
-    } finally { templatesLoading.value = false }
-  }
-
-  async function copyStandardTemplate(standardId: string): Promise<IStandardTemplate> {
-    const tpl = mapTemplate(await teacherApi.copyStandard(standardId) as unknown as Record<string, unknown>)
-    standards.value.push({
-      standardId: tpl.id,
-      name: tpl.name,
-      courseType: tpl.type,
-      dimensionCount: tpl.dims,
-      version: tpl.version,
-      status: tpl.status,
-      updatedAt: tpl.updatedAt,
-    })
-    return tpl
-  }
-
-  async function createStandardTemplate(data: {
-    standardName: string
-    description: string
-    courseType: string
-    dimensions: Array<{ dimName: string; weight: number; maxScore: number; sortOrder: number }>
-  }): Promise<IStandardTemplate> {
-    const tpl = mapTemplate(await teacherApi.createStandardTemplate({
-      ...data,
-      isTemplate: 1,
-    }) as unknown as Record<string, unknown>)
-    standardTemplates.value.unshift(tpl)
-    return tpl
-  }
-
   // === Dashboard ===
   async function fetchDashboard(): Promise<void> {
     dashboardLoading.value = true
@@ -392,37 +292,29 @@ export const useTeacherStore = defineStore("teacher", () => {
   // === Reset ===
   function resetStore(): void {
     courses.value = []
-    standards.value = []
     tasks.value = []
     students.value = []
     pendingSubmissions.value = []
     dashboardData.value = null
-    standardTemplates.value = []
     classReport.value = null
     collegeReport.value = null
-    currentDimensions.value = null
     currentStudent.value = null
     currentDiagnosis.value = null
-    isEditingDimensions.value = false
   }
 
   return {
     courses, coursesLoading,
-    standards, standardsLoading, currentDimensions, isEditingDimensions,
     tasks, tasksLoading,
     students, studentsLoading, currentStudent,
     pendingSubmissions, submissionsLoading, submissionsTotal, currentDiagnosis, currentSubmissionId,
     dashboardData, dashboardLoading,
-    standardTemplates, templatesLoading,
     classReport, classReportLoading,
     collegeReport, collegeReportLoading,
     fetchDashboard,
     fetchCourses, createCourse, updateCourse, deleteCourse,
-    fetchStandards, fetchStandardDimensions, saveDimensions, resetDimensions,
     fetchTasks, createTask, updateTask, deleteTask, publishTask,
     fetchStudents, fetchStudentDetail,
     fetchPendingSubmissions, fetchSubmissionDetail, fetchAIDiagnosis, publishReview,
-    fetchStandardTemplates, copyStandardTemplate, createStandardTemplate,
     fetchClassReport, fetchCollegeReport,
     resetStore,
   }

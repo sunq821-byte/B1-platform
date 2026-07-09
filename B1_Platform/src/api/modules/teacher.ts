@@ -2,9 +2,6 @@ import request from "@/api/request"
 import type {
   ICourseItem,
   ICourseFormData,
-  IStandardItem,
-  IDimensionConfig,
-  IDimensionItem,
   ITeacherTaskItem,
   ITaskFormData,
   IStudentItem,
@@ -12,7 +9,6 @@ import type {
   IPendingSubmission,
   IAIDiagnosis,
   IPublishRequest,
-  IStandardTemplate,
   IClassReport,
   ICollegeReport,
   IDashboardData,
@@ -36,26 +32,6 @@ export function deleteCourse(courseId: string): Promise<void> {
   return request.delete(`/api/v1/teacher/courses/${courseId}`) as Promise<void>
 }
 
-// ========== Standards ==========
-
-export function fetchStandards(): Promise<IStandardItem[]> {
-  return request.get("/api/v1/teacher/standards") as Promise<IStandardItem[]>
-}
-
-export function fetchStandardDimensions(standardId: string): Promise<IDimensionConfig> {
-  return request.get(`/api/v1/teacher/standards/${standardId}/dimensions`) as Promise<IDimensionConfig>
-}
-
-export function updateStandardDimensions(
-  standardId: string,
-  dimensions: IDimensionItem[],
-): Promise<void> {
-  return request.put(
-    `/api/v1/teacher/standards/${standardId}/dimensions`,
-    { dimensions },
-  ) as Promise<void>
-}
-
 // ========== Tasks ==========
 
 /**
@@ -64,11 +40,17 @@ export function updateStandardDimensions(
  * A date-only value is pinned to end-of-day so the whole day counts as before the deadline.
  */
 function toTaskPayload(data: ITaskFormData): Record<string, unknown> {
-  const { dueDate, ...rest } = data
+  const { dueDate, roleText, skillText, ruleText, weight, ...rest } = data
   const payload: Record<string, unknown> = { ...rest }
+  payload.totalScore = weight
   if (dueDate) {
     payload.endTime = dueDate.length <= 10 ? `${dueDate}T23:59:59` : dueDate
   }
+  const parts: string[] = []
+  if (roleText?.trim()) parts.push(`Role：${roleText.trim()}`)
+  if (skillText?.trim()) parts.push(`Skill：${skillText.trim()}`)
+  if (ruleText?.trim()) parts.push(`Rule：${ruleText.trim()}`)
+  payload.gradingRule = parts.join("\n")
   return payload
 }
 
@@ -126,26 +108,6 @@ export function publishReview(submissionId: string, data: IPublishRequest): Prom
     status: data.status,
     teacherComment: data.comment,
   }) as Promise<void>
-}
-
-// ========== Standards Library ==========
-
-export function fetchStandardTemplates(): Promise<IStandardTemplate[]> {
-  return request.get("/api/v1/teacher/standards-library") as Promise<IStandardTemplate[]>
-}
-
-export function copyStandard(standardId: string): Promise<IStandardTemplate> {
-  return request.post(`/api/v1/teacher/standards/${standardId}/copy`) as Promise<IStandardTemplate>
-}
-
-export function createStandardTemplate(data: {
-  standardName: string
-  description: string
-  courseType: string
-  isTemplate: number
-  dimensions: Array<{ dimName: string; weight: number; maxScore: number; sortOrder: number }>
-}): Promise<IStandardTemplate> {
-  return request.post("/api/v1/teacher/standards", data) as Promise<IStandardTemplate>
 }
 
 // ========== Dashboard ==========
