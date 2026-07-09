@@ -31,7 +31,7 @@ function formatDate(dateStr: string) {
   return dateStr.replace("T", " ").substring(0, 16)
 }
 
-const submissionLabel: Record<string, string> = { GIT_URL: "Git 仓库", ZIP_UPLOAD: "ZIP 文件" }
+const submissionLabel: Record<string, string> = { GIT_URL: "Git 仓库", ZIP_UPLOAD: "文件上传", ONLINE_CODE: "代码提交" }
 
 async function loadTaskDetail() {
   loading.value = true

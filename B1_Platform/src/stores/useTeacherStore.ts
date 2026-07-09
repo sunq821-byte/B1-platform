@@ -131,19 +131,10 @@ export const useTeacherStore = defineStore("teacher", () => {
 
   async function updateTask(taskId: string, data: ITaskFormData): Promise<void> {
     await teacherApi.updateTask(taskId, data)
-    const idx = tasks.value.findIndex((t) => t.taskId === taskId)
-    if (idx >= 0) {
-      const updated = { ...tasks.value[idx] }
-      if (data.taskName !== undefined) updated.taskName = data.taskName
-      if (data.description !== undefined) updated.description = data.description
-      if (data.dueDate !== undefined) updated.deadline = data.dueDate
-      if (data.priority !== undefined) updated.priority = data.priority
-      if (data.courseId !== undefined) {
-        const course = courses.value.find((c) => c.courseId === data.courseId)
-        if (course) updated.courseName = course.courseName
-      }
-      tasks.value[idx] = updated
-    }
+    // Re-fetch so every field (submissionType, maxSubmitCount, gradingRule, etc.)
+    // reflects the persisted state; a manual partial patch would leave the local
+    // cache stale and the edit dialog would reopen with pre-edit values.
+    await fetchTasks()
   }
 
   async function deleteTask(taskId: string): Promise<void> {
