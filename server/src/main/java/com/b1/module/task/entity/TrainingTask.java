@@ -35,6 +35,9 @@ public class TrainingTask implements Serializable {
     @TableField("requirement")
     private String requirement;
 
+    @TableField("grading_rule")
+    private String gradingRule;
+
     @TableField("start_time")
     private LocalDateTime startTime;
 
