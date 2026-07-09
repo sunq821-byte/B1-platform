@@ -43,7 +43,18 @@ docker compose ps    # 确认 b1-mysql / b1-redis / b1-minio 均为 Up
 | MinIO API | 9000 |
 | MinIO Console | 9001 |
 
-### 2. 启动后端
+### 2. 配置密钥（首次运行必做）
+
+AI 密钥不入库，需在本地创建 `server/src/main/resources/application-local.yml`（该文件已被 `.gitignore` 忽略，不会提交）：
+
+```yaml
+DEEPSEEK_API_KEY: sk-你的-deepseek-密钥
+QWEN_API_KEY: sk-你的-qwen-密钥
+```
+
+`application-dev.yml` 通过 `spring.config.import` 自动加载此文件。若缺失该文件应用仍可启动（AI 功能不可用）。
+
+### 3. 启动后端
 
 ```powershell
 cd D:\Project\B1\server
@@ -55,7 +66,7 @@ mvn spring-boot:run
 - Swagger 文档：http://localhost:8080/doc.html
 - 默认管理员：admin / admin123
 
-### 3. 启动前端
+### 4. 启动前端
 
 ```powershell
 cd D:\Project\B1\B1_Platform
@@ -63,10 +74,11 @@ npm install    # 首次运行
 npm run dev
 ```
 
-前端开发服务器：http://localhost:5173
+前端开发服务器：http://localhost:3000
 
 ## 开发说明
 
 - 数据库迁移使用 Flyway，新建迁移文件放在 `server/src/main/resources/db/migration/`，命名格式 `V{序号}__{描述}.sql`
 - 后端接口文档自动生成，启动后访问 `/doc.html`
 - 前端 Mock 数据在 `B1_Platform/src/mock/` 目录
+- 密钥等敏感配置放在 `server/src/main/resources/application-local.yml`（不提交），生产环境通过操作系统环境变量注入
