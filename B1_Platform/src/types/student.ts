@@ -1,37 +1,28 @@
 // ========== Dashboard ==========
-export interface IDashboardStats {
-  pendingTasks: number
-  completedTasks: number
-  averageScore: number
-  analyzingCount: number
-}
-
-export interface IRecentTask {
+export interface IUpcomingDeadline {
   taskId: string
   taskName: string
   courseName: string
   deadline: string
-  status: string
-  score: number | null
+  remainingDays: number
+  myStatus: string
 }
 
-export interface IScoreTrend {
-  xAxis: string[]
-  myScores: number[]
-  classAvg: number[]
-}
-
-export interface IRadarData {
-  categories: string[]
-  myScores: number[]
-  classAvg: number[]
+export interface IRecentActivity {
+  type: string
+  title: string
+  description: string
+  occurredAt: string
 }
 
 export interface IDashboardData {
-  stats: IDashboardStats
-  recentTasks: IRecentTask[]
-  scoreTrend: IScoreTrend
-  radarData: IRadarData
+  totalCourses: number
+  totalSubmissions: number
+  pendingReviewCount: number
+  unreadNotificationCount: number
+  averageScore: number | null
+  upcomingDeadlines: IUpcomingDeadline[]
+  recentActivities: IRecentActivity[]
 }
 
 // ========== Course ==========
@@ -184,7 +175,7 @@ export interface IAIScoreResult {
 
 export interface IAIResult {
   analyzeId: string
-  status: "PENDING" | "PROCESSING" | "COMPLETED"
+  status: "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED" | "NOT_STARTED"
   progress: number
   currentDimension: string | null
   result: IAIScoreResult | null
@@ -209,6 +200,7 @@ export interface ITeacherEvaluation {
 
 export interface IEvaluationDetail {
   submissionId: string
+  taskId: string
   taskName: string
   courseName: string
   submittedAt: string
@@ -254,18 +246,17 @@ export interface IAIResultDetail {
 export interface IStudentReportRow {
   taskName: string
   courseName: string
-  aiScore: number | null
-  finalScore: number
-  reviewedAt: string
+  score: number | null
   status: string
+  reviewComment: string | null
 }
 
 export interface IStudentReportData {
   stats: {
+    totalTasks: number
     completedTasks: number
-    averageScore: number | string
-    maxScore: number | string
-    minScore: number | string
+    averageScore: number | null
+    totalSubmissions: number
   }
   scoreTrend: {
     categories: string[]
@@ -279,24 +270,44 @@ export interface IStudentReportData {
 }
 
 // ========== Growth ==========
-export interface IGrowthEntry {
-  date: string
-  category: string
-  description: string
-  score: number
+export interface ICourseScore {
+  courseId: string
+  courseName: string
+  avgScore: number | null
+  taskCount: number
+}
+
+export interface IMonthlyTrend {
+  month: string
+  avgScore: number | null
+  submissionCount: number
+}
+
+export interface IDimensionRadar {
+  dimensionName: string
+  myAvg: number | null
+  classAvg: number | null
+}
+
+export interface ISubmissionHistoryItem {
+  submissionId: string
+  taskId: string
+  taskName: string
+  courseName: string
+  score: number | null
+  result: string | null
+  submittedAt: string
 }
 
 export interface IGrowthData {
-  stats: {
-    totalEntries: number
-    latestScore: number
-    firstScore: number
-    improvement: number
-  }
-  entries: IGrowthEntry[]
-  evolutionData: {
-    categories: string[]
-    allDates: string[]
-    series: Array<{ name: string; data: number[] }>
-  }
+  totalTasks: number
+  completedTasks: number
+  totalSubmissions: number
+  averageScore: number | null
+  highestScore: number | null
+  lowestScore: number | null
+  courseScores: ICourseScore[]
+  monthlyTrends: IMonthlyTrend[]
+  dimensionRadar: IDimensionRadar[]
+  submissionHistory: ISubmissionHistoryItem[]
 }

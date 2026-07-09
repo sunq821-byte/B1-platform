@@ -11,5 +11,12 @@
 !B1_Platform/
 !B1_Platform/**
 
-# Exclude build outputs
+# Exclude build outputs (must come after the !server/** whitelist to take effect)
+server/target/**
 server/target/
+server/BOOT-INF/**
+server/BOOT-INF/
+
+# Exclude secrets (local-only config, never commit)
+server/src/main/resources/application-local.yml
+

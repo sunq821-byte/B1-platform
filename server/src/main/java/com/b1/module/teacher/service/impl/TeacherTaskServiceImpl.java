@@ -363,6 +363,101 @@ public class TeacherTaskServiceImpl implements TeacherTaskService {
     }
 
     @Override
+    public PageResult<TaskListVO> listAllTasks(Long courseId, int page, int pageSize, String keyword, String status) {
+        Long teacherId = StpUtil.getLoginIdAsLong();
+
+        List<Long> courseIds = courseTeacherMapper.selectList(
+                new LambdaQueryWrapper<CourseTeacher>()
+                        .eq(CourseTeacher::getUserId, teacherId))
+                .stream().map(CourseTeacher::getCourseId).distinct().toList();
+
+        if (courseIds.isEmpty()) {
+            return PageResult.of(Collections.emptyList(), page, pageSize, 0);
+        }
+
+        if (courseId != null) {
+            if (!courseIds.contains(courseId)) {
+                throw new BusinessException(ErrorCode.OPERATION_NOT_ALLOWED, "无权访问该课程");
+            }
+            courseIds = List.of(courseId);
+        }
+
+        LambdaQueryWrapper<TrainingTask> query = new LambdaQueryWrapper<TrainingTask>()
+                .in(TrainingTask::getCourseId, courseIds)
+                .eq(TrainingTask::getDeleted, 0);
+        if (StringUtils.hasText(keyword)) {
+            query.like(TrainingTask::getTaskName, keyword);
+        }
+        if (StringUtils.hasText(status)) {
+            query.eq(TrainingTask::getStatus, status);
+        }
+        query.orderByDesc(TrainingTask::getCreateTime);
+
+        IPage<TrainingTask> taskPage = trainingTaskMapper.selectPage(
+                new Page<>(page, pageSize), query);
+
+        Map<Long, Course> courseMap = courseMapper.selectBatchIds(courseIds).stream()
+                .collect(Collectors.toMap(Course::getId, c -> c, (a, b) -> a));
+
+        List<TaskListVO> vos = new ArrayList<>();
+        for (TrainingTask task : taskPage.getRecords()) {
+            TaskListVO vo = new TaskListVO();
+            vo.setTaskId(task.getId());
+            vo.setTaskName(task.getTaskName());
+            Course c = courseMap.get(task.getCourseId());
+            vo.setCourseName(c != null ? c.getCourseName() : "");
+            vo.setSubmissionType(task.getSubmissionType());
+            vo.setMaxSubmitCount(task.getMaxSubmitCount());
+            vo.setTotalScore(task.getMaxScore());
+            vo.setStatus(task.getStatus());
+            vo.setDeadline(task.getEndTime());
+            vo.setPublishTime(task.getPublishTime());
+
+            List<Submission> submissions = submissionMapper.selectList(
+                    new LambdaQueryWrapper<Submission>()
+                            .eq(Submission::getTrainingTaskId, task.getId())
+                            .eq(Submission::getDeleted, 0));
+            long submittedUserCount = submissions.stream()
+                    .map(Submission::getUserId).distinct().count();
+            vo.setSubmissionCount((int) submittedUserCount);
+
+            if (!submissions.isEmpty()) {
+                List<Long> submissionIds = submissions.stream().map(Submission::getId).toList();
+                long reviewedCount = teacherReviewMapper.selectCount(
+                        new LambdaQueryWrapper<TeacherReview>()
+                                .in(TeacherReview::getSubmissionId, submissionIds));
+                vo.setReviewedCount((int) reviewedCount);
+            } else {
+                vo.setReviewedCount(0);
+            }
+            vos.add(vo);
+        }
+
+        return PageResult.of(vos, page, pageSize, taskPage.getTotal());
+    }
+
+    @Override
+    public void deleteTask(Long taskId) {
+        Long teacherId = StpUtil.getLoginIdAsLong();
+
+        TrainingTask task = trainingTaskMapper.selectById(taskId);
+        if (task == null) {
+            throw new BusinessException(ErrorCode.NOT_FOUND, "任务不存在");
+        }
+
+        Long belongCount = courseTeacherMapper.selectCount(
+                new LambdaQueryWrapper<CourseTeacher>()
+                        .eq(CourseTeacher::getCourseId, task.getCourseId())
+                        .eq(CourseTeacher::getUserId, teacherId));
+        if (belongCount == 0) {
+            throw new BusinessException(ErrorCode.OPERATION_NOT_ALLOWED, "无权操作该任务");
+        }
+
+        task.setDeleted(1);
+        trainingTaskMapper.updateById(task);
+    }
+
+    @Override
     public void publishTask(Long taskId) {
         Long teacherId = StpUtil.getLoginIdAsLong();
 

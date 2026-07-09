@@ -4,9 +4,12 @@ import { ElMessage } from "element-plus"
 import { useAdminStore } from "@/stores/useAdminStore"
 import type { IAdminUserItem, IAdminUserFormData } from "@/types/admin"
 import PageHeader from "@/components/layout/PageHeader.vue"
+import LoadingState from "@/components/common/LoadingState.vue"
+import ErrorState from "@/components/common/ErrorState.vue"
 
 const store = useAdminStore()
 
+const loadError = ref("")
 const filterRole = ref("all")
 const searchKeyword = ref("")
 const modalVisible = ref(false)
@@ -44,7 +47,12 @@ function roleBadgeClass(role: string) {
 }
 
 async function loadUsers() {
-  await store.fetchUsers({ role: filterRole.value === "all" ? undefined : filterRole.value, keyword: searchKeyword.value.trim() || undefined })
+  loadError.value = ""
+  try {
+    await store.fetchUsers({ role: filterRole.value === "all" ? undefined : filterRole.value, keyword: searchKeyword.value.trim() || undefined })
+  } catch (e: unknown) {
+    loadError.value = (e as Error)?.message || "加载用户列表失败"
+  }
 }
 
 function openCreateModal() {
@@ -95,6 +103,10 @@ onMounted(() => { loadUsers() })
   <div>
     <PageHeader title="用户管理" :subtitle="`共 ${filteredUsers.length} 个用户`" />
 
+    <LoadingState v-if="store.usersLoading" text="加载用户列表..." />
+    <ErrorState v-else-if="loadError" :message="loadError" @retry="loadUsers" />
+
+    <template v-else>
     <div class="filter-bar">
       <select v-model="filterRole" class="form-select" style="width:140px;" @change="loadUsers">
         <option value="all">全部角色</option>
@@ -191,5 +203,6 @@ onMounted(() => { loadUsers() })
         </div>
       </div>
     </div>
+    </template>
   </div>
 </template>

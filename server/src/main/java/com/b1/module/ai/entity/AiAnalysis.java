@@ -18,7 +18,6 @@ public class AiAnalysis implements Serializable {
     private static final long serialVersionUID = 1L;
 
     @TableId(type = IdType.ASSIGN_ID)
-    @TableField("id")
     private Long id;
 
     @TableField("submission_id")

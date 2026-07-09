@@ -10,6 +10,8 @@ public interface TeacherReviewService {
 
     PageResult<SubmissionListVO> listSubmissions(Long taskId, int page, int pageSize, String status, String keyword);
 
+    PageResult<SubmissionListVO> listAllSubmissions(int page, int pageSize, String status, String keyword);
+
     SubmissionDetailVO getSubmissionDetail(Long submissionId);
 
     void reviewSubmission(Long submissionId, ReviewSubmitDTO dto);

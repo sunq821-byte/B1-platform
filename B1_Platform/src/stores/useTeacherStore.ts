@@ -21,6 +21,14 @@ import type {
 import * as teacherApi from "@/api/modules/teacher"
 
 export const useTeacherStore = defineStore("teacher", () => {
+  function extractList<T>(data: unknown, mapper: (raw: Record<string, unknown>) => T): T[] {
+    if (!data) return []
+    if (Array.isArray(data)) return data.map(mapper)
+    const list = (data as Record<string, unknown>).list
+    if (Array.isArray(list)) return list.map((item) => mapper(item as Record<string, unknown>))
+    return []
+  }
+
   // Courses
   const courses = ref<ICourseItem[]>([])
   const coursesLoading = ref(false)
@@ -43,6 +51,7 @@ export const useTeacherStore = defineStore("teacher", () => {
   // Submissions
   const pendingSubmissions = ref<IPendingSubmission[]>([])
   const submissionsLoading = ref(false)
+  const submissionsTotal = ref(0)
   const currentDiagnosis = ref<IAIDiagnosis | null>(null)
   const currentSubmissionId = ref("")
 
@@ -61,14 +70,29 @@ export const useTeacherStore = defineStore("teacher", () => {
   const collegeReportLoading = ref(false)
 
   // === Courses ===
+  function mapCourse(raw: Record<string, unknown>): ICourseItem {
+    return {
+      courseId: String(raw.courseId ?? ''),
+      courseCode: String(raw.courseCode ?? ''),
+      courseName: String(raw.courseName ?? ''),
+      className: String(raw.className || raw.courseName || ''),
+      semester: String(raw.semester ?? ''),
+      credits: Number(raw.credits ?? 0),
+      studentCount: Number(raw.studentCount ?? 0),
+      taskCount: Number(raw.taskCount ?? 0),
+      status: String(raw.status ?? ''),
+    }
+  }
+
   async function fetchCourses(): Promise<void> {
     coursesLoading.value = true
-    try { courses.value = await teacherApi.fetchCourses() }
-    finally { coursesLoading.value = false }
+    try {
+      courses.value = extractList(await teacherApi.fetchCourses(), mapCourse)
+    } finally { coursesLoading.value = false }
   }
 
   async function createCourse(data: ICourseFormData): Promise<ICourseItem> {
-    const c = await teacherApi.createCourse(data)
+    const c = mapCourse(await teacherApi.createCourse(data) as unknown as Record<string, unknown>)
     courses.value.push(c)
     return c
   }
@@ -85,10 +109,23 @@ export const useTeacherStore = defineStore("teacher", () => {
   }
 
   // === Standards ===
+  function mapStandard(raw: Record<string, unknown>): IStandardItem {
+    return {
+      standardId: String(raw.standardId ?? ''),
+      name: String(raw.standardName || raw.name || ''),
+      courseType: String(raw.courseType ?? ''),
+      dimensionCount: Number(raw.dimensionCount ?? 0),
+      version: String(raw.version || 'v1'),
+      status: (String(raw.status ?? '').toLowerCase() === 'published' ? 'published' : 'draft') as "published" | "draft",
+      updatedAt: raw.updateTime ? String(raw.updateTime) : (raw.createTime ? String(raw.createTime) : null),
+    }
+  }
+
   async function fetchStandards(): Promise<void> {
     standardsLoading.value = true
-    try { standards.value = await teacherApi.fetchStandards() }
-    finally { standardsLoading.value = false }
+    try {
+      standards.value = extractList(await teacherApi.fetchStandards(), mapStandard)
+    } finally { standardsLoading.value = false }
   }
 
   async function fetchStandardDimensions(standardId: string): Promise<void> {
@@ -109,10 +146,30 @@ export const useTeacherStore = defineStore("teacher", () => {
   }
 
   // === Tasks ===
+  function mapTask(raw: Record<string, unknown>): ITeacherTaskItem {
+    const status = String(raw.status ?? 'DRAFT')
+    return {
+      taskId: String(raw.taskId ?? ''),
+      taskName: String(raw.taskName ?? ''),
+      courseName: String(raw.courseName ?? ''),
+      description: String(raw.description ?? ''),
+      deadline: raw.deadline ? String(raw.deadline) : '',
+      totalScore: Number(raw.totalScore ?? 0),
+      priority: 'medium',
+      status: status.toLowerCase(),
+      maxScore: Number(raw.totalScore ?? 100),
+      createdAt: raw.publishTime ? String(raw.publishTime) : String(raw.createTime ?? ''),
+      submissionType: String(raw.submissionType ?? ''),
+      submissionCount: Number(raw.submissionCount ?? 0),
+      reviewedCount: Number(raw.reviewedCount ?? 0),
+    }
+  }
+
   async function fetchTasks(params?: { courseId?: string }): Promise<void> {
     tasksLoading.value = true
-    try { tasks.value = await teacherApi.fetchTeacherTasks(params) }
-    finally { tasksLoading.value = false }
+    try {
+      tasks.value = extractList(await teacherApi.fetchTeacherTasks(params), mapTask)
+    } finally { tasksLoading.value = false }
   }
 
   async function createTask(data: ITaskFormData): Promise<ITeacherTaskItem> {
@@ -125,7 +182,16 @@ export const useTeacherStore = defineStore("teacher", () => {
     await teacherApi.updateTask(taskId, data)
     const idx = tasks.value.findIndex((t) => t.taskId === taskId)
     if (idx >= 0) {
-      tasks.value[idx] = { ...tasks.value[idx], ...data, status: tasks.value[idx].status }
+      const updated = { ...tasks.value[idx] }
+      if (data.taskName !== undefined) updated.taskName = data.taskName
+      if (data.description !== undefined) updated.description = data.description
+      if (data.dueDate !== undefined) updated.deadline = data.dueDate
+      if (data.priority !== undefined) updated.priority = data.priority
+      if (data.courseId !== undefined) {
+        const course = courses.value.find((c) => c.courseId === data.courseId)
+        if (course) updated.courseName = course.courseName
+      }
+      tasks.value[idx] = updated
     }
   }
 
@@ -141,10 +207,28 @@ export const useTeacherStore = defineStore("teacher", () => {
   }
 
   // === Students ===
+  function mapStudent(raw: Record<string, unknown>): IStudentItem {
+    const userId = String(raw.userId ?? '')
+    const realName = String(raw.realName ?? '')
+    return {
+      userId,
+      studentId: userId,
+      name: realName,
+      realName,
+      className: String(raw.className || ''),
+      email: String(raw.email ?? ''),
+      phone: String(raw.phone ?? ''),
+      completedCount: Number(raw.submissionCount ?? ''),
+      submissionCount: Number(raw.submissionCount ?? 0),
+      avgScore: null,
+    }
+  }
+
   async function fetchStudents(params?: { className?: string; keyword?: string }): Promise<void> {
     studentsLoading.value = true
-    try { students.value = await teacherApi.fetchStudents(params || {}) }
-    finally { studentsLoading.value = false }
+    try {
+      students.value = extractList(await teacherApi.fetchStudents(params || {}), mapStudent)
+    } finally { studentsLoading.value = false }
   }
 
   async function fetchStudentDetail(userId: string): Promise<void> {
@@ -152,15 +236,81 @@ export const useTeacherStore = defineStore("teacher", () => {
   }
 
   // === Submissions ===
+  function mapSubmission(raw: Record<string, unknown>): IPendingSubmission {
+    const submitType = String(raw.submitType ?? 'FILE')
+    return {
+      submissionId: String(raw.submissionId ?? ''),
+      studentName: String(raw.studentName ?? ''),
+      studentUserId: String(raw.studentUserId ?? ''),
+      studentEmail: String(raw.studentEmail ?? ''),
+      taskId: String(raw.taskId ?? ''),
+      taskName: String(raw.taskName ?? ''),
+      submittedAt: raw.submittedAt ? String(raw.submittedAt) : '',
+      status: String(raw.status ?? 'SUBMITTED').toLowerCase(),
+      submissionType: submitType === 'GIT_URL' ? 'code' : 'file',
+      submitType,
+      submitCount: Number(raw.submitCount ?? 1),
+      isLate: Number(raw.isLate ?? 0),
+      hasReview: Boolean(raw.hasReview ?? false),
+      attachments: [],
+    }
+  }
+
   async function fetchPendingSubmissions(): Promise<void> {
     submissionsLoading.value = true
-    try { pendingSubmissions.value = await teacherApi.fetchPendingSubmissions() }
-    finally { submissionsLoading.value = false }
+    try {
+      const page = await teacherApi.fetchPendingSubmissions() as unknown as { list: Array<Record<string, unknown>>; total: number }
+      pendingSubmissions.value = (page?.list ?? []).map(mapSubmission)
+      submissionsTotal.value = page?.total ?? 0
+    } finally { submissionsLoading.value = false }
   }
 
   async function fetchAIDiagnosis(submissionId: string): Promise<void> {
-    currentDiagnosis.value = await teacherApi.fetchAIDiagnosis(submissionId)
+    const raw = await teacherApi.fetchAIDiagnosis(submissionId) as unknown as Record<string, unknown>
     currentSubmissionId.value = submissionId
+    if (!raw || raw.status !== "COMPLETED" || !raw.result) {
+      currentDiagnosis.value = null
+      return
+    }
+    const result = raw.result as Record<string, unknown>
+    const dims = (result.dimensions ?? []) as Array<Record<string, unknown>>
+    currentDiagnosis.value = {
+      submissionId,
+      aiScore: (result.overallScore as number) ?? 0,
+      totalDeductions: dims.length,
+      totalDeductScore: dims.reduce((sum: number, d) => sum + ((d.suggestDeduct as number) ?? 0), 0),
+      deductions: dims.map((d) => ({
+        agentType: (d.agentType as string) ?? "AI",
+        issueType: (d.issueType as string) ?? "",
+        suggestDeduct: (d.suggestDeduct as number) ?? 0,
+        reason: (d.comment as string) ?? "",
+        filePath: (d.filePath as string) ?? "",
+        lineNumber: (d.lineNumber as number) ?? 0,
+        confidence: (d.confidence as number) ?? 0,
+        overridden: false,
+      })),
+      aiIssueLines: dims.map((d) => (d.lineNumber as number) ?? 0).filter((n: number) => n > 0),
+      codePreview: (result.summary as string) ?? "",
+    }
+  }
+
+  async function fetchSubmissionDetail(submissionId: string): Promise<void> {
+    try {
+      const detail = await teacherApi.fetchSubmissionDetail(submissionId) as unknown as { attachments: Array<{ fileId: string; fileName: string; fileSize: number; fileType: string; downloadUrl: string }> }
+      const idx = pendingSubmissions.value.findIndex((s) => s.submissionId === submissionId)
+      if (idx >= 0 && detail?.attachments) {
+        pendingSubmissions.value[idx] = {
+          ...pendingSubmissions.value[idx],
+          attachments: detail.attachments.map((a) => ({
+            fileId: String(a.fileId ?? ""),
+            fileName: String(a.fileName ?? ""),
+            fileSize: Number(a.fileSize ?? 0),
+            fileType: String(a.fileType ?? ""),
+            downloadUrl: String(a.downloadUrl ?? ""),
+          })),
+        }
+      }
+    } catch { /* ignore */ }
   }
 
   async function publishReview(submissionId: string, data: IPublishRequest): Promise<void> {
@@ -171,10 +321,52 @@ export const useTeacherStore = defineStore("teacher", () => {
   }
 
   // === Standards Library ===
+  function mapTemplate(raw: Record<string, unknown>): IStandardTemplate {
+    const status = String(raw.status ?? '').toLowerCase()
+    return {
+      id: String(raw.standardId ?? ''),
+      name: String(raw.standardName ?? ''),
+      type: String(raw.courseType || '通用'),
+      dims: Number(raw.dimensionCount ?? 0),
+      version: 'v1',
+      status: status === 'published' ? 'published' : 'draft',
+      updatedAt: raw.createTime ? String(raw.createTime).substring(0, 10) : '',
+    }
+  }
+
   async function fetchStandardTemplates(): Promise<void> {
     templatesLoading.value = true
-    try { standardTemplates.value = await teacherApi.fetchStandardTemplates() }
-    finally { templatesLoading.value = false }
+    try {
+      standardTemplates.value = extractList(await teacherApi.fetchStandardTemplates() as unknown as Record<string, unknown>, mapTemplate)
+    } finally { templatesLoading.value = false }
+  }
+
+  async function copyStandardTemplate(standardId: string): Promise<IStandardTemplate> {
+    const tpl = mapTemplate(await teacherApi.copyStandard(standardId) as unknown as Record<string, unknown>)
+    standards.value.push({
+      standardId: tpl.id,
+      name: tpl.name,
+      courseType: tpl.type,
+      dimensionCount: tpl.dims,
+      version: tpl.version,
+      status: tpl.status,
+      updatedAt: tpl.updatedAt,
+    })
+    return tpl
+  }
+
+  async function createStandardTemplate(data: {
+    standardName: string
+    description: string
+    courseType: string
+    dimensions: Array<{ dimName: string; weight: number; maxScore: number; sortOrder: number }>
+  }): Promise<IStandardTemplate> {
+    const tpl = mapTemplate(await teacherApi.createStandardTemplate({
+      ...data,
+      isTemplate: 1,
+    }) as unknown as Record<string, unknown>)
+    standardTemplates.value.unshift(tpl)
+    return tpl
   }
 
   // === Dashboard ===
@@ -219,7 +411,7 @@ export const useTeacherStore = defineStore("teacher", () => {
     standards, standardsLoading, currentDimensions, isEditingDimensions,
     tasks, tasksLoading,
     students, studentsLoading, currentStudent,
-    pendingSubmissions, submissionsLoading, currentDiagnosis, currentSubmissionId,
+    pendingSubmissions, submissionsLoading, submissionsTotal, currentDiagnosis, currentSubmissionId,
     dashboardData, dashboardLoading,
     standardTemplates, templatesLoading,
     classReport, classReportLoading,
@@ -229,8 +421,8 @@ export const useTeacherStore = defineStore("teacher", () => {
     fetchStandards, fetchStandardDimensions, saveDimensions, resetDimensions,
     fetchTasks, createTask, updateTask, deleteTask, publishTask,
     fetchStudents, fetchStudentDetail,
-    fetchPendingSubmissions, fetchAIDiagnosis, publishReview,
-    fetchStandardTemplates,
+    fetchPendingSubmissions, fetchSubmissionDetail, fetchAIDiagnosis, publishReview,
+    fetchStandardTemplates, copyStandardTemplate, createStandardTemplate,
     fetchClassReport, fetchCollegeReport,
     resetStore,
   }

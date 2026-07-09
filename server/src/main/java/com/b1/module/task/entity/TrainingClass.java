@@ -16,7 +16,6 @@ public class TrainingClass implements Serializable {
     private static final long serialVersionUID = 1L;
 
     @TableId(type = IdType.ASSIGN_ID)
-    @TableField("id")
     private Long id;
 
     @TableField("training_id")

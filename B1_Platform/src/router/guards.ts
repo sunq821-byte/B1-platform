@@ -20,7 +20,10 @@ export function setupAuthGuard(router: Router) {
     // 已登录但未加载权限 → 动态添加路由
     if (!isPermissionLoaded) {
       try {
-        await userStore.fetchUserInfo()
+        // Only fetch user info if not already loaded (login response already provides it)
+        if (!userStore.userInfo) {
+          await userStore.fetchUserInfo()
+        }
         const permissionStore = usePermissionStore()
         const role = userStore.userRole
         if (role) {

@@ -286,6 +286,26 @@ public class TeacherCourseServiceImpl implements TeacherCourseService {
     }
 
     @Override
+    public void deleteCourse(Long courseId) {
+        Long teacherId = StpUtil.getLoginIdAsLong();
+
+        Course course = courseMapper.selectById(courseId);
+        if (course == null) {
+            throw new BusinessException(ErrorCode.NOT_FOUND, "课程不存在");
+        }
+
+        Long count = courseTeacherMapper.selectCount(
+                new LambdaQueryWrapper<CourseTeacher>()
+                        .eq(CourseTeacher::getCourseId, courseId)
+                        .eq(CourseTeacher::getUserId, teacherId));
+        if (count == 0) {
+            throw new BusinessException(ErrorCode.OPERATION_NOT_ALLOWED, "无权操作该课程");
+        }
+
+        courseMapper.deleteById(courseId);
+    }
+
+    @Override
     public PageResult<StudentVO> listCourseStudents(Long courseId, int page, int pageSize) {
         Long teacherId = StpUtil.getLoginIdAsLong();
 

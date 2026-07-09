@@ -4,6 +4,7 @@ import com.b1.common.result.PageResult;
 import com.b1.module.student.vo.DashboardVO;
 import com.b1.module.student.vo.GrowthProfileVO;
 import com.b1.module.student.vo.NotificationVO;
+import com.b1.module.student.vo.StudentReportVO;
 
 public interface StudentService {
 
@@ -16,4 +17,6 @@ public interface StudentService {
     void markAllNotificationsRead();
 
     GrowthProfileVO getGrowthProfile();
+
+    StudentReportVO getStudentReport();
 }

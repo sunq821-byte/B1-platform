@@ -1,5 +1,6 @@
 package com.b1.infrastructure.security;
 
+import cn.dev33.satoken.context.SaHolder;
 import cn.dev33.satoken.interceptor.SaInterceptor;
 import cn.dev33.satoken.router.SaRouter;
 import cn.dev33.satoken.stp.StpUtil;
@@ -13,6 +14,10 @@ public class SaTokenConfig implements WebMvcConfigurer {
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(new SaInterceptor(handle -> {
+                    // Skip OPTIONS preflight requests
+                    if ("OPTIONS".equals(SaHolder.getRequest().getMethod())) {
+                        return;
+                    }
                     SaRouter.match("/api/v1/auth/login", () -> StpUtil.checkLogin());
                     SaRouter.match("/api/v1/auth/refresh", () -> StpUtil.checkLogin());
                     SaRouter.match("/api/v1/user/**", () -> StpUtil.checkLogin());

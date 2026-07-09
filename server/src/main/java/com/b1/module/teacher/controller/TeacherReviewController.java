@@ -23,13 +23,13 @@ public class TeacherReviewController {
 
     @Operation(summary = "任务提交列表")
     @GetMapping("/tasks/{taskId}/submissions")
-    public Result<PageResult<SubmissionListVO>> listSubmissions(
+    public PageResult<SubmissionListVO> listSubmissions(
             @PathVariable Long taskId,
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int pageSize,
             @RequestParam(required = false) String status,
             @RequestParam(required = false) String keyword) {
-        return Result.ok(teacherReviewService.listSubmissions(taskId, page, pageSize, status, keyword));
+        return teacherReviewService.listSubmissions(taskId, page, pageSize, status, keyword);
     }
 
     @Operation(summary = "提交详情")
@@ -51,5 +51,28 @@ public class TeacherReviewController {
     @GetMapping("/submissions/{submissionId}/ai-result")
     public Result<AiResultVO> getSubmissionAiResult(@PathVariable Long submissionId) {
         return Result.ok(teacherReviewService.getSubmissionAiResult(submissionId));
+    }
+
+    @Operation(summary = "提交列表(跨任务)")
+    @GetMapping("/submissions")
+    public PageResult<SubmissionListVO> listAllSubmissions(
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int pageSize,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String keyword) {
+        return teacherReviewService.listAllSubmissions(page, pageSize, status, keyword);
+    }
+
+    @Operation(summary = "AI诊断结果")
+    @GetMapping("/submissions/{submissionId}/diagnosis")
+    public Result<AiResultVO> getDiagnosis(@PathVariable Long submissionId) {
+        return Result.ok(teacherReviewService.getSubmissionAiResult(submissionId));
+    }
+
+    @Operation(summary = "发布/打回批阅结果")
+    @PostMapping("/submissions/{submissionId}/publish")
+    public Result<Void> publishReview(@PathVariable Long submissionId, @Valid @RequestBody ReviewSubmitDTO dto) {
+        teacherReviewService.reviewSubmission(submissionId, dto);
+        return Result.ok();
     }
 }

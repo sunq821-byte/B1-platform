@@ -11,6 +11,8 @@ public class EvaluationVO {
 
     private Long submissionId;
 
+    private Long taskId;
+
     private String taskName;
 
     private String courseName;
@@ -24,6 +26,8 @@ public class EvaluationVO {
     private String status;
 
     private BigDecimal finalScore;
+
+    private String rejectReason;
 
     @Data
     public static class AiEvalSummaryVO {

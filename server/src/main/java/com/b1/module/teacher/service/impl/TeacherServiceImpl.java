@@ -66,41 +66,42 @@ public class TeacherServiceImpl implements TeacherService {
                         .eq(CourseTeacher::getUserId, teacherId));
 
         TeacherDashboardVO vo = new TeacherDashboardVO();
+        TeacherDashboardVO.DashboardStatsVO stats = new TeacherDashboardVO.DashboardStatsVO();
+        TeacherDashboardVO.SubmitRateVO submitRate = new TeacherDashboardVO.SubmitRateVO();
+        vo.setStats(stats);
+        vo.setSubmitRateByClass(submitRate);
 
         if (courseTeachers.isEmpty()) {
-            vo.setTotalCourses(0);
-            vo.setTotalStudents(0);
-            vo.setTotalTasks(0);
-            vo.setPendingReviewCount(0);
-            vo.setPublishedTaskCount(0);
-            vo.setCourseStats(Collections.emptyList());
-            vo.setRecentSubmissions(Collections.emptyList());
+            stats.setTotalStudents(0);
+            stats.setClassCount(0);
+            stats.setPendingCount(0);
+            stats.setReviewedCount(0);
+            stats.setSubmissionRate(0);
+            vo.setPendingReviews(Collections.emptyList());
+            submitRate.setClassNames(Collections.emptyList());
+            submitRate.setValues(Collections.emptyList());
             return vo;
         }
 
         List<Long> courseIds = courseTeachers.stream()
                 .map(CourseTeacher::getCourseId).distinct().toList();
-        vo.setTotalCourses(courseIds.size());
+        stats.setClassCount(courseIds.size());
 
         List<CourseStudent> allStudents = courseStudentMapper.selectList(
                 new LambdaQueryWrapper<CourseStudent>()
                         .in(CourseStudent::getCourseId, courseIds));
         long distinctStudents = allStudents.stream()
                 .map(CourseStudent::getUserId).distinct().count();
-        vo.setTotalStudents((int) distinctStudents);
+        stats.setTotalStudents((int) distinctStudents);
 
         List<TrainingTask> allTasks = trainingTaskMapper.selectList(
                 new LambdaQueryWrapper<TrainingTask>()
                         .in(TrainingTask::getCourseId, courseIds)
                         .eq(TrainingTask::getDeleted, 0));
-        vo.setTotalTasks(allTasks.size());
-
-        long publishedCount = allTasks.stream()
-                .filter(t -> "PUBLISHED".equals(t.getStatus())).count();
-        vo.setPublishedTaskCount((int) publishedCount);
 
         List<Long> taskIds = allTasks.stream().map(TrainingTask::getId).toList();
         int pendingReview = 0;
+        long reviewedCount = 0;
         if (!taskIds.isEmpty()) {
             List<Submission> submittedSubs = submissionMapper.selectList(
                     new LambdaQueryWrapper<Submission>()
@@ -118,61 +119,57 @@ public class TeacherServiceImpl implements TeacherService {
                         .collect(Collectors.toSet());
                 pendingReview = (int) submittedSubs.stream()
                         .filter(s -> !reviewedIds.contains(s.getId())).count();
+                reviewedCount = reviewedIds.size();
             }
         }
-        vo.setPendingReviewCount(pendingReview);
+        stats.setPendingCount(pendingReview);
+        stats.setReviewedCount((int) reviewedCount);
+
+        // submission rate: if total tasks > 0, calculate percentage
+        if (!allTasks.isEmpty() && distinctStudents > 0) {
+            long totalPossible = (long) allTasks.size() * distinctStudents;
+            long totalSubmissions = pendingReview + (int) reviewedCount;
+            int rate = totalPossible > 0
+                    ? (int) ((totalSubmissions * 100) / totalPossible)
+                    : 0;
+            stats.setSubmissionRate(rate);
+        } else {
+            stats.setSubmissionRate(0);
+        }
 
         Map<Long, Course> courseMap = courseMapper.selectBatchIds(courseIds).stream()
                 .collect(Collectors.toMap(Course::getId, c -> c, (a, b) -> a));
 
-        List<TeacherDashboardVO.CourseStatVO> stats = new ArrayList<>();
+        // submit rate by class
+        List<String> classNames = new ArrayList<>();
+        List<Integer> values = new ArrayList<>();
         for (Long courseId : courseIds) {
-            TeacherDashboardVO.CourseStatVO cs = new TeacherDashboardVO.CourseStatVO();
-            cs.setCourseId(courseId);
             Course course = courseMap.get(courseId);
-            cs.setCourseName(course != null ? course.getCourseName() : "");
-
-            long stuCount = allStudents.stream()
-                    .filter(s -> s.getCourseId().equals(courseId)).count();
-            cs.setStudentCount((int) stuCount);
-
-            long taskCount = allTasks.stream()
-                    .filter(t -> t.getCourseId().equals(courseId)).count();
-            cs.setTaskCount((int) taskCount);
+            String name = course != null ? course.getCourseName() : "";
+            classNames.add(name);
 
             List<Long> courseTaskIds = allTasks.stream()
                     .filter(t -> t.getCourseId().equals(courseId))
                     .map(TrainingTask::getId).toList();
-            int subCount = 0;
-            List<BigDecimal> scores = new ArrayList<>();
-            if (!courseTaskIds.isEmpty()) {
+            long courseStuCount = allStudents.stream()
+                    .filter(s -> s.getCourseId().equals(courseId)).count();
+            int classRate = 0;
+            if (!courseTaskIds.isEmpty() && courseStuCount > 0) {
                 List<Submission> courseSubs = submissionMapper.selectList(
                         new LambdaQueryWrapper<Submission>()
                                 .in(Submission::getTrainingTaskId, courseTaskIds)
                                 .eq(Submission::getDeleted, 0));
-                subCount = courseSubs.size();
-
-                if (!courseSubs.isEmpty()) {
-                    List<Long> subIds = courseSubs.stream()
-                            .map(Submission::getId).toList();
-                    List<ScoreRecord> courseScores = scoreRecordMapper.selectList(
-                            new LambdaQueryWrapper<ScoreRecord>()
-                                    .in(ScoreRecord::getSubmissionId, subIds));
-                    scores = courseScores.stream()
-                            .map(s -> s.getTotalScore() != null ? s.getTotalScore() : BigDecimal.ZERO)
-                            .filter(s -> s.compareTo(BigDecimal.ZERO) > 0)
-                            .toList();
-                }
+                long totalPossible = courseTaskIds.size() * courseStuCount;
+                classRate = totalPossible > 0
+                        ? (int) ((courseSubs.size() * 100) / totalPossible)
+                        : 0;
             }
-            cs.setSubmissionCount(subCount);
-            if (!scores.isEmpty()) {
-                cs.setAvgScore(scores.stream().reduce(BigDecimal.ZERO, BigDecimal::add)
-                        .divide(BigDecimal.valueOf(scores.size()), 2, RoundingMode.HALF_UP));
-            }
-            stats.add(cs);
+            values.add(classRate);
         }
-        vo.setCourseStats(stats);
+        submitRate.setClassNames(classNames);
+        submitRate.setValues(values);
 
+        // pending reviews
         List<Submission> recentSubs = new ArrayList<>();
         if (!taskIds.isEmpty()) {
             recentSubs = submissionMapper.selectList(
@@ -193,33 +190,34 @@ public class TeacherServiceImpl implements TeacherService {
         Map<Long, TrainingTask> taskMap = allTasks.stream()
                 .collect(Collectors.toMap(TrainingTask::getId, t -> t, (a, b) -> a));
 
-        List<TeacherDashboardVO.RecentSubmissionVO> recentVOs = new ArrayList<>();
+        List<TeacherDashboardVO.PendingReviewVO> pendingVOs = new ArrayList<>();
         for (Submission s : recentSubs) {
-            TeacherDashboardVO.RecentSubmissionVO rs = new TeacherDashboardVO.RecentSubmissionVO();
-            rs.setSubmissionId(s.getId());
-            rs.setStatus(s.getStatus());
-            rs.setSubmittedAt(s.getSubmitTime());
+            TeacherDashboardVO.PendingReviewVO pr = new TeacherDashboardVO.PendingReviewVO();
+            pr.setSubmissionId(s.getId());
+            pr.setStatus(s.getStatus());
+            pr.setSubmittedAt(s.getSubmitTime());
 
             User u = userMap.get(s.getUserId());
-            rs.setStudentName(u != null ? u.getRealName() : "");
+            pr.setStudentName(u != null ? u.getRealName() : "");
 
             TrainingTask t = taskMap.get(s.getTrainingTaskId());
             if (t != null) {
-                rs.setTaskName(t.getTaskName());
-                Course c = courseMap.get(t.getCourseId());
-                rs.setCourseName(c != null ? c.getCourseName() : "");
+                pr.setTaskName(t.getTaskName());
             }
-            recentVOs.add(rs);
+            pendingVOs.add(pr);
         }
-        vo.setRecentSubmissions(recentVOs);
+        vo.setPendingReviews(pendingVOs);
 
         return vo;
     }
 
     @Override
-    public PageResult<StandardListVO> listStandards(int page, int pageSize, String keyword) {
+    public PageResult<StandardListVO> listStandards(int page, int pageSize, String keyword, Integer isTemplate) {
         LambdaQueryWrapper<EvaluationStandard> query = new LambdaQueryWrapper<EvaluationStandard>()
                 .eq(EvaluationStandard::getDeleted, 0);
+        if (isTemplate != null) {
+            query.eq(EvaluationStandard::getIsTemplate, isTemplate);
+        }
         if (StringUtils.hasText(keyword)) {
             query.like(EvaluationStandard::getStandardName, keyword);
         }
@@ -360,6 +358,51 @@ public class TeacherServiceImpl implements TeacherService {
         vo.setIsTemplate(updated.getIsTemplate());
         vo.setDimensionCount(dimCount.intValue());
         vo.setCreateTime(updated.getCreateTime());
+
+        return vo;
+    }
+
+    @Override
+    public StandardListVO copyStandard(Long standardId) {
+        EvaluationStandard source = evaluationStandardMapper.selectById(standardId);
+        if (source == null) {
+            throw new BusinessException(ErrorCode.NOT_FOUND, "评价标准不存在");
+        }
+
+        EvaluationStandard copy = new EvaluationStandard();
+        copy.setStandardName(source.getStandardName() + " (副本)");
+        copy.setDescription(source.getDescription());
+        copy.setCourseType(source.getCourseType());
+        copy.setIsTemplate(0);
+        copy.setStatus("PUBLISHED");
+
+        evaluationStandardMapper.insert(copy);
+
+        List<StandardDimension> sourceDims = standardDimensionMapper.selectList(
+                new LambdaQueryWrapper<StandardDimension>()
+                        .eq(StandardDimension::getStandardId, standardId)
+                        .orderByAsc(StandardDimension::getSortOrder));
+
+        for (StandardDimension dim : sourceDims) {
+            StandardDimension newDim = new StandardDimension();
+            newDim.setStandardId(copy.getId());
+            newDim.setDimName(dim.getDimName());
+            newDim.setDimDescription(dim.getDimDescription());
+            newDim.setWeight(dim.getWeight());
+            newDim.setMaxScore(dim.getMaxScore());
+            newDim.setSortOrder(dim.getSortOrder());
+            standardDimensionMapper.insert(newDim);
+        }
+
+        StandardListVO vo = new StandardListVO();
+        vo.setStandardId(copy.getId());
+        vo.setStandardName(copy.getStandardName());
+        vo.setDescription(copy.getDescription());
+        vo.setCourseType(copy.getCourseType());
+        vo.setStatus(copy.getStatus());
+        vo.setIsTemplate(copy.getIsTemplate());
+        vo.setDimensionCount(sourceDims.size());
+        vo.setCreateTime(copy.getCreateTime());
 
         return vo;
     }

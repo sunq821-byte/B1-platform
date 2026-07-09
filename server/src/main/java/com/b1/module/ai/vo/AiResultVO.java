@@ -55,5 +55,17 @@ public class AiResultVO {
         private List<String> suggestions;
 
         private List<String> codeReferences;
+
+        private String agentType;
+
+        private String issueType;
+
+        private BigDecimal suggestDeduct;
+
+        private String filePath;
+
+        private Integer lineNumber;
+
+        private BigDecimal confidence;
     }
 }

@@ -3,13 +3,16 @@ export type { UserRole } from "@/constants/role"
 
 /** 用户信息 */
 export interface IUserInfo {
-  id: number
+  id: number | string
   username: string
   realName: string
-  role: import("@/constants/role").UserRole
-  avatar: string
-  email: string
-  phone: string
+  /** 后端返回的角色列表 */
+  roles: import("@/constants/role").UserRole[]
+  avatar?: string
+  email?: string
+  phone?: string
+  status?: number | string
+  lastLoginTime?: string
 }
 
 /** @deprecated 使用 IUserInfo */

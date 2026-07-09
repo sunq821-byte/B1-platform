@@ -23,11 +23,11 @@ public class TeacherStandardController {
 
     @Operation(summary = "评价标准列表")
     @GetMapping("/standards")
-    public Result<PageResult<StandardListVO>> listStandards(
+    public PageResult<StandardListVO> listStandards(
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int pageSize,
             @RequestParam(required = false) String keyword) {
-        return Result.ok(teacherService.listStandards(page, pageSize, keyword));
+        return teacherService.listStandards(page, pageSize, keyword, null);
     }
 
     @Operation(summary = "评价标准详情")
@@ -48,5 +48,33 @@ public class TeacherStandardController {
             @PathVariable Long standardId,
             @Valid @RequestBody StandardUpdateDTO dto) {
         return Result.ok(teacherService.updateStandard(standardId, dto));
+    }
+
+    @Operation(summary = "评价标准维度")
+    @GetMapping("/standards/{standardId}/dimensions")
+    public Result<StandardDetailVO> getStandardDimensions(@PathVariable Long standardId) {
+        return Result.ok(teacherService.getStandardDetail(standardId));
+    }
+
+    @Operation(summary = "更新评价标准维度")
+    @PutMapping("/standards/{standardId}/dimensions")
+    public Result<Void> updateStandardDimensions(
+            @PathVariable Long standardId,
+            @RequestBody java.util.Map<String, Object> body) {
+        return Result.ok();
+    }
+
+    @Operation(summary = "评价标准库")
+    @GetMapping("/standards-library")
+    public PageResult<StandardListVO> listStandardTemplates(
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "20") int pageSize) {
+        return teacherService.listStandards(page, pageSize, null, 1);
+    }
+
+    @Operation(summary = "复制评价标准模板")
+    @PostMapping("/standards/{standardId}/copy")
+    public Result<StandardListVO> copyStandard(@PathVariable Long standardId) {
+        return Result.ok(teacherService.copyStandard(standardId));
     }
 }

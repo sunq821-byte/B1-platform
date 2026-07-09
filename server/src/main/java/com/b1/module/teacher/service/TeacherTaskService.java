@@ -10,11 +10,15 @@ public interface TeacherTaskService {
 
     PageResult<TaskListVO> listTasks(Long courseId, int page, int pageSize, String keyword, String status);
 
+    PageResult<TaskListVO> listAllTasks(Long courseId, int page, int pageSize, String keyword, String status);
+
     TaskDetailVO getTaskDetail(Long taskId);
 
     TaskListVO createTask(Long courseId, TaskCreateDTO dto);
 
     TaskListVO updateTask(Long taskId, TaskUpdateDTO dto);
+
+    void deleteTask(Long taskId);
 
     void publishTask(Long taskId);
 }

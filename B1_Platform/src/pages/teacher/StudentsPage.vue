@@ -22,7 +22,7 @@ const classes = computed(() => {
 const filteredStudents = computed(() => {
   return store.students.filter((s) => {
     if (filterClass.value !== "all" && s.className !== filterClass.value) return false
-    if (searchTerm.value && !s.studentId.includes(searchTerm.value) && !s.name.includes(searchTerm.value)) return false
+    if (searchTerm.value && !s.userId.includes(searchTerm.value) && !s.realName.includes(searchTerm.value)) return false
     return true
   })
 })
@@ -97,13 +97,17 @@ async function handleImportFile(e: Event) {
       const cols = parseCSVLine(lines[i])
       const sid = cols[idIdx]
       if (existingIds.has(sid)) { skipCount++; continue }
+      const importedName = cols[nameIdx] || ''
       store.students.push({
         userId: `IMP${Date.now()}${i}`,
         studentId: sid,
-        name: cols[nameIdx] || "",
+        name: importedName,
+        realName: importedName,
         className: cols[classIdx] || "",
         email: cols[emailIdx] || "",
+        phone: '',
         completedCount: 0,
+        submissionCount: 0,
         avgScore: null,
       })
       existingIds.add(sid)
@@ -125,7 +129,7 @@ function handleExport() {
   const BOM = "﻿"
   const header = "学号,姓名,班级,邮箱,完成数,均分"
   const lines = rows.map((s) =>
-    `${s.studentId},${s.name},${s.className},${s.email},${s.completedCount},${s.avgScore != null ? s.avgScore.toFixed(1) : ""}`,
+    `${s.userId},${s.realName},${s.className},${s.email},${s.submissionCount},${s.avgScore != null ? s.avgScore.toFixed(1) : ""}`,
   )
   const csv = BOM + header + "\n" + lines.join("\n")
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" })
@@ -177,11 +181,11 @@ onMounted(() => { initPage() })
           </thead>
           <tbody>
             <tr v-for="s in filteredStudents" :key="s.userId">
-              <td><span class="mono-sm">{{ s.studentId }}</span></td>
-              <td>{{ s.name }}</td>
-              <td>{{ s.className }}</td>
-              <td><span class="email">{{ s.email }}</span></td>
-              <td>{{ s.completedCount }}</td>
+              <td><span class="mono-sm">{{ s.userId }}</span></td>
+              <td>{{ s.realName }}</td>
+              <td>{{ s.className || '-' }}</td>
+              <td><span class="email">{{ s.email || '-' }}</span></td>
+              <td>{{ s.submissionCount }}</td>
               <td>
                 <span :class="['mono-score', scoreColor(s.avgScore)]">
                   {{ s.avgScore != null ? s.avgScore.toFixed(1) : '-' }}
@@ -195,15 +199,15 @@ onMounted(() => { initPage() })
         </table>
       </div>
 
-      <BaseModal v-model="showDetail" :title="store.currentStudent ? store.currentStudent.name + ' - 详情' : '学生详情'" width="640px" @confirm="showDetail = false" :confirm-text="'关闭'">
+      <BaseModal v-model="showDetail" :title="store.currentStudent ? store.currentStudent.realName + ' - 详情' : '学生详情'" width="640px" @confirm="showDetail = false" :confirm-text="'关闭'">
         <LoadingState v-if="detailLoading" />
         <template v-else-if="store.currentStudent">
           <div class="detail-grid">
-            <div><span class="dl">学号</span><br>{{ store.currentStudent.studentId }}</div>
-            <div><span class="dl">姓名</span><br>{{ store.currentStudent.name }}</div>
-            <div><span class="dl">班级</span><br>{{ store.currentStudent.className }}</div>
-            <div><span class="dl">邮箱</span><br>{{ store.currentStudent.email }}</div>
-            <div><span class="dl">已完成</span><br>{{ store.currentStudent.completedCount }}</div>
+            <div><span class="dl">学号</span><br>{{ store.currentStudent.userId }}</div>
+            <div><span class="dl">姓名</span><br>{{ store.currentStudent.realName }}</div>
+            <div><span class="dl">班级</span><br>{{ store.currentStudent.className || '-' }}</div>
+            <div><span class="dl">邮箱</span><br>{{ store.currentStudent.email || '-' }}</div>
+            <div><span class="dl">已完成</span><br>{{ store.currentStudent.submissionCount }}</div>
             <div>
               <span class="dl">均分</span><br>
               <span class="detail-avg">{{ store.currentStudent.avgScore != null ? store.currentStudent.avgScore.toFixed(1) : '-' }}</span>

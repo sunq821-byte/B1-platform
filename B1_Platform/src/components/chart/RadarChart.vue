@@ -21,7 +21,16 @@ function getMaxValue(): number {
   return allValues.length > 0 ? Math.ceil(Math.max(...allValues) / 10) * 10 : 100
 }
 
+function hasValidData(): boolean {
+  return props.categories.length > 0 && props.seriesData.some(s => s.data.length > 0)
+}
+
 function getOption(): echarts.EChartsOption {
+  if (!hasValidData()) {
+    return {
+      title: { text: "暂无数据", left: "center", top: "center", textStyle: { fontSize: 14, color: "#94a3b8" } },
+    }
+  }
   const maxVal = getMaxValue()
   return {
     tooltip: {},

@@ -58,6 +58,20 @@ export function updateStandardDimensions(
 
 // ========== Tasks ==========
 
+/**
+ * Map the teacher task form to the backend DTO.
+ * The form uses `dueDate` (date-only); the backend expects `endTime` (LocalDateTime).
+ * A date-only value is pinned to end-of-day so the whole day counts as before the deadline.
+ */
+function toTaskPayload(data: ITaskFormData): Record<string, unknown> {
+  const { dueDate, ...rest } = data
+  const payload: Record<string, unknown> = { ...rest }
+  if (dueDate) {
+    payload.endTime = dueDate.length <= 10 ? `${dueDate}T23:59:59` : dueDate
+  }
+  return payload
+}
+
 export function fetchTeacherTasks(params?: {
   courseId?: string
 }): Promise<ITeacherTaskItem[]> {
@@ -65,11 +79,11 @@ export function fetchTeacherTasks(params?: {
 }
 
 export function createTask(data: ITaskFormData): Promise<ITeacherTaskItem> {
-  return request.post("/api/v1/teacher/tasks", data) as Promise<ITeacherTaskItem>
+  return request.post("/api/v1/teacher/tasks", toTaskPayload(data)) as Promise<ITeacherTaskItem>
 }
 
 export function updateTask(taskId: string, data: ITaskFormData): Promise<void> {
-  return request.put(`/api/v1/teacher/tasks/${taskId}`, data) as Promise<void>
+  return request.put(`/api/v1/teacher/tasks/${taskId}`, toTaskPayload(data)) as Promise<void>
 }
 
 export function deleteTask(taskId: string): Promise<void> {
@@ -103,14 +117,35 @@ export function fetchAIDiagnosis(submissionId: string): Promise<IAIDiagnosis> {
   return request.get(`/api/v1/teacher/submissions/${submissionId}/diagnosis`) as Promise<IAIDiagnosis>
 }
 
+export function fetchSubmissionDetail(submissionId: string): Promise<{ attachments: Array<{ fileId: string; fileName: string; fileSize: number; fileType: string; downloadUrl: string }> }> {
+  return request.get(`/api/v1/teacher/submissions/${submissionId}`) as Promise<{ attachments: Array<{ fileId: string; fileName: string; fileSize: number; fileType: string; downloadUrl: string }> }>
+}
+
 export function publishReview(submissionId: string, data: IPublishRequest): Promise<void> {
-  return request.post(`/api/v1/teacher/submissions/${submissionId}/publish`, data) as Promise<void>
+  return request.post(`/api/v1/teacher/submissions/${submissionId}/publish`, {
+    status: data.status,
+    teacherComment: data.comment,
+  }) as Promise<void>
 }
 
 // ========== Standards Library ==========
 
 export function fetchStandardTemplates(): Promise<IStandardTemplate[]> {
   return request.get("/api/v1/teacher/standards-library") as Promise<IStandardTemplate[]>
+}
+
+export function copyStandard(standardId: string): Promise<IStandardTemplate> {
+  return request.post(`/api/v1/teacher/standards/${standardId}/copy`) as Promise<IStandardTemplate>
+}
+
+export function createStandardTemplate(data: {
+  standardName: string
+  description: string
+  courseType: string
+  isTemplate: number
+  dimensions: Array<{ dimName: string; weight: number; maxScore: number; sortOrder: number }>
+}): Promise<IStandardTemplate> {
+  return request.post("/api/v1/teacher/standards", data) as Promise<IStandardTemplate>
 }
 
 // ========== Dashboard ==========

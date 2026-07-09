@@ -49,7 +49,9 @@ export const useStudentStore = defineStore("student", () => {
 
   let pollingTimer: ReturnType<typeof setInterval> | null = null
   let pollingAttempts = 0
-  const MAX_ATTEMPTS = 40
+  let pollingErrors = 0
+  const MAX_ATTEMPTS = 60
+  const MAX_CONSECUTIVE_ERRORS = 3
 
   // === Dashboard ===
   async function fetchDashboard(): Promise<void> {
@@ -130,24 +132,33 @@ export const useStudentStore = defineStore("student", () => {
     stopPolling()
     aiPollingStatus.value = "polling"
     pollingAttempts = 0
+    pollingErrors = 0
 
     return new Promise((resolve, reject) => {
       pollingTimer = setInterval(async () => {
         pollingAttempts++
         try {
           await fetchAIResult(submissionId)
+          pollingErrors = 0
           if (aiResult.value?.status === "COMPLETED") {
             aiPollingStatus.value = "completed"
             stopPolling()
             resolve()
+          } else if (aiResult.value?.status === "FAILED") {
+            aiPollingStatus.value = "timeout"
+            stopPolling()
+            reject(new Error("AI 分析失败，请重新提交"))
           } else if (pollingAttempts >= MAX_ATTEMPTS) {
             aiPollingStatus.value = "timeout"
             stopPolling()
             reject(new Error("AI 分析超时，请联系教师"))
           }
         } catch {
-          stopPolling()
-          reject(new Error("获取 AI 分析结果失败"))
+          pollingErrors++
+          if (pollingErrors >= MAX_CONSECUTIVE_ERRORS) {
+            stopPolling()
+            reject(new Error("获取 AI 分析结果失败"))
+          }
         }
       }, 3000)
     })
@@ -159,6 +170,7 @@ export const useStudentStore = defineStore("student", () => {
       pollingTimer = null
     }
     pollingAttempts = 0
+    pollingErrors = 0
   }
 
   // === Evaluation ===

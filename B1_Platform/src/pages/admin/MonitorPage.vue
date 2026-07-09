@@ -2,6 +2,7 @@
 import { onMounted } from "vue"
 import { useAdminStore } from "@/stores/useAdminStore"
 import PageHeader from "@/components/layout/PageHeader.vue"
+import LoadingState from "@/components/common/LoadingState.vue"
 
 const store = useAdminStore()
 
@@ -11,6 +12,8 @@ onMounted(() => { store.fetchMonitorData() })
 <template>
   <div>
     <PageHeader title="系统监控" subtitle="服务健康状态与资源使用情况" />
+
+    <LoadingState v-if="store.monitorLoading" text="加载监控数据..." />
 
     <template v-if="store.monitorData">
       <div class="stats-row">

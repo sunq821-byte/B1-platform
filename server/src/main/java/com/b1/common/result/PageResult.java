@@ -7,12 +7,7 @@ import java.util.List;
 
 @Data
 @EqualsAndHashCode(callSuper = true)
-public class PageResult<T> extends Result<List<T>> {
-
-    private long page;
-    private long pageSize;
-    private long total;
-    private long totalPages;
+public class PageResult<T> extends Result<PageData<T>> {
 
     private PageResult() {
     }
@@ -23,11 +18,7 @@ public class PageResult<T> extends Result<List<T>> {
         r.setMessage("success");
         r.setSuccess(true);
         r.setTimestamp(System.currentTimeMillis());
-        r.setData(list);
-        r.page = page;
-        r.pageSize = pageSize;
-        r.total = total;
-        r.totalPages = (total + pageSize - 1) / pageSize;
+        r.setData(PageData.of(list, page, pageSize, total));
         return r;
     }
 }

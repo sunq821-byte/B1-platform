@@ -19,10 +19,10 @@ public class StudentNotificationController {
 
     @Operation(summary = "通知列表")
     @GetMapping("/notifications")
-    public Result<PageResult<NotificationVO>> listNotifications(
+    public PageResult<NotificationVO> listNotifications(
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int pageSize) {
-        return Result.ok(studentService.listNotifications(page, pageSize));
+        return studentService.listNotifications(page, pageSize);
     }
 
     @Operation(summary = "标记已读")

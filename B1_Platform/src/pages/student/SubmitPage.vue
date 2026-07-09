@@ -61,7 +61,6 @@ async function initPage() {
   loadError.value = ""
   try {
     await store.fetchTaskDetail(taskId.value)
-    await loadHistory()
   } catch (err: unknown) {
     loadError.value = (err as Error)?.message || "加载任务信息失败"
   } finally {
@@ -162,6 +161,7 @@ async function handleSubmit() {
 
   submitting.value = true
   try {
+    let submissionId = ""
     if (currentMode.value === "file") {
       const formData = new FormData()
       formData.append("file", selectedFile.value!)
@@ -169,37 +169,43 @@ async function handleSubmit() {
         headers: { "Content-Type": "multipart/form-data" },
       }) as { fileId: string }
       uploadedFileId.value = uploadRes.fileId
-      await store.submitTask(taskId.value, {
+      const res = await store.submitTask(taskId.value, {
         submissionType: "ZIP_UPLOAD",
         zipFileId: uploadRes.fileId,
         remark: remark.value || undefined,
       })
+      submissionId = res.submissionId
     } else if (currentMode.value === "code") {
-      // For code submission, upload as text file
       const blob = new Blob([codeContent.value], { type: "text/plain" })
       const formData = new FormData()
       formData.append("file", blob, "code.txt")
       const uploadRes = await request.post("/api/v1/files/upload", formData, {
         headers: { "Content-Type": "multipart/form-data" },
       }) as { fileId: string }
-      await store.submitTask(taskId.value, {
+      const res = await store.submitTask(taskId.value, {
         submissionType: "ZIP_UPLOAD",
         zipFileId: uploadRes.fileId,
         remark: remark.value || undefined,
       })
+      submissionId = res.submissionId
     } else {
-      await store.submitTask(taskId.value, {
+      const res = await store.submitTask(taskId.value, {
         submissionType: "GIT_URL",
         gitUrl: gitUrl.value,
         gitBranch: gitBranch.value || undefined,
         remark: remark.value || undefined,
       })
+      submissionId = res.submissionId
     }
 
-    ElMessage.success("提交成功！AI 将自动分析您的成果，请稍后查看结果。")
-    setTimeout(() => {
-      router.push(`/student/grades/${taskId.value}`)
-    }, 1500)
+    ElMessage.success("提交成功，正在启动 AI 分析...")
+    try {
+      await store.triggerAIEvaluation(submissionId)
+      router.push(`/student/grades/${submissionId}`)
+    } catch {
+      ElMessage.warning("提交成功，但 AI 分析启动失败，请稍后手动重试")
+      router.push(`/student/grades/${submissionId}`)
+    }
   } catch (err: unknown) {
     ElMessage.error((err as Error)?.message || "提交失败")
   } finally {

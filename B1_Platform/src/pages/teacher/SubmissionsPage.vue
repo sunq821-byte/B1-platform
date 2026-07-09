@@ -3,7 +3,7 @@ import { ref, computed, onMounted } from "vue"
 import { ElMessage } from "element-plus"
 import { FileText, Download } from "lucide-vue-next"
 import { useTeacherStore } from "@/stores/useTeacherStore"
-import type { IManualDeduction } from "@/types/teacher"
+import type { IManualDeduction, IAttachment } from "@/types/teacher"
 import BaseButton from "@/components/base/BaseButton.vue"
 import LoadingState from "@/components/common/LoadingState.vue"
 import ErrorState from "@/components/common/ErrorState.vue"
@@ -26,6 +26,18 @@ const currentSub = computed(() => {
 })
 
 const isCodeSubmission = computed(() => currentSub.value?.submissionType === "code")
+
+const attachments = computed<IAttachment[]>(() => currentSub.value?.attachments ?? [])
+
+const previewable = computed(() => {
+  if (!attachments.value.length) return null
+  const a = attachments.value[0]
+  const ext = (a.fileName ?? "").split(".").pop()?.toLowerCase() ?? ""
+  const type = (a.fileType ?? "").toLowerCase()
+  if (["png", "jpg", "jpeg", "gif", "webp", "svg"].includes(ext) || type.startsWith("image/")) return "image"
+  if (ext === "pdf" || type === "application/pdf") return "pdf"
+  return null
+})
 
 const quickTags = ["代码规范良好", "功能实现完整", "文档需完善", "创新性强", "答辩表现优秀", "需要继续优化"]
 
@@ -68,6 +80,9 @@ async function selectSubmission(idx: number) {
   if (!sub) return
   teacherComment.value = ""
   manualDeductions.value = []
+  if (sub.submissionType === "file") {
+    store.fetchSubmissionDetail(sub.submissionId)
+  }
   try { await store.fetchAIDiagnosis(sub.submissionId) }
   catch { ElMessage.error("加载AI诊断失败") }
 }
@@ -80,6 +95,12 @@ function nextSubmission() {
 
 function prevSubmission() {
   if (currentIndex.value > 0) selectSubmission(currentIndex.value - 1)
+}
+
+function handleDownload(attachment: IAttachment) {
+  if (attachment.downloadUrl) {
+    window.open(attachment.downloadUrl, "_blank")
+  }
 }
 
 function insertTag(tag: string) {
@@ -129,6 +150,7 @@ async function handlePublish() {
   if (!window.confirm(`确认发布？\n总分: ${final} 分\n评语: ${comment || "无"}`)) return
   try {
     await store.publishReview(currentSub.value.submissionId, {
+      status: "PUBLISHED",
       finalScore: final, comment,
       manualDeductions: manualDeductions.value,
       deductionOverrides: {},
@@ -142,6 +164,29 @@ async function handlePublish() {
       }
     } else { currentIndex.value = -1 }
   } catch (e: unknown) { ElMessage.error((e as Error)?.message || "发布失败") }
+}
+
+async function handleReject() {
+  if (!currentSub.value) return
+  const comment = teacherComment.value.trim()
+  if (!comment) { ElMessage.warning("打回时请填写打回原因"); return }
+  if (!window.confirm(`确认打回该提交？\n原因: ${comment}`)) return
+  try {
+    await store.publishReview(currentSub.value.submissionId, {
+      status: "REJECTED",
+      finalScore: 0, comment,
+      manualDeductions: [],
+      deductionOverrides: {},
+    })
+    ElMessage.warning("已打回")
+    if (store.pendingSubmissions.length > 0) {
+      currentIndex.value = Math.min(currentIndex.value, store.pendingSubmissions.length - 1)
+      if (currentIndex.value >= 0) {
+        teacherComment.value = ""; manualDeductions.value = []
+        await selectSubmission(currentIndex.value)
+      }
+    } else { currentIndex.value = -1 }
+  } catch (e: unknown) { ElMessage.error((e as Error)?.message || "操作失败") }
 }
 
 function codeLines() {
@@ -208,22 +253,37 @@ onMounted(() => { initPage() })
 
           <!-- Code preview -->
           <div v-if="!currentSub" class="empty-hint">← 从左侧选择学生预览提交内容</div>
-          <pre v-else-if="isCodeSubmission" class="code-preview"><div
-            v-for="(line, i) in codeLines()"
-            :key="i"
-            :class="['code-line', { 'code-line--issue': isIssueLine(i) }]"
-          ><span class="code-ln">{{ i + 1 }}</span><span class="code-txt">{{ line }}</span></div></pre>
+          <template v-else-if="isCodeSubmission">
+            <pre class="code-preview"><div
+              v-for="(line, i) in codeLines()"
+              :key="i"
+              :class="['code-line', { 'code-line--issue': isIssueLine(i) }]"
+            ><span class="code-ln">{{ i + 1 }}</span><span class="code-txt">{{ line }}</span></div></pre>
+          </template>
 
-          <!-- File preview -->
+          <!-- Image preview -->
+          <div v-else-if="previewable === 'image'" class="preview-image">
+            <img :src="attachments[0].downloadUrl" :alt="attachments[0].fileName" style="max-width:100%;max-height:100%;object-fit:contain;" />
+          </div>
+
+          <!-- PDF preview -->
+          <div v-else-if="previewable === 'pdf'" class="preview-pdf">
+            <iframe :src="attachments[0].downloadUrl" width="100%" height="100%" style="border:none;" />
+          </div>
+
+          <!-- File preview (non-previewable) -->
           <div v-else class="file-preview">
             <div class="file-preview__icon"><FileText :size="48" /></div>
-            <div class="file-preview__name">{{ currentSub.fileName || "未知文件" }}</div>
-            <div class="file-preview__size">{{ formatFileSize(currentSub.fileSize) }}</div>
-            <div class="file-preview__hint">该提交为文件上传，请下载后查看内容进行审核</div>
-            <BaseButton type="primary" size="small" class="file-preview__btn">
-              <Download :size="14" />
-              <span style="margin-left: 4px">下载文件</span>
-            </BaseButton>
+            <div v-if="attachments.length > 0" class="file-preview__name">{{ attachments[0].fileName }}</div>
+            <div v-else class="file-preview__name">未知文件</div>
+            <div v-if="attachments.length > 0" class="file-preview__size">{{ formatFileSize(attachments[0].fileSize) }}</div>
+            <div class="file-preview__hint">该文件暂不支持在线预览，请下载后查看</div>
+            <template v-if="attachments.length > 0">
+              <BaseButton v-for="(att, i) in attachments" :key="i" type="primary" size="small" class="file-preview__btn" @click="handleDownload(att)">
+                <Download :size="14" />
+                <span style="margin-left: 4px">下载 {{ att.fileName }}</span>
+              </BaseButton>
+            </template>
           </div>
         </div>
 
@@ -296,7 +356,10 @@ onMounted(() => { initPage() })
           <BaseButton :disabled="currentIndex <= 0" @click="prevSubmission">← 上一个</BaseButton>
           <BaseButton :disabled="currentIndex >= store.pendingSubmissions.length - 1" @click="nextSubmission">下一个 →</BaseButton>
         </div>
-        <BaseButton type="primary" @click="handlePublish">确认发布</BaseButton>
+        <div class="footer-actions">
+          <BaseButton type="danger" @click="handleReject">打回</BaseButton>
+          <BaseButton type="primary" @click="handlePublish">确认发布</BaseButton>
+        </div>
       </div>
     </template>
 
@@ -399,6 +462,15 @@ onMounted(() => { initPage() })
 .code-line--issue .code-ln::after { content: " ⚡"; font-size: 10px; }
 .code-txt { flex: 1; }
 
+/* Image / PDF preview */
+.preview-image {
+  flex: 1; display: flex; align-items: center; justify-content: center;
+  background: #f1f5f9; padding: 16px; overflow: auto;
+}
+.preview-pdf {
+  flex: 1; display: flex; min-height: 0;
+}
+
 /* File preview */
 .file-preview {
   flex: 1; display: flex; flex-direction: column; align-items: center;
@@ -464,6 +536,7 @@ onMounted(() => { initPage() })
 /* Footer */
 .review-footer { border-top: 1px solid var(--color-border, #e2e8f0); padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; background: var(--color-card, #fff); }
 .footer-nav { display: flex; gap: 8px; }
+.footer-actions { display: flex; gap: 8px; }
 
 /* Adjust modal */
 .adj-overlay { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.4); z-index: 300; display: flex; align-items: center; justify-content: center; }

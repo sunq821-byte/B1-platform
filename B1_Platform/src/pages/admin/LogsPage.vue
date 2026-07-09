@@ -2,6 +2,7 @@
 import { ref, onMounted } from "vue"
 import { useAdminStore } from "@/stores/useAdminStore"
 import PageHeader from "@/components/layout/PageHeader.vue"
+import LoadingState from "@/components/common/LoadingState.vue"
 
 const store = useAdminStore()
 const filterType = ref("")
@@ -21,6 +22,9 @@ onMounted(() => { loadLogs() })
   <div>
     <PageHeader title="操作日志" subtitle="系统操作审计记录" />
 
+    <LoadingState v-if="store.logsLoading" text="加载日志..." />
+
+    <template v-else>
     <div class="filter-bar">
       <select v-model="filterType" class="form-select" style="width:140px;" @change="loadLogs">
         <option value="">全部类型</option>
@@ -49,5 +53,6 @@ onMounted(() => { loadLogs() })
         </tbody>
       </table>
     </div>
+    </template>
   </div>
 </template>

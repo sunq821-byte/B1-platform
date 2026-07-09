@@ -292,7 +292,7 @@ public class TeacherReviewServiceImpl implements TeacherReviewService {
         }
 
         TeacherReview review;
-        if (existingReview != null && "DRAFT".equals(existingReview.getStatus())) {
+        if (existingReview != null && !"PUBLISHED".equals(existingReview.getStatus())) {
             review = existingReview;
         } else {
             review = new TeacherReview();
@@ -352,6 +352,89 @@ public class TeacherReviewServiceImpl implements TeacherReviewService {
             submission.setStatus("REJECTED");
         }
         submissionMapper.updateById(submission);
+    }
+
+    @Override
+    public PageResult<SubmissionListVO> listAllSubmissions(int page, int pageSize, String status, String keyword) {
+        Long teacherId = StpUtil.getLoginIdAsLong();
+
+        List<Long> courseIds = courseTeacherMapper.selectList(
+                new LambdaQueryWrapper<CourseTeacher>()
+                        .eq(CourseTeacher::getUserId, teacherId))
+                .stream().map(CourseTeacher::getCourseId).distinct().toList();
+
+        if (courseIds.isEmpty()) {
+            return PageResult.of(Collections.emptyList(), page, pageSize, 0);
+        }
+
+        List<TrainingTask> tasks = trainingTaskMapper.selectList(
+                new LambdaQueryWrapper<TrainingTask>()
+                        .in(TrainingTask::getCourseId, courseIds)
+                        .eq(TrainingTask::getDeleted, 0));
+
+        if (tasks.isEmpty()) {
+            return PageResult.of(Collections.emptyList(), page, pageSize, 0);
+        }
+
+        List<Long> taskIds = tasks.stream().map(TrainingTask::getId).toList();
+        Map<Long, TrainingTask> taskMap = tasks.stream()
+                .collect(Collectors.toMap(TrainingTask::getId, t -> t, (a, b) -> a));
+
+        LambdaQueryWrapper<Submission> query = new LambdaQueryWrapper<Submission>()
+                .in(Submission::getTrainingTaskId, taskIds)
+                .eq(Submission::getDeleted, 0)
+                .eq(Submission::getStatus, "SUBMITTED");
+        if (StringUtils.hasText(status)) {
+            query.eq(Submission::getStatus, status);
+        }
+        if (StringUtils.hasText(keyword)) {
+            List<User> matchedUsers = userMapper.selectList(
+                    new LambdaQueryWrapper<User>().like(User::getRealName, keyword));
+            if (!matchedUsers.isEmpty()) {
+                List<Long> userIds = matchedUsers.stream().map(User::getId).toList();
+                query.in(Submission::getUserId, userIds);
+            }
+        }
+        query.orderByDesc(Submission::getSubmitTime);
+
+        IPage<Submission> submissionPage = submissionMapper.selectPage(
+                new Page<>(page, pageSize), query);
+
+        List<Submission> submissions = submissionPage.getRecords();
+        List<Long> userIds = submissions.stream().map(Submission::getUserId).distinct().toList();
+        Map<Long, User> userMap = userMapper.selectBatchIds(userIds).stream()
+                .collect(Collectors.toMap(User::getId, u -> u, (a, b) -> a));
+
+        List<Long> submissionIds = submissions.stream().map(Submission::getId).toList();
+        Set<Long> reviewedSubmissionIds = Collections.emptySet();
+        if (!submissionIds.isEmpty()) {
+            reviewedSubmissionIds = teacherReviewMapper.selectList(
+                    new LambdaQueryWrapper<TeacherReview>()
+                            .in(TeacherReview::getSubmissionId, submissionIds))
+                    .stream().map(TeacherReview::getSubmissionId).collect(Collectors.toSet());
+        }
+
+        List<SubmissionListVO> vos = new ArrayList<>();
+        for (Submission s : submissions) {
+            User u = userMap.get(s.getUserId());
+            TrainingTask task = taskMap.get(s.getTrainingTaskId());
+            SubmissionListVO vo = new SubmissionListVO();
+            vo.setSubmissionId(s.getId());
+            vo.setTaskId(s.getTrainingTaskId());
+            vo.setTaskName(task != null ? task.getTaskName() : "");
+            vo.setStudentUserId(s.getUserId());
+            vo.setStudentName(u != null ? u.getRealName() : "");
+            vo.setStudentEmail(u != null ? u.getEmail() : "");
+            vo.setSubmitType(s.getSubmitType());
+            vo.setStatus(s.getStatus());
+            vo.setSubmitCount(s.getSubmitCount());
+            vo.setIsLate(s.getIsLate());
+            vo.setSubmittedAt(s.getSubmitTime());
+            vo.setHasReview(reviewedSubmissionIds.contains(s.getId()));
+            vos.add(vo);
+        }
+
+        return PageResult.of(vos, page, pageSize, submissionPage.getTotal());
     }
 
     @Override
@@ -420,6 +503,12 @@ public class TeacherReviewServiceImpl implements TeacherReviewService {
                     if (detail.getSuggestDeduct() != null) {
                         dv.setScore(BigDecimal.valueOf(100).subtract(detail.getSuggestDeduct()).max(BigDecimal.ZERO));
                     }
+                    dv.setAgentType(detail.getAgentType());
+                    dv.setIssueType(detail.getIssueType());
+                    dv.setSuggestDeduct(detail.getSuggestDeduct());
+                    dv.setFilePath(detail.getFilePath());
+                    dv.setLineNumber(detail.getLineNumber());
+                    dv.setConfidence(detail.getConfidence());
                     if (detail.getDimensionId() != null) {
                         StandardDimension sd = standardDimensionMapper.selectById(detail.getDimensionId());
                         if (sd != null) {

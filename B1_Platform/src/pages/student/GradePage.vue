@@ -17,6 +17,8 @@ const loading = ref(true)
 const loadError = ref("")
 const pollingError = ref("")
 
+const isRejected = computed(() => store.evaluation?.status === "REJECTED")
+
 const isPolling = computed(() => store.aiPollingStatus === "polling")
 const pollingProgress = computed(() => store.aiResult?.progress ?? 0)
 const currentDimension = computed(() => store.aiResult?.currentDimension ?? "")
@@ -28,7 +30,17 @@ async function initPage() {
 
   try {
     await store.fetchAIResult(submissionId.value)
-    if (store.aiResult && store.aiResult.status !== "COMPLETED") {
+    const status = store.aiResult?.status
+    if (!status || status === "NOT_STARTED" || status === "FAILED") {
+      await store.triggerAIEvaluation(submissionId.value)
+      loading.value = false
+      try {
+        await store.pollAIResult(submissionId.value)
+      } catch (err: unknown) {
+        pollingError.value = (err as Error)?.message || "AI分析超时"
+        return
+      }
+    } else if (status !== "COMPLETED") {
       loading.value = false
       try {
         await store.pollAIResult(submissionId.value)
@@ -80,8 +92,21 @@ onUnmounted(() => { store.stopPolling() })
         @retry="handleRetry"
       />
 
+      <!-- Rejected state -->
+      <div v-if="isRejected" class="grade-page__reject">
+        <h3 class="grade-page__section-title">作业已退回</h3>
+        <p v-if="store.evaluation?.rejectReason || store.evaluation?.teacherEvaluation?.comment" class="grade-page__reject-text">
+          {{ store.evaluation?.rejectReason || store.evaluation?.teacherEvaluation?.comment }}
+        </p>
+        <div class="grade-page__reject-actions">
+          <BaseButton type="primary" @click="router.push(`/student/submit/${store.evaluation?.taskId}`)">
+            重新提交
+          </BaseButton>
+        </div>
+      </div>
+
       <!-- Teacher Evaluation -->
-      <div v-if="store.evaluation?.teacherEvaluation" class="grade-page__teacher-review">
+      <div v-else-if="store.evaluation?.teacherEvaluation" class="grade-page__teacher-review">
         <h3 class="grade-page__section-title">教师评审</h3>
         <div class="grade-page__teacher-score">
           <span class="grade-page__teacher-label">教师评分</span>
@@ -94,12 +119,6 @@ onUnmounted(() => { store.stopPolling() })
           评审人：{{ store.evaluation.teacherEvaluation.scoredBy }}
           · {{ store.evaluation.teacherEvaluation.scoredAt }}
         </p>
-      </div>
-
-      <!-- Reject reason -->
-      <div v-if="store.evaluation?.rejectReason" class="grade-page__reject">
-        <h3 class="grade-page__section-title">退回原因</h3>
-        <p class="grade-page__reject-text">{{ store.evaluation.rejectReason }}</p>
       </div>
     </template>
   </div>
@@ -170,6 +189,11 @@ onUnmounted(() => { store.stopPolling() })
   font-size: var(--font-size-sm, 14px);
   color: var(--color-danger, #EF4444);
   line-height: 1.6;
-  margin: 0;
+  margin: 0 0 var(--spacing-md, 16px) 0;
+}
+
+.grade-page__reject-actions {
+  display: flex;
+  gap: 12px;
 }
 </style>

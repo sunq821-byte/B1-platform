@@ -4,8 +4,11 @@ import { ElMessage, ElMessageBox } from "element-plus"
 import { useAdminStore } from "@/stores/useAdminStore"
 import type { IClassItem } from "@/types/admin"
 import PageHeader from "@/components/layout/PageHeader.vue"
+import LoadingState from "@/components/common/LoadingState.vue"
+import ErrorState from "@/components/common/ErrorState.vue"
 
 const store = useAdminStore()
+const loadError = ref("")
 
 const modalVisible = ref(false)
 const modalTitle = ref("新建班级")
@@ -48,6 +51,9 @@ onMounted(() => { store.fetchClasses() })
   <div>
     <PageHeader title="班级管理" :subtitle="`共 ${store.classes.length} 个班级`" />
 
+    <LoadingState v-if="store.classesLoading" text="加载班级列表..." />
+
+    <template v-else>
     <div class="filter-bar">
       <button class="btn btn-primary" style="margin-left:auto;" @click="openCreate">+ 新建班级</button>
     </div>
@@ -85,5 +91,6 @@ onMounted(() => { store.fetchClasses() })
         </div>
       </div>
     </div>
+    </template>
   </div>
 </template>

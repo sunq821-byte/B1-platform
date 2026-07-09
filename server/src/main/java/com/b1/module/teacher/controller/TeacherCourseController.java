@@ -24,11 +24,11 @@ public class TeacherCourseController {
 
     @Operation(summary = "课程列表")
     @GetMapping("/courses")
-    public Result<PageResult<CourseVO>> listCourses(
+    public PageResult<CourseVO> listCourses(
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int pageSize,
             @RequestParam(required = false) String keyword) {
-        return Result.ok(teacherCourseService.listCourses(page, pageSize, keyword));
+        return teacherCourseService.listCourses(page, pageSize, keyword);
     }
 
     @Operation(summary = "课程详情")
@@ -53,10 +53,17 @@ public class TeacherCourseController {
 
     @Operation(summary = "课程学生列表")
     @GetMapping("/courses/{courseId}/students")
-    public Result<PageResult<StudentVO>> listCourseStudents(
+    public PageResult<StudentVO> listCourseStudents(
             @PathVariable Long courseId,
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int pageSize) {
-        return Result.ok(teacherCourseService.listCourseStudents(courseId, page, pageSize));
+        return teacherCourseService.listCourseStudents(courseId, page, pageSize);
+    }
+
+    @Operation(summary = "删除课程")
+    @DeleteMapping("/courses/{courseId}")
+    public Result<Void> deleteCourse(@PathVariable Long courseId) {
+        teacherCourseService.deleteCourse(courseId);
+        return Result.ok();
     }
 }

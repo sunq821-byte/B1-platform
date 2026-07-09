@@ -46,6 +46,42 @@ public class SubmissionServiceImpl implements SubmissionService {
             throw new BusinessException(ErrorCode.OPERATION_NOT_ALLOWED, "该实训任务已截止");
         }
 
+        // Check for an existing REJECTED submission that can be re-submitted
+        Submission rejectedSubmission = submissionMapper.selectOne(
+                new LambdaQueryWrapper<Submission>()
+                        .eq(Submission::getTrainingTaskId, taskId)
+                        .eq(Submission::getUserId, userId)
+                        .eq(Submission::getStatus, "REJECTED")
+                        .eq(Submission::getDeleted, 0));
+
+        if (rejectedSubmission != null) {
+            // Re-submit: update the existing rejected submission in-place
+            int newSubmitCount = (rejectedSubmission.getSubmitCount() != null ? rejectedSubmission.getSubmitCount() : 0) + 1;
+            int isLate = (task.getEndTime() != null && now.isAfter(task.getEndTime())) ? 1 : 0;
+
+            rejectedSubmission.setSubmitType(dto.getSubmissionType());
+            rejectedSubmission.setGitUrl(dto.getGitUrl());
+            rejectedSubmission.setGitBranch(dto.getGitBranch());
+            rejectedSubmission.setSummary(dto.getRemark());
+            rejectedSubmission.setSubmitCount(newSubmitCount);
+            rejectedSubmission.setSubmitTime(now);
+            rejectedSubmission.setIsLate(isLate);
+            rejectedSubmission.setStatus("SUBMITTED");
+
+            submissionMapper.updateById(rejectedSubmission);
+
+            SubmissionVO vo = new SubmissionVO();
+            vo.setSubmissionId(rejectedSubmission.getId());
+            vo.setTaskId(taskId);
+            vo.setSubmissionType(dto.getSubmissionType());
+            vo.setStatus("SUBMITTED");
+            vo.setSubmitCount(newSubmitCount);
+            vo.setMaxSubmitCount(task.getMaxSubmitCount() != null ? task.getMaxSubmitCount() : 1);
+            vo.setSubmittedAt(now);
+
+            return vo;
+        }
+
         Long existingCount = submissionMapper.selectCount(
                 new LambdaQueryWrapper<Submission>()
                         .eq(Submission::getTrainingTaskId, taskId)

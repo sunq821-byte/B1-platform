@@ -33,4 +33,6 @@ public class TaskCreateDTO {
     private Long standardId;
 
     private Long trainingClassId;
+
+    private Long courseId;
 }

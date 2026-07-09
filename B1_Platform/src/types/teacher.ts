@@ -4,9 +4,12 @@ export interface ICourseItem {
   courseId: string
   courseCode: string
   courseName: string
-  className: string
+  className: string  // derived: same as courseName when backend doesn't provide it
   semester: string
   credits: number
+  studentCount: number
+  taskCount: number
+  status: string
 }
 
 export interface ICourseFormData {
@@ -45,14 +48,17 @@ export interface IDimensionConfig {
 export interface ITeacherTaskItem {
   taskId: string
   taskName: string
-  courseId: string
+  courseName: string
   description: string
-  dueDate: string
-  weight: number
+  deadline: string
+  totalScore: number
   priority: "high" | "medium" | "low"
-  status: "published" | "draft"
+  status: string           // "PUBLISHED" | "DRAFT"
   maxScore: number
   createdAt: string
+  submissionType: string
+  submissionCount: number
+  reviewedCount: number
 }
 
 export interface ITaskFormData {
@@ -68,11 +74,14 @@ export interface ITaskFormData {
 
 export interface IStudentItem {
   userId: string
-  studentId: string
-  name: string
+  studentId: string        // derived from userId
+  name: string             // derived from realName
+  realName: string
   className: string
   email: string
-  completedCount: number
+  phone: string
+  completedCount: number   // derived from submissionCount
+  submissionCount: number
   avgScore: number | null
 }
 
@@ -80,9 +89,12 @@ export interface IStudentDetail {
   userId: string
   studentId: string
   name: string
+  realName: string
   className: string
   email: string
+  phone: string
   completedCount: number
+  submissionCount: number
   avgScore: number | null
   grades: IGradeRecord[]
 }
@@ -95,17 +107,29 @@ export interface IGradeRecord {
 
 // ========== Submission / Review ==========
 
+export interface IAttachment {
+  fileId: string
+  fileName: string
+  fileSize: number
+  fileType: string
+  downloadUrl: string
+}
+
 export interface IPendingSubmission {
   submissionId: string
-  studentId: string
   studentName: string
+  studentUserId: string
+  studentEmail: string
   taskId: string
   taskName: string
   submittedAt: string
-  status: "submitted" | "reviewing"
-  submissionType: "code" | "file"
-  fileName?: string
-  fileSize?: number
+  status: string
+  submissionType: "code" | "file"  // derived from submitType
+  submitType: string
+  submitCount: number
+  isLate: number
+  hasReview: boolean
+  attachments: IAttachment[]
 }
 
 export interface IAIDeduction {
@@ -138,6 +162,7 @@ export interface IManualDeduction {
 }
 
 export interface IPublishRequest {
+  status: "PUBLISHED" | "REJECTED"
   finalScore: number
   comment: string
   manualDeductions: IManualDeduction[]

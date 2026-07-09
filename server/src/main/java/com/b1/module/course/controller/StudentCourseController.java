@@ -20,11 +20,11 @@ public class StudentCourseController {
 
     @Operation(summary = "学生课程列表")
     @GetMapping("/courses")
-    public Result<PageResult<CourseVO>> listCourses(
+    public PageResult<CourseVO> listCourses(
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "20") int pageSize,
             @RequestParam(required = false) String keyword) {
-        return Result.ok(courseService.listCourses(page, pageSize, keyword));
+        return courseService.listCourses(page, pageSize, keyword);
     }
 
     @Operation(summary = "课程详情")

@@ -123,6 +123,7 @@ onMounted(() => { initPage() })
               <th>课程名称</th>
               <th>班级</th>
               <th>学期</th>
+              <th>学生数</th>
               <th>学分</th>
               <th>操作</th>
             </tr>
@@ -131,8 +132,9 @@ onMounted(() => { initPage() })
             <tr v-for="c in store.courses" :key="c.courseId">
               <td><span class="mono">{{ c.courseCode }}</span></td>
               <td>{{ c.courseName }}</td>
-              <td>{{ c.className }}</td>
+              <td>{{ c.className || c.courseName }}</td>
               <td><span class="mono">{{ c.semester }}</span></td>
+              <td>{{ c.studentCount }}</td>
               <td>{{ c.credits }}</td>
               <td class="actions-cell">
                 <BaseButton size="small" @click="openEdit(c)">编辑</BaseButton>

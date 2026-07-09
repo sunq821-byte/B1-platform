@@ -9,49 +9,33 @@ import java.util.List;
 @Data
 public class TeacherDashboardVO {
 
-    private Integer totalCourses;
+    private DashboardStatsVO stats;
 
-    private Integer totalStudents;
+    private List<PendingReviewVO> pendingReviews;
 
-    private Integer totalTasks;
-
-    private Integer pendingReviewCount;
-
-    private Integer publishedTaskCount;
-
-    private List<CourseStatVO> courseStats;
-
-    private List<RecentSubmissionVO> recentSubmissions;
+    private SubmitRateVO submitRateByClass;
 
     @Data
-    public static class CourseStatVO {
-
-        private Long courseId;
-
-        private String courseName;
-
-        private Integer studentCount;
-
-        private Integer taskCount;
-
-        private BigDecimal avgScore;
-
-        private Integer submissionCount;
+    public static class DashboardStatsVO {
+        private Integer totalStudents;
+        private Integer classCount;
+        private Integer pendingCount;
+        private Integer reviewedCount;
+        private Integer submissionRate;
     }
 
     @Data
-    public static class RecentSubmissionVO {
-
+    public static class PendingReviewVO {
         private Long submissionId;
-
-        private String taskName;
-
         private String studentName;
-
-        private String courseName;
-
-        private String status;
-
+        private String taskName;
         private LocalDateTime submittedAt;
+        private String status;
+    }
+
+    @Data
+    public static class SubmitRateVO {
+        private List<String> classNames;
+        private List<Integer> values;
     }
 }

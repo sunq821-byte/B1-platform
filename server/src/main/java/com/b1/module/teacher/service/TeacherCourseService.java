@@ -17,5 +17,7 @@ public interface TeacherCourseService {
 
     CourseVO updateCourse(Long courseId, CourseUpdateDTO dto);
 
+    void deleteCourse(Long courseId);
+
     PageResult<StudentVO> listCourseStudents(Long courseId, int page, int pageSize);
 }

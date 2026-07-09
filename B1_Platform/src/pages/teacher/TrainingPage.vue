@@ -16,7 +16,7 @@ const filterCourse = ref("all")
 
 const filteredTasks = computed(() => {
   if (filterCourse.value === "all") return store.tasks
-  return store.tasks.filter((t) => t.courseId === filterCourse.value)
+  return store.tasks.filter((t) => t.courseName === filterCourse.value)
 })
 
 const showModal = ref(false)
@@ -50,10 +50,10 @@ function openEdit(task: ITeacherTaskItem) {
   editingId.value = task.taskId
   form.value = {
     taskName: task.taskName,
-    courseId: task.courseId,
+    courseId: store.courses.find((c) => c.courseName === task.courseName)?.courseId || "",
     description: task.description,
-    dueDate: task.dueDate ? task.dueDate.substring(0, 10) : "",
-    weight: task.weight,
+    dueDate: task.deadline ? task.deadline.substring(0, 10) : "",
+    weight: task.totalScore,
     priority: task.priority,
   }
   showModal.value = true
@@ -96,7 +96,7 @@ async function handleDelete(taskId: string) {
 }
 
 function statusBadge(status: string) {
-  return status === "published" ? "已发布" : "草稿"
+  return status.toLowerCase() === "published" ? "已发布" : "草稿"
 }
 
 async function initPage() {
@@ -122,7 +122,7 @@ onMounted(() => { initPage() })
       <div class="filter-bar">
         <select v-model="filterCourse" class="form-select">
           <option value="all">全部课程</option>
-          <option v-for="c in store.courses" :key="c.courseId" :value="c.courseId">{{ c.courseName }}</option>
+          <option v-for="c in store.courses" :key="c.courseId" :value="c.courseName">{{ c.courseName }}</option>
         </select>
       </div>
       <div class="toolbar">
@@ -138,11 +138,11 @@ onMounted(() => { initPage() })
             <tr v-for="t in filteredTasks" :key="t.taskId">
               <td><span class="mono-sm">{{ t.taskId }}</span></td>
               <td>{{ t.taskName }}</td>
-              <td>{{ store.courses.find((c) => c.courseId === t.courseId)?.courseName || '-' }}</td>
-              <td><span class="mono-sm">{{ t.dueDate ? t.dueDate.substring(0, 10) : '-' }}</span></td>
-              <td>{{ t.weight }}%</td>
+              <td>{{ t.courseName }}</td>
+              <td><span class="mono-sm">{{ t.deadline ? t.deadline.substring(0, 10) : '-' }}</span></td>
+              <td>{{ t.totalScore }}</td>
               <td>
-                <span :class="['badge', t.status === 'published' ? 'badge--pub' : 'badge--draft']">{{ statusBadge(t.status) }}</span>
+                <span :class="['badge', t.status.toLowerCase() === 'published' ? 'badge--pub' : 'badge--draft']">{{ statusBadge(t.status) }}</span>
               </td>
               <td class="actions-cell">
                 <BaseButton size="small" @click="openEdit(t)">编辑</BaseButton>
@@ -161,7 +161,7 @@ onMounted(() => { initPage() })
         <div class="form-group">
           <label class="form-label">所属课程</label>
           <select v-model="form.courseId" class="form-select">
-            <option v-for="c in store.courses" :key="c.courseId" :value="c.courseId">{{ c.courseName }}</option>
+            <option v-for="c in store.courses" :key="c.courseId" :value="String(c.courseId)">{{ c.courseName }}</option>
           </select>
         </div>
         <div class="form-group">

@@ -23,6 +23,7 @@ import com.b1.module.student.service.StudentService;
 import com.b1.module.student.vo.DashboardVO;
 import com.b1.module.student.vo.GrowthProfileVO;
 import com.b1.module.student.vo.NotificationVO;
+import com.b1.module.student.vo.StudentReportVO;
 import com.b1.module.submission.entity.Submission;
 import com.b1.module.submission.mapper.SubmissionMapper;
 import com.b1.module.task.entity.TrainingTask;
@@ -440,5 +441,126 @@ public class StudentServiceImpl implements StudentService {
         }
 
         return vo;
+    }
+
+    @Override
+    public StudentReportVO getStudentReport() {
+        Long userId = StpUtil.getLoginIdAsLong();
+
+        List<Submission> allSubmissions = submissionMapper.selectList(
+                new LambdaQueryWrapper<Submission>()
+                        .eq(Submission::getUserId, userId)
+                        .eq(Submission::getDeleted, 0));
+
+        int totalTasks = 0;
+        List<CourseStudent> courseStudents = courseStudentMapper.selectList(
+                new LambdaQueryWrapper<CourseStudent>().eq(CourseStudent::getUserId, userId));
+        List<Long> courseIds = courseStudents.stream().map(CourseStudent::getCourseId).toList();
+        if (!courseIds.isEmpty()) {
+            totalTasks = trainingTaskMapper.selectCount(
+                    new LambdaQueryWrapper<TrainingTask>()
+                            .in(TrainingTask::getCourseId, courseIds)
+                            .eq(TrainingTask::getDeleted, 0)).intValue();
+        }
+        Set<Long> completedTaskIds = allSubmissions.stream()
+                .filter(s -> "SUBMITTED".equals(s.getStatus()) || "REVIEWED".equals(s.getStatus())
+                        || "GRADED".equals(s.getStatus()))
+                .map(Submission::getTrainingTaskId)
+                .collect(Collectors.toSet());
+
+        List<Long> submissionIds = allSubmissions.stream().map(Submission::getId).toList();
+        List<ScoreRecord> scores = submissionIds.isEmpty() ? Collections.emptyList() :
+                scoreRecordMapper.selectList(new LambdaQueryWrapper<ScoreRecord>()
+                        .in(ScoreRecord::getSubmissionId, submissionIds));
+        Map<Long, ScoreRecord> scoreMap = scores.stream()
+                .collect(Collectors.toMap(ScoreRecord::getSubmissionId, s -> s, (a, b) -> a));
+
+        BigDecimal avgScore = BigDecimal.ZERO;
+        if (!scores.isEmpty()) {
+            List<BigDecimal> validScores = scores.stream()
+                    .map(s -> s.getTotalScore() != null ? s.getTotalScore() : BigDecimal.ZERO)
+                    .filter(s -> s.compareTo(BigDecimal.ZERO) > 0).toList();
+            if (!validScores.isEmpty()) {
+                avgScore = validScores.stream().reduce(BigDecimal.ZERO, BigDecimal::add)
+                        .divide(BigDecimal.valueOf(validScores.size()), 1, RoundingMode.HALF_UP);
+            }
+        }
+
+        DateTimeFormatter monthFmt = DateTimeFormatter.ofPattern("yyyy-MM");
+        List<String> trendMonths = new ArrayList<>();
+        List<BigDecimal> trendValues = new ArrayList<>();
+        for (int i = 3; i >= 0; i--) {
+            LocalDateTime monthStart = LocalDateTime.now().minusMonths(i).withDayOfMonth(1).withHour(0).withMinute(0);
+            LocalDateTime monthEnd = monthStart.plusMonths(1);
+            List<BigDecimal> monthScores = new ArrayList<>();
+            for (Submission sub : allSubmissions) {
+                if (sub.getSubmitTime() != null && !sub.getSubmitTime().isBefore(monthStart)
+                        && sub.getSubmitTime().isBefore(monthEnd)) {
+                    ScoreRecord sr = scoreMap.get(sub.getId());
+                    if (sr != null && sr.getTotalScore() != null && sr.getTotalScore().compareTo(BigDecimal.ZERO) > 0) {
+                        monthScores.add(sr.getTotalScore());
+                    }
+                }
+            }
+            trendMonths.add(monthStart.format(monthFmt));
+            trendValues.add(monthScores.isEmpty() ? BigDecimal.ZERO :
+                    monthScores.stream().reduce(BigDecimal.ZERO, BigDecimal::add)
+                            .divide(BigDecimal.valueOf(monthScores.size()), 1, RoundingMode.HALF_UP));
+        }
+
+        Map<Long, TrainingTask> taskMap = new HashMap<>();
+        Map<Long, String> courseNameMap = new HashMap<>();
+        Map<Long, List<BigDecimal>> scoresByCourse = new LinkedHashMap<>();
+        for (Submission sub : allSubmissions) {
+            TrainingTask task = taskMap.computeIfAbsent(sub.getTrainingTaskId(), trainingTaskMapper::selectById);
+            if (task != null) {
+                courseNameMap.computeIfAbsent(task.getCourseId(), cid -> {
+                    Course c = courseMapper.selectById(cid);
+                    return c != null ? c.getCourseName() : "";
+                });
+                ScoreRecord sr = scoreMap.get(sub.getId());
+                if (sr != null && sr.getTotalScore() != null && sr.getTotalScore().compareTo(BigDecimal.ZERO) > 0) {
+                    scoresByCourse.computeIfAbsent(task.getCourseId(), k -> new ArrayList<>()).add(sr.getTotalScore());
+                }
+            }
+        }
+
+        List<String> radarIndicators = new ArrayList<>();
+        List<BigDecimal> radarValues = new ArrayList<>();
+        for (Map.Entry<Long, List<BigDecimal>> e : scoresByCourse.entrySet()) {
+            radarIndicators.add(courseNameMap.getOrDefault(e.getKey(), ""));
+            List<BigDecimal> vals = e.getValue();
+            radarValues.add(vals.stream().reduce(BigDecimal.ZERO, BigDecimal::add)
+                    .divide(BigDecimal.valueOf(vals.size()), 1, RoundingMode.HALF_UP));
+        }
+
+        List<StudentReportVO.Row> rows = new ArrayList<>();
+        for (Submission sub : allSubmissions.stream()
+                .sorted(Comparator.comparing(Submission::getSubmitTime, Comparator.nullsLast(Comparator.reverseOrder())))
+                .toList()) {
+            TrainingTask task = taskMap.get(sub.getTrainingTaskId());
+            ScoreRecord sr = scoreMap.get(sub.getId());
+            rows.add(StudentReportVO.Row.builder()
+                    .taskName(task != null ? task.getTaskName() : "")
+                    .courseName(task != null ? courseNameMap.getOrDefault(task.getCourseId(), "") : "")
+                    .score(sr != null ? sr.getTotalScore() : null)
+                    .status(sub.getStatus())
+                    .reviewComment(sr != null ? sr.getTeacherComment() : null)
+                    .build());
+        }
+
+        return StudentReportVO.builder()
+                .stats(StudentReportVO.Stats.builder()
+                        .totalTasks(totalTasks)
+                        .completedTasks(completedTaskIds.size())
+                        .averageScore(avgScore)
+                        .totalSubmissions(allSubmissions.size())
+                        .build())
+                .scoreTrend(StudentReportVO.ScoreTrend.builder()
+                        .categories(trendMonths).values(trendValues).build())
+                .radarData(StudentReportVO.RadarData.builder()
+                        .indicators(radarIndicators).values(radarValues).build())
+                .rows(rows)
+                .build();
     }
 }

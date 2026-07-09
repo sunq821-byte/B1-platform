@@ -3,6 +3,7 @@ package com.b1.module.student.controller;
 import com.b1.common.result.Result;
 import com.b1.module.student.service.StudentService;
 import com.b1.module.student.vo.DashboardVO;
+import com.b1.module.student.vo.StudentReportVO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -20,5 +21,11 @@ public class StudentDashboardController {
     @GetMapping("/dashboard")
     public Result<DashboardVO> getDashboard() {
         return Result.ok(studentService.getDashboard());
+    }
+
+    @Operation(summary = "获取学生报告")
+    @GetMapping("/student-report")
+    public Result<StudentReportVO> getStudentReport() {
+        return Result.ok(studentService.getStudentReport());
     }
 }

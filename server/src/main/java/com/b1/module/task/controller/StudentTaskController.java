@@ -20,12 +20,12 @@ public class StudentTaskController {
 
     @Operation(summary = "学生任务列表")
     @GetMapping("/tasks")
-    public Result<PageResult<TaskVO>> listTasks(
+    public PageResult<TaskVO> listTasks(
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "20") int pageSize,
             @RequestParam(required = false) String status,
             @RequestParam(required = false) String keyword) {
-        return Result.ok(taskService.listTasks(page, pageSize, status, keyword));
+        return taskService.listTasks(page, pageSize, status, keyword);
     }
 
     @Operation(summary = "任务详情")

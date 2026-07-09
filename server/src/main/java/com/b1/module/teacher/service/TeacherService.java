@@ -11,11 +11,13 @@ public interface TeacherService {
 
     TeacherDashboardVO getDashboard();
 
-    PageResult<StandardListVO> listStandards(int page, int pageSize, String keyword);
+    PageResult<StandardListVO> listStandards(int page, int pageSize, String keyword, Integer isTemplate);
 
     StandardDetailVO getStandardDetail(Long standardId);
 
     StandardListVO createStandard(StandardCreateDTO dto);
 
     StandardListVO updateStandard(Long standardId, StandardUpdateDTO dto);
+
+    StandardListVO copyStandard(Long standardId);
 }

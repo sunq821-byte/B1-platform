@@ -10,6 +10,7 @@ const STATUS_MAP: Record<string, { bg: string; color: string; label: string }> =
   AI_COMPLETED: { bg: "#D1FAE5", color: "#065F46", label: "待评分" },
   TEACHER_SCORING: { bg: "#FFF7ED", color: "#9A3412", label: "评分中" },
   COMPLETED: { bg: "#D1FAE5", color: "#065F46", label: "已完成" },
+  REVIEWED: { bg: "#D1FAE5", color: "#065F46", label: "已完成" },
   REJECTED: { bg: "#FEE2E2", color: "#991B1B", label: "已退回" },
 }
 

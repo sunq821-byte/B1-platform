@@ -90,14 +90,14 @@ export function fetchEvaluation(submissionId: string): Promise<IEvaluationDetail
   return request.get(`/api/v1/student/submissions/${submissionId}/evaluation`) as Promise<IEvaluationDetail>
 }
 
-export function fetchAIResultDetail(submissionId: string): Promise<IAIResultDetail> {
-  return request.get(`/api/v1/student/submissions/${submissionId}/ai-result-detail`) as Promise<IAIResultDetail>
+export function fetchAIResultDetail(submissionId: string): Promise<IAIResult> {
+  return fetchAIResult(submissionId) as Promise<IAIResult>
 }
 
 export function fetchStudentReport(): Promise<IStudentReportData> {
-  return request.get("/api/v1/student/reports") as Promise<IStudentReportData>
+  return request.get("/api/v1/student/student-report") as Promise<IStudentReportData>
 }
 
 export function fetchGrowth(): Promise<IGrowthData> {
-  return request.get("/api/v1/student/growth") as Promise<IGrowthData>
+  return request.get("/api/v1/student/growth-profile") as Promise<IGrowthData>
 }

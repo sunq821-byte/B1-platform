@@ -3,6 +3,7 @@ import { ref, onMounted } from "vue"
 import { ElMessage } from "element-plus"
 import { useAdminStore } from "@/stores/useAdminStore"
 import PageHeader from "@/components/layout/PageHeader.vue"
+import LoadingState from "@/components/common/LoadingState.vue"
 
 const store = useAdminStore()
 
@@ -43,6 +44,9 @@ async function handleSave() {
   <div>
     <PageHeader title="系统配置" subtitle="管理平台全局参数" />
 
+    <LoadingState v-if="store.configLoading" text="加载系统配置..." />
+
+    <template v-else>
     <div class="content-grid">
       <div class="card">
         <div class="card-title mb-16">基本设置</div>
@@ -129,5 +133,6 @@ async function handleSave() {
         </table>
       </div>
     </div>
+    </template>
   </div>
 </template>
