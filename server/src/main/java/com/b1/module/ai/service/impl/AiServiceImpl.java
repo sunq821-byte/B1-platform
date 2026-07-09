@@ -49,7 +49,9 @@ import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Executor;
 import java.util.stream.Collectors;
 
@@ -473,25 +475,53 @@ public class AiServiceImpl implements AiService {
                         .eq(AiAnalysisDetail::getAiAnalysisId, aiAnalysis.getId())
                         .orderByAsc(AiAnalysisDetail::getSortOrder));
 
-        List<AiResultVO.AiDimensionScoreVO> dimVOs = new ArrayList<>();
+        // Details are stored per issue; a dimension may have several. Group by dimension so each
+        // dimension yields one card whose score = maxScore - sum(deductions), floored at 0.
+        Map<Long, List<AiAnalysisDetail>> byDimension = new LinkedHashMap<>();
         for (AiAnalysisDetail detail : details) {
-            AiResultVO.AiDimensionScoreVO dimVO = new AiResultVO.AiDimensionScoreVO();
-            dimVO.setScore(detail.getSuggestDeduct() != null
-                    ? BigDecimal.ZERO.max(new BigDecimal("100").subtract(detail.getSuggestDeduct()))
-                    : BigDecimal.ZERO);
-            dimVO.setComment(detail.getReason());
-            dimVO.setSuggestions(detail.getSuggestion() != null
-                    ? List.of(detail.getSuggestion()) : Collections.emptyList());
-            dimVO.setCodeReferences(Collections.emptyList());
+            Long key = detail.getDimensionId();
+            byDimension.computeIfAbsent(key, k -> new ArrayList<>()).add(detail);
+        }
 
-            if (detail.getDimensionId() != null) {
-                StandardDimension dim = standardDimensionMapper.selectById(detail.getDimensionId());
-                if (dim != null) {
-                    dimVO.setDimensionName(dim.getDimName());
-                    dimVO.setMaxScore(dim.getMaxScore());
-                    dimVO.setWeight(dim.getWeight());
+        List<AiResultVO.AiDimensionScoreVO> dimVOs = new ArrayList<>();
+        for (Map.Entry<Long, List<AiAnalysisDetail>> entry : byDimension.entrySet()) {
+            Long dimensionId = entry.getKey();
+            List<AiAnalysisDetail> issues = entry.getValue();
+
+            BigDecimal totalDeduct = BigDecimal.ZERO;
+            List<String> reasons = new ArrayList<>();
+            List<String> suggestions = new ArrayList<>();
+            for (AiAnalysisDetail issue : issues) {
+                if (issue.getSuggestDeduct() != null) {
+                    totalDeduct = totalDeduct.add(issue.getSuggestDeduct());
+                }
+                if (issue.getReason() != null && !issue.getReason().isBlank()) {
+                    reasons.add(issue.getReason());
+                }
+                if (issue.getSuggestion() != null && !issue.getSuggestion().isBlank()) {
+                    suggestions.add(issue.getSuggestion());
                 }
             }
+
+            AiResultVO.AiDimensionScoreVO dimVO = new AiResultVO.AiDimensionScoreVO();
+            BigDecimal maxScore = BigDecimal.ZERO;
+            if (dimensionId != null) {
+                StandardDimension dim = standardDimensionMapper.selectById(dimensionId);
+                if (dim != null) {
+                    dimVO.setDimensionName(dim.getDimName());
+                    dimVO.setWeight(dim.getWeight());
+                    maxScore = dim.getMaxScore() != null ? dim.getMaxScore() : BigDecimal.ZERO;
+                }
+            }
+            if (dimVO.getDimensionName() == null) {
+                dimVO.setDimensionName("其他");
+            }
+            dimVO.setMaxScore(maxScore);
+            // Score is the dimension's remaining points after deductions, never below zero.
+            dimVO.setScore(maxScore.subtract(totalDeduct).max(BigDecimal.ZERO));
+            dimVO.setComment(String.join(" ", reasons));
+            dimVO.setSuggestions(suggestions);
+            dimVO.setCodeReferences(Collections.emptyList());
 
             dimVOs.add(dimVO);
         }
@@ -501,7 +531,7 @@ public class AiServiceImpl implements AiService {
         result.setDimensions(dimVOs);
         result.setSummary(String.format("AI分析完成，总分%d分，共发现%d个问题。",
                 aiAnalysis.getTotalScore() != null ? aiAnalysis.getTotalScore().intValue() : 0,
-                dimVOs.size()));
+                details.size()));
         result.setStrengths(Collections.emptyList());
         result.setWeaknesses(Collections.emptyList());
         result.setImprovementPlan("");
