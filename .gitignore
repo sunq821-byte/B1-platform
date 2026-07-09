@@ -10,6 +10,8 @@
 !server/**
 !B1_Platform/
 !B1_Platform/**
+!docs/
+!docs/**
 
 # Exclude build outputs (must come after the !server/** whitelist to take effect)
 server/target/**
