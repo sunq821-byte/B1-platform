@@ -24,5 +24,7 @@ public class TaskUpdateDTO {
 
     private BigDecimal totalScore;
 
+    private String gradingRule;
+
     private Long standardId;
 }

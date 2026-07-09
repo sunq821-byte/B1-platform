@@ -30,6 +30,8 @@ public class TaskCreateDTO {
 
     private Integer allowLate;
 
+    private String gradingRule;
+
     private Long standardId;
 
     private Long trainingClassId;
