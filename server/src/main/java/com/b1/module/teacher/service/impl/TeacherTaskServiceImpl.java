@@ -4,6 +4,7 @@ import cn.dev33.satoken.stp.StpUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.b1.common.constant.SystemConstants;
 import com.b1.common.exception.BusinessException;
 import com.b1.common.exception.ErrorCode;
 import com.b1.common.result.PageResult;
@@ -248,9 +249,10 @@ public class TeacherTaskServiceImpl implements TeacherTaskService {
         task.setMaxScore(dto.getTotalScore());
         task.setDescription(dto.getDescription());
         task.setRequirement(dto.getRequirement());
+        task.setGradingRule(dto.getGradingRule());
         task.setEndTime(dto.getEndTime());
         task.setAllowLate(dto.getAllowLate() != null ? dto.getAllowLate() : 0);
-        task.setStandardId(dto.getStandardId());
+        task.setStandardId(SystemConstants.DEFAULT_STANDARD_ID);
         task.setStatus("DRAFT");
 
         trainingTaskMapper.insert(task);
