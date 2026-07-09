@@ -187,9 +187,9 @@ onMounted(() => {
         <div class="card">
           <h3 class="card__title mb-12">快速入口</h3>
           <div class="quick-actions">
-            <button class="quick-btn quick-btn--brand" @click="goTo('/teacher/standards')">
+            <button class="quick-btn quick-btn--brand" @click="goTo('/teacher/tasks')">
               <Sliders :size="16" />
-              配置评价标准
+              新建实训任务
             </button>
             <button class="quick-btn" @click="goTo('/teacher/reports')">
               <Download :size="16" />

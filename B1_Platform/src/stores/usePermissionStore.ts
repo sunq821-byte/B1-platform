@@ -24,8 +24,6 @@ const ROLE_MENUS: Record<string, MenuItem[]> = {
   teacher: [
     { path: "/teacher/dashboard", title: "仪表盘", icon: "LayoutDashboard" },
     { path: "/teacher/courses", title: "课程管理", icon: "BookOpen" },
-    { path: "/teacher/standards", title: "评价标准", icon: "ClipboardCheck" },
-    { path: "/teacher/standards-library", title: "标准库", icon: "Library" },
     { path: "/teacher/knowledge-base", title: "知识库", icon: "BookMarked" },
     { path: "/teacher/tasks", title: "实训任务管理", icon: "ClipboardList" },
     { path: "/teacher/students", title: "学生管理", icon: "Users" },

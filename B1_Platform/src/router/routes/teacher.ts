@@ -35,12 +35,6 @@ const teacherRoutes: RouteRecordRaw[] = [
         meta: { title: "课程管理", icon: "BookOpen", sort: 2 },
       },
       {
-        path: "standards",
-        name: "TeacherStandards",
-        component: () => import("@/pages/teacher/StandardsPage.vue"),
-        meta: { title: "评价标准", icon: "ClipboardCheck", sort: 3 },
-      },
-      {
         path: "tasks",
         name: "TeacherTaskList",
         component: () => import("@/pages/teacher/TrainingPage.vue"),
@@ -51,12 +45,6 @@ const teacherRoutes: RouteRecordRaw[] = [
         name: "TeacherStudents",
         component: () => import("@/pages/teacher/StudentsPage.vue"),
         meta: { title: "学生管理", icon: "Users", sort: 5 },
-      },
-      {
-        path: "standards-library",
-        name: "TeacherStandardsLibrary",
-        component: () => import("@/pages/teacher/StandardsLibraryPage.vue"),
-        meta: { title: "标准库", icon: "Library", sort: 6 },
       },
       {
         path: "knowledge-base",
