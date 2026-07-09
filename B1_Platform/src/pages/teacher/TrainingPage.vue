@@ -31,6 +31,8 @@ const form = ref({
   dueDate: "2026-07-15",
   weight: 25,
   priority: "medium" as "high" | "medium" | "low",
+  submissionType: "GIT_URL",
+  maxSubmitCount: 3,
   roleText: "",
   skillText: "",
   ruleText: "",
@@ -39,7 +41,7 @@ const form = ref({
 const modalTitle = computed(() => (isEdit.value ? "编辑任务" : "新建任务"))
 
 function resetForm() {
-  form.value = { taskName: "", courseId: store.courses[0]?.courseId || "", description: "", dueDate: "2026-07-15", weight: 25, priority: "medium", roleText: "", skillText: "", ruleText: "" }
+  form.value = { taskName: "", courseId: store.courses[0]?.courseId || "", description: "", dueDate: "2026-07-15", weight: 25, priority: "medium", submissionType: "GIT_URL", maxSubmitCount: 3, roleText: "", skillText: "", ruleText: "" }
   isEdit.value = false
   editingId.value = ""
 }
@@ -72,6 +74,8 @@ function openEdit(task: ITeacherTaskItem) {
     dueDate: task.deadline ? task.deadline.substring(0, 10) : "",
     weight: task.totalScore,
     priority: task.priority,
+    submissionType: task.submissionType || "GIT_URL",
+    maxSubmitCount: task.maxSubmitCount ?? 3,
     roleText: parsed.roleText,
     skillText: parsed.skillText,
     ruleText: parsed.ruleText,
@@ -183,6 +187,17 @@ onMounted(() => { initPage() })
           <select v-model="form.courseId" class="form-select">
             <option v-for="c in store.courses" :key="c.courseId" :value="String(c.courseId)">{{ c.courseName }}</option>
           </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">提交方式</label>
+          <select v-model="form.submissionType" class="form-select">
+            <option value="GIT_URL">Git 仓库</option>
+            <option value="ZIP_UPLOAD">ZIP 文件</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">最大提交次数</label>
+          <BaseInput :model-value="String(form.maxSubmitCount)" @update:model-value="(v: string) => (form.maxSubmitCount = Number(v) || 1)" type="number" />
         </div>
         <div class="form-group">
           <label class="form-label">任务描述</label>

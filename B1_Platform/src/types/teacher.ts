@@ -36,6 +36,7 @@ export interface ITeacherTaskItem {
   submissionType: string
   submissionCount: number
   reviewedCount: number
+  maxSubmitCount?: number
   gradingRule?: string
 }
 
@@ -46,6 +47,8 @@ export interface ITaskFormData {
   dueDate: string
   weight: number
   priority: "high" | "medium" | "low"
+  submissionType: string
+  maxSubmitCount: number
   roleText: string
   skillText: string
   ruleText: string

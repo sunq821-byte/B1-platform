@@ -111,6 +111,7 @@ export const useTeacherStore = defineStore("teacher", () => {
       submissionType: String(raw.submissionType ?? ''),
       submissionCount: Number(raw.submissionCount ?? 0),
       reviewedCount: Number(raw.reviewedCount ?? 0),
+      maxSubmitCount: raw.maxSubmitCount != null ? Number(raw.maxSubmitCount) : undefined,
       gradingRule: raw.gradingRule ? String(raw.gradingRule) : undefined,
     }
   }
