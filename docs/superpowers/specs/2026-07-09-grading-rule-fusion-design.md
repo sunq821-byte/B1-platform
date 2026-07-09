@@ -127,8 +127,9 @@ Rule：{ruleText}
 
 - `training_task` 新增字段：
   `grading_rule LONGTEXT NULL COMMENT '教师自定义评分细则(R/S/R/O原文)'`
-- 插入 **id=1 的"系统默认标准"** `evaluation_standard`（`is_template=1`，名称"系统通用四维度标准"）
-- 为其插入**四维度** `standard_dimension`（呼应 PRD）：
+- 插入 **id=1000 的"系统默认标准"** `evaluation_standard`（`is_template=1`，名称"系统通用四维度标准"）
+  > 注：id=1 已被 V3 种子数据占用（Java Web 标准模板），故系统默认标准使用固定 id=1000 规避冲突
+- 为其插入**四维度** `standard_dimension`（id 1001-1004，呼应 PRD）：
 
   | 维度 | 权重 | 满分 |
   |---|---|---|
@@ -137,7 +138,7 @@ Rule：{ruleText}
   | 设计质量 | 20 | 20 |
   | 文档完整性 | 20 | 20 |
 
-- 使用 `INSERT IGNORE` 防重（V3/V4 已有 id=2/3 模板标准，不冲突）
+- 使用 `INSERT IGNORE` 防重
 
 ### 4.2 实体 `TrainingTask.java`
 
@@ -150,7 +151,7 @@ Rule：{ruleText}
 
 ### 4.4 常量
 
-`SystemConstants` 新增 `DEFAULT_STANDARD_ID = 1L`
+`SystemConstants` 新增 `DEFAULT_STANDARD_ID = 1000L`
 
 ### 4.5 `TeacherTaskServiceImpl.createTask / updateTask`
 
@@ -174,7 +175,7 @@ Rule：{ruleText}
 
 - 取出 `task.getGradingRule()`
 - 传入 `buildSystemPrompt(dimensions, gradingRule)`
-- `getDimensions(task)` 逻辑不变（standardId 恒为 1，稳定返回四维度）
+- `getDimensions(task)` 逻辑不变（standardId 恒为 1000，稳定返回四维度）
 
 ### 4.8 删除 standard 管理接口
 
