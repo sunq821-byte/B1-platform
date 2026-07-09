@@ -323,8 +323,8 @@ public class TeacherTaskServiceImpl implements TeacherTaskService {
         if (dto.getTotalScore() != null) {
             task.setMaxScore(dto.getTotalScore());
         }
-        if (dto.getStandardId() != null) {
-            task.setStandardId(dto.getStandardId());
+        if (dto.getGradingRule() != null) {
+            task.setGradingRule(dto.getGradingRule());
         }
 
         trainingTaskMapper.updateById(task);
