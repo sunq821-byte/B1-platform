@@ -22,7 +22,10 @@ B1/
 └── docker-compose.yml # 基础设施编排
 ```
 
-## 本地启动
+## 本地启动（Windows / x86 开发）
+
+> 适用于 Windows 或 x86 macOS/Linux 开发机。基础设施用 Docker 跑（`docker-compose.yml` 是标准 x86 镜像），前后端跑源码方便热更新调试。
+> 龙芯（LoongArch64）机器请改用全 Docker 部署，见文末「部署」。
 
 ### 1. 启动基础设施
 
@@ -82,3 +85,12 @@ npm run dev
 - 后端接口文档自动生成，启动后访问 `/doc.html`
 - 前端 Mock 数据在 `B1_Platform/src/mock/` 目录
 - 密钥等敏感配置放在 `server/src/main/resources/application-local.yml`（不提交），生产环境通过操作系统环境变量注入
+
+## 部署
+
+| 场景 | 方式 | 说明 |
+|---|---|---|
+| Windows / x86 开发 | `docker compose up -d` 起三件套 + 本地 `mvn spring-boot:run` / `npm run dev` | 见上文「本地启动」，可热更新调试 |
+| 龙芯（LoongArch64）机器 | 全 Docker：`docker compose -f docker-compose.prod.yml up -d` | 前后端也打进容器，机器无需装 JDK/Node，见 [deploy/README-loongarch.md](deploy/README-loongarch.md) |
+
+> ⚠️ `docker-compose.prod.yml` 使用 loong64 专用镜像，**不能在 x86 Windows 上运行**；反之 x86 的全 Docker 镜像也不能在龙芯上运行。两套编排各自对应目标架构。
