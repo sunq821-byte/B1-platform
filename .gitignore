@@ -13,6 +13,13 @@
 !docs/
 !docs/**
 
+# Allow deploy artifacts (root-level, otherwise swallowed by the leading *)
+!docker-compose.yml
+!docker-compose.prod.yml
+!.env.example
+!deploy/
+!deploy/**
+
 # Exclude build outputs (must come after the !server/** whitelist to take effect)
 server/target/**
 server/target/
@@ -25,4 +32,7 @@ server/src/main/resources/application-local.yml
 # Exclude runtime logs
 server/run.log
 B1_Platform/dev.log
+
+# Exclude real secrets (only the .env.example template is tracked)
+.env
 
