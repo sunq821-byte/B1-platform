@@ -190,6 +190,7 @@ public class AiServiceImpl implements AiService {
             int totalOutputTokens = 0;
             StringBuilder combinedRawResponse = new StringBuilder("{\"responses\":[");
             boolean firstResp = true;
+            boolean anySuccess = false;
 
             for (SubmissionFile file : files) {
                 AiProvider provider = providerRouter.route(file);
@@ -211,6 +212,7 @@ public class AiServiceImpl implements AiService {
                 AiResponse response = provider.analyze(request);
 
                 if (response.isSuccess()) {
+                    anySuccess = true;
                     for (DimensionResult dr : response.getDimensions()) {
                         AiAnalysisDetail detail = new AiAnalysisDetail();
                         detail.setAiAnalysisId(aiAnalysis.getId());
@@ -262,6 +264,16 @@ public class AiServiceImpl implements AiService {
                 } else {
                     log.warn("Provider {} failed for file {}: {}", provider.getProviderName(), fileName, response.getRawContent());
                 }
+            }
+
+            // Every provider call failed (network/timeout/5xx after retries). Degrade honestly
+            // so the student sees a retry prompt instead of a fabricated 0-score "COMPLETED".
+            if (!anySuccess) {
+                aiAnalysis.setAnalysisStatus("FAILED");
+                aiAnalysis.setErrorMessage("AI 服务暂时不可用，请稍后重试");
+                aiAnalysis.setCompleteTime(LocalDateTime.now());
+                aiAnalysisMapper.updateById(aiAnalysis);
+                return;
             }
 
             for (AiAnalysisDetail detail : allDetails) {

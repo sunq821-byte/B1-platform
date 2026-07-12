@@ -6,13 +6,18 @@ import com.b1.common.exception.BusinessException;
 import com.b1.common.exception.ErrorCode;
 import com.b1.module.ai.entity.AiAnalysis;
 import com.b1.module.ai.mapper.AiAnalysisMapper;
+import com.b1.module.file.entity.FileStorage;
+import com.b1.module.file.mapper.FileStorageMapper;
 import com.b1.module.file.service.FileService;
 import com.b1.module.file.vo.FileUploadVO;
 import com.b1.module.submission.dto.GitVerifyDTO;
 import com.b1.module.submission.dto.SubmitRequestDTO;
 import com.b1.module.submission.entity.Submission;
+import com.b1.module.submission.entity.SubmissionFile;
+import com.b1.module.submission.mapper.SubmissionFileMapper;
 import com.b1.module.submission.mapper.SubmissionMapper;
 import com.b1.module.submission.service.SubmissionService;
+import org.springframework.transaction.annotation.Transactional;
 import com.b1.module.submission.vo.GitVerifyResultVO;
 import com.b1.module.submission.vo.ReportUploadVO;
 import com.b1.module.submission.vo.SubmissionHistoryVO;
@@ -35,8 +40,11 @@ public class SubmissionServiceImpl implements SubmissionService {
     private final SubmissionMapper submissionMapper;
     private final FileService fileService;
     private final AiAnalysisMapper aiAnalysisMapper;
+    private final SubmissionFileMapper submissionFileMapper;
+    private final FileStorageMapper fileStorageMapper;
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public SubmissionVO submit(Long taskId, SubmitRequestDTO dto) {
         Long userId = StpUtil.getLoginIdAsLong();
 
@@ -83,6 +91,8 @@ public class SubmissionServiceImpl implements SubmissionService {
 
             submissionMapper.updateById(existing);
 
+            linkSubmissionFile(existing.getId(), dto);
+
             return buildSubmissionVO(existing.getId(), taskId, dto.getSubmissionType(),
                     newSubmitCount, maxSubmitCount, now);
         }
@@ -101,8 +111,45 @@ public class SubmissionServiceImpl implements SubmissionService {
 
         submissionMapper.insert(submission);
 
+        linkSubmissionFile(submission.getId(), dto);
+
         return buildSubmissionVO(submission.getId(), taskId, dto.getSubmissionType(),
                 1, maxSubmitCount, now);
+    }
+
+    /**
+     * Persist the uploaded artifact as this submission's file so downstream AI analysis
+     * can read it. One artifact per submission; a re-submission replaces the previous link.
+     */
+    private void linkSubmissionFile(Long submissionId, SubmitRequestDTO dto) {
+        submissionFileMapper.delete(new LambdaQueryWrapper<SubmissionFile>()
+                .eq(SubmissionFile::getSubmissionId, submissionId));
+
+        String zipFileId = dto.getZipFileId();
+        if (zipFileId == null || zipFileId.isBlank()) {
+            return;
+        }
+
+        long fileId;
+        try {
+            fileId = Long.parseLong(zipFileId.trim());
+        } catch (NumberFormatException e) {
+            throw new BusinessException(ErrorCode.PARAM_FORMAT_ERROR, "文件ID格式错误");
+        }
+
+        FileStorage storage = fileStorageMapper.selectById(fileId);
+        if (storage == null) {
+            throw new BusinessException(ErrorCode.FILE_NOT_FOUND);
+        }
+
+        SubmissionFile sf = new SubmissionFile();
+        sf.setSubmissionId(submissionId);
+        sf.setFileId(fileId);
+        sf.setFileName(storage.getOriginalName());
+        sf.setFileType(storage.getContentType());
+        sf.setFileSize(storage.getFileSize());
+        sf.setSortOrder(1);
+        submissionFileMapper.insert(sf);
     }
 
     private SubmissionVO buildSubmissionVO(Long submissionId, Long taskId, String submissionType,

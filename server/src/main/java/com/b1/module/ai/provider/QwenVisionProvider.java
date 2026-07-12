@@ -11,7 +11,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.*;
 import org.springframework.stereotype.Component;
-import org.springframework.web.client.RestTemplate;
 
 import java.math.BigDecimal;
 import java.util.*;
@@ -23,6 +22,7 @@ public class QwenVisionProvider implements AiProvider {
 
     private final AiConfigProperties config;
     private final ObjectMapper objectMapper;
+    private final AiHttpClient aiHttpClient;
 
     @Override
     public String getProviderName() {
@@ -61,23 +61,17 @@ public class QwenVisionProvider implements AiProvider {
         body.put("max_tokens", 4096);
         body.put("messages", messages);
 
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        headers.setBearerAuth(cfg.getApiKey());
-
         try {
             String reqJson = objectMapper.writeValueAsString(body);
             log.info("Qwen request payload size: {} chars", reqJson.length());
             log.debug("Qwen request: {}", reqJson.substring(0, Math.min(500, reqJson.length())));
 
-            HttpEntity<String> entity = new HttpEntity<>(reqJson, headers);
-            RestTemplate restTemplate = new RestTemplate();
-            ResponseEntity<String> resp = restTemplate.exchange(url, HttpMethod.POST, entity, String.class);
+            String respBody = aiHttpClient.postJson(url, cfg.getApiKey(), reqJson);
 
             long duration = System.currentTimeMillis() - start;
 
-            if (resp.getStatusCode() == HttpStatus.OK && resp.getBody() != null) {
-                JsonNode root = objectMapper.readTree(resp.getBody());
+            if (respBody != null && !respBody.isBlank()) {
+                JsonNode root = objectMapper.readTree(respBody);
                 JsonNode choices = root.path("choices");
                 if (choices.isEmpty()) {
                     return buildErrorResponse("Qwen returned empty choices", duration);
@@ -91,7 +85,7 @@ public class QwenVisionProvider implements AiProvider {
                 return parseVisionResponse(content, inputTokens, outputTokens, totalTokens, duration);
             }
 
-            return buildErrorResponse("Qwen API error: " + resp.getStatusCode() + " body=" + resp.getBody(), duration);
+            return buildErrorResponse("Qwen returned empty body", duration);
 
         } catch (JsonProcessingException e) {
             long duration = System.currentTimeMillis() - start;
