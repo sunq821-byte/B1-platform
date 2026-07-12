@@ -3,6 +3,7 @@ import { ref, computed, onMounted } from "vue"
 import { ElMessage } from "element-plus"
 import { FileText, Download } from "lucide-vue-next"
 import { useTeacherStore } from "@/stores/useTeacherStore"
+import * as teacherApi from "@/api/modules/teacher"
 import type { IManualDeduction, IAttachment } from "@/types/teacher"
 import BaseButton from "@/components/base/BaseButton.vue"
 import LoadingState from "@/components/common/LoadingState.vue"
@@ -19,6 +20,8 @@ const showAdjust = ref(false)
 const adjustIdx = ref(-1)
 const adjPoints = ref(0)
 const adjReason = ref("")
+const codeContent = ref("")
+const codeLoading = ref(false)
 
 const currentSub = computed(() => {
   if (currentIndex.value < 0 || currentIndex.value >= store.pendingSubmissions.length) return null
@@ -80,9 +83,36 @@ async function selectSubmission(idx: number) {
   if (!sub) return
   teacherComment.value = ""
   manualDeductions.value = []
-  if (sub.submissionType === "file") {
+  codeContent.value = ""
+
+  // For code submissions, fetch detail (attachments) and then the code text
+  if (sub.submissionType === "code") {
+    codeLoading.value = true
+    try {
+      const detail = await teacherApi.fetchSubmissionDetail(sub.submissionId) as unknown as {
+        attachments: Array<{ downloadUrl: string; fileName: string }>
+      }
+      // Also update the store's attachments for this submission
+      const idx2 = store.pendingSubmissions.findIndex((s) => s.submissionId === sub.submissionId)
+      if (idx2 >= 0 && detail?.attachments) {
+        store.pendingSubmissions[idx2].attachments = detail.attachments.map((a) => ({
+          fileId: String(a.fileId ?? ""),
+          fileName: String(a.fileName ?? ""),
+          fileSize: Number(a.fileSize ?? 0),
+          fileType: String(a.fileType ?? ""),
+          downloadUrl: String(a.downloadUrl ?? ""),
+        }))
+      }
+      if (detail?.attachments?.length > 0 && detail.attachments[0].downloadUrl) {
+        const resp = await fetch(detail.attachments[0].downloadUrl)
+        codeContent.value = await resp.text()
+      }
+    } catch { /* code preview unavailable */ }
+    finally { codeLoading.value = false }
+  } else {
     store.fetchSubmissionDetail(sub.submissionId)
   }
+
   try { await store.fetchAIDiagnosis(sub.submissionId) }
   catch { ElMessage.error("加载AI诊断失败") }
 }
@@ -190,8 +220,8 @@ async function handleReject() {
 }
 
 function codeLines() {
-  if (!store.currentDiagnosis) return []
-  return store.currentDiagnosis.codePreview.split("\n")
+  if (codeContent.value) return codeContent.value.split("\n")
+  return []
 }
 
 function isIssueLine(ln: number) {
@@ -254,7 +284,8 @@ onMounted(() => { initPage() })
           <!-- Code preview -->
           <div v-if="!currentSub" class="empty-hint">← 从左侧选择学生预览提交内容</div>
           <template v-else-if="isCodeSubmission">
-            <pre class="code-preview"><div
+            <div v-if="codeLoading" class="empty-hint">正在加载代码...</div>
+            <pre v-else class="code-preview"><div
               v-for="(line, i) in codeLines()"
               :key="i"
               :class="['code-line', { 'code-line--issue': isIssueLine(i) }]"

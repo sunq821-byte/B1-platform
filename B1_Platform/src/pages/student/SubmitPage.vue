@@ -184,8 +184,9 @@ async function handleSubmit() {
         headers: { "Content-Type": "multipart/form-data" },
       }) as { fileId: string }
       const res = await store.submitTask(taskId.value, {
-        submissionType: "ZIP_UPLOAD",
+        submissionType: "ONLINE_CODE",
         zipFileId: uploadRes.fileId,
+        onlineCode: codeContent.value,
         remark: remark.value || undefined,
       })
       submissionId = res.submissionId

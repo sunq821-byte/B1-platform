@@ -189,7 +189,7 @@ export const useTeacherStore = defineStore("teacher", () => {
       taskName: String(raw.taskName ?? ''),
       submittedAt: raw.submittedAt ? String(raw.submittedAt) : '',
       status: String(raw.status ?? 'SUBMITTED').toLowerCase(),
-      submissionType: submitType === 'GIT_URL' ? 'code' : 'file',
+      submissionType: (submitType === 'GIT_URL' || submitType === 'ONLINE_CODE') ? 'code' : 'file',
       submitType,
       submitCount: Number(raw.submitCount ?? 1),
       isLate: Number(raw.isLate ?? 0),

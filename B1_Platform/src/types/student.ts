@@ -104,10 +104,11 @@ export interface ITaskDetail {
 
 // ========== Submission ==========
 export interface ISubmitRequest {
-  submissionType: "GIT_URL" | "ZIP_UPLOAD"
+  submissionType: "GIT_URL" | "ZIP_UPLOAD" | "ONLINE_CODE"
   gitUrl?: string
   gitBranch?: string
   zipFileId?: string
+  onlineCode?: string
   remark?: string
 }
 
