@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from "vue"
+import { ref, computed, onMounted, onBeforeUnmount } from "vue"
 import { useRouter, useRoute } from "vue-router"
 import { ElMessage } from "element-plus"
 import { FileText, X } from "lucide-vue-next"
@@ -87,7 +87,14 @@ async function loadHistory() {
   }
 }
 
-onMounted(() => { initPage() })
+onMounted(() => {
+  initPage()
+  document.addEventListener("paste", handlePaste)
+})
+
+onBeforeUnmount(() => {
+  document.removeEventListener("paste", handlePaste)
+})
 
 // --- File handlers ---
 function onDragOver(e: DragEvent) { e.preventDefault(); isDragging.value = true }
@@ -111,6 +118,27 @@ function onFileInputChange(e: Event) {
 
 function handleFile(file: File) {
   selectedFile.value = file
+}
+
+// 文件上传方式下支持 Ctrl+V 粘贴截图/图片：从剪贴板取出图片，
+// 补一个带正确后缀的文件名（后端按扩展名校验类型），再复用 handleFile。
+function handlePaste(e: ClipboardEvent) {
+  if (currentMode.value !== "file") return
+  const items = e.clipboardData?.items
+  if (!items) return
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i]
+    if (item.kind === "file" && item.type.startsWith("image/")) {
+      const blob = item.getAsFile()
+      if (!blob) continue
+      const ext = (item.type.split("/")[1] || "png").toLowerCase()
+      const named = new File([blob], `pasted-${Date.now()}.${ext}`, { type: item.type })
+      handleFile(named)
+      ElMessage.success(`已粘贴图片：${named.name}`)
+      e.preventDefault()
+      return
+    }
+  }
 }
 
 function removeFile() {
@@ -307,7 +335,7 @@ function formatDate(dateStr: string) {
           >
             <div class="upload-zone__icon">&#x1F4C2;</div>
             <div class="upload-zone__text">点击或拖拽文件到此处</div>
-            <div class="upload-zone__hint">支持 .zip .doc .docx .pdf .png .jpg .gif  最大 50MB</div>
+            <div class="upload-zone__hint">支持 .zip .doc .docx .pdf .png .jpg .gif · 可 Ctrl+V 粘贴图片 · 最大 50MB</div>
             <div class="upload-zone__tags">
               <span class="upload-zone__tag">.zip</span>
               <span class="upload-zone__tag">.doc</span>
