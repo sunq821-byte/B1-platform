@@ -200,7 +200,10 @@ public class AiServiceImpl implements AiService {
 
                 AiRequest request;
                 if (provider.getProviderName().equals("QWEN")) {
-                    String imageUrl = fileService.getAccessUrl(file.getFileId());
+                    // 内联为 base64 data URI 传给通义千问视觉：DashScope 服务端会去"读取"
+                    // 图片，若传 MinIO 预签名 URL（本地/内网地址）其无法访问，会报
+                    // "The provided URL does not appear to be valid"。
+                    String imageUrl = fileService.getBase64DataUri(file.getFileId());
                     String userPrompt = promptBuilder.buildScreenshotReviewPrompt(taskDescription);
                     request = AiRequest.vision(systemPrompt, userPrompt, List.of(imageUrl));
                 } else {

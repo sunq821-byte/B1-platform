@@ -23,6 +23,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.InputStream;
 import java.time.LocalDateTime;
+import java.util.Base64;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
@@ -114,6 +115,24 @@ public class FileServiceImpl implements FileService {
     public String getAccessUrl(Long fileId) {
         FileStorage storage = getById(fileId);
         return generatePresignedUrl(storage.getBucket(), storage.getObjectKey());
+    }
+
+    @Override
+    public String getBase64DataUri(Long fileId) {
+        FileStorage storage = getById(fileId);
+        try (InputStream is = minioClient.getObject(
+                io.minio.GetObjectArgs.builder()
+                        .bucket(storage.getBucket())
+                        .object(storage.getObjectKey())
+                        .build())) {
+            byte[] bytes = is.readAllBytes();
+            String contentType = (storage.getContentType() != null && !storage.getContentType().isBlank())
+                    ? storage.getContentType() : "application/octet-stream";
+            return "data:" + contentType + ";base64," + Base64.getEncoder().encodeToString(bytes);
+        } catch (Exception e) {
+            log.error("生成图片 base64 data URI 失败: fileId={}", fileId, e);
+            throw new BusinessException(ErrorCode.FILE_NOT_FOUND);
+        }
     }
 
     @Override
