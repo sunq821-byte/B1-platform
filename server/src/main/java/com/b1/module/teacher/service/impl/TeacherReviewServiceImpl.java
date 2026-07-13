@@ -18,6 +18,7 @@ import com.b1.module.course.entity.CourseTeacher;
 import com.b1.module.course.mapper.CourseTeacherMapper;
 import com.b1.module.file.entity.FileStorage;
 import com.b1.module.file.mapper.FileStorageMapper;
+import com.b1.module.file.service.FileService;
 import com.b1.module.review.entity.TeacherReview;
 import com.b1.module.review.mapper.TeacherReviewMapper;
 import com.b1.module.score.entity.ScoreRecord;
@@ -52,6 +53,7 @@ public class TeacherReviewServiceImpl implements TeacherReviewService {
     private final SubmissionMapper submissionMapper;
     private final SubmissionFileMapper submissionFileMapper;
     private final FileStorageMapper fileStorageMapper;
+    private final FileService fileService;
     private final UserMapper userMapper;
     private final TeacherReviewMapper teacherReviewMapper;
     private final ScoreRecordMapper scoreRecordMapper;
@@ -191,7 +193,11 @@ public class TeacherReviewServiceImpl implements TeacherReviewService {
                 att.setFileType(sf.getFileType());
                 FileStorage fs = fileMap.get(sf.getFileId());
                 if (fs != null) {
-                    att.setDownloadUrl(fs.getAccessUrl());
+                    // Generate a fresh presigned URL at read time. The persisted
+                    // FileStorage.accessUrl is never populated on upload, and presigned
+                    // URLs expire, so it must be regenerated whenever a teacher opens
+                    // the submission (same pattern as AiServiceImpl).
+                    att.setDownloadUrl(fileService.getAccessUrl(sf.getFileId()));
                 }
                 attachments.add(att);
             }

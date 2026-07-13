@@ -90,7 +90,7 @@ async function selectSubmission(idx: number) {
     codeLoading.value = true
     try {
       const detail = await teacherApi.fetchSubmissionDetail(sub.submissionId) as unknown as {
-        attachments: Array<{ downloadUrl: string; fileName: string }>
+        attachments: Array<{ fileId: string; fileName: string; fileSize: number; fileType: string; downloadUrl: string }>
       }
       // Also update the store's attachments for this submission
       const idx2 = store.pendingSubmissions.findIndex((s) => s.submissionId === sub.submissionId)
