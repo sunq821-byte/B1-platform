@@ -109,7 +109,6 @@ services:
       context: ./B1_Platform
       dockerfile: Dockerfile
       args:
-        NODE_IMAGE: ${NODE_IMAGE:-loongarch64/node:20}
         NGINX_IMAGE: ${NGINX_IMAGE:-loongarch64/nginx}
     image: b1-frontend:loong64
     container_name: b1-frontend
