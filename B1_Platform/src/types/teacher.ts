@@ -210,8 +210,18 @@ export interface IDashboardPendingItem {
   status: string
 }
 
+export interface IUpcomingTaskItem {
+  taskId: string
+  taskName: string
+  courseName: string
+  deadline: string
+  unsubmittedCount: number
+  totalStudents: number
+}
+
 export interface IDashboardData {
   stats: IDashboardStats
   pendingReviews: IDashboardPendingItem[]
-  submitRateByClass: { classNames: string[]; values: number[] }
+  submitRateByClass: { classNames: string[]; values: number[]; avgScores: number[] }
+  upcomingTasks: IUpcomingTaskItem[]
 }

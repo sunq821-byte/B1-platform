@@ -15,6 +15,8 @@ public class TeacherDashboardVO {
 
     private SubmitRateVO submitRateByClass;
 
+    private List<UpcomingTaskVO> upcomingTasks;
+
     @Data
     public static class DashboardStatsVO {
         private Integer totalStudents;
@@ -37,5 +39,16 @@ public class TeacherDashboardVO {
     public static class SubmitRateVO {
         private List<String> classNames;
         private List<Integer> values;
+        private List<BigDecimal> avgScores;
+    }
+
+    @Data
+    public static class UpcomingTaskVO {
+        private Long taskId;
+        private String taskName;
+        private String courseName;
+        private LocalDateTime deadline;
+        private Integer unsubmittedCount;
+        private Integer totalStudents;
     }
 }

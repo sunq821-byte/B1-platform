@@ -25,6 +25,17 @@ export interface IDashboardData {
   recentActivities: IRecentActivity[]
 }
 
+// ========== Notification ==========
+export interface INotificationItem {
+  notificationId: string
+  title: string
+  content: string
+  type: string
+  relatedTaskId: string | null
+  isRead: number
+  sentAt: string
+}
+
 // ========== Course ==========
 export interface ICourseItem {
   courseId: string

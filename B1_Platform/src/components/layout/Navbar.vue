@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { useRouter, useRoute } from "vue-router"
 import { useUserStore } from "@/stores/useUserStore"
-import { Bell, LogOut, User, ChevronDown } from "lucide-vue-next"
+import { LogOut, User, ChevronDown } from "lucide-vue-next"
 import type { MenuItem } from "@/stores/usePermissionStore"
+import NotificationBell from "@/components/layout/NotificationBell.vue"
 
 defineProps<{
   menus: MenuItem[]
@@ -62,9 +63,7 @@ function getAvatarChar(name: string): string {
     </div>
 
     <div class="navbar__right">
-      <button class="navbar__icon-btn" title="消息通知">
-        <Bell :size="18" />
-      </button>
+      <NotificationBell />
 
       <el-dropdown trigger="click">
         <div class="navbar__user">
@@ -192,24 +191,6 @@ function getAvatarChar(name: string): string {
   gap: 8px;
   flex-shrink: 0;
   margin-left: auto;
-}
-
-.navbar__icon-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 34px;
-  height: 34px;
-  border: none;
-  border-radius: var(--radius-sm, 6px);
-  background: transparent;
-  color: var(--color-text-secondary, #64748b);
-  cursor: pointer;
-  transition: background var(--transition-fast, 150ms ease);
-}
-
-.navbar__icon-btn:hover {
-  background: var(--color-bg, #f8fafc);
 }
 
 .navbar__user {

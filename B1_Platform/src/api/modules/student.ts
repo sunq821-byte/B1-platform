@@ -17,6 +17,7 @@ import type {
   IEvaluationDetail,
   IStudentReportData,
   IGrowthData,
+  INotificationItem,
 } from "@/types/student"
 
 export function fetchDashboard(): Promise<IDashboardData> {
@@ -156,4 +157,27 @@ export function exportStudentReport(format: "xlsx" | "pdf"): Promise<void> {
 
 export function fetchGrowth(): Promise<IGrowthData> {
   return request.get("/api/v1/student/growth-profile") as Promise<IGrowthData>
+}
+
+// ========== Notifications ==========
+
+export function fetchNotifications(params: {
+  page: number
+  pageSize: number
+}): Promise<{ list: INotificationItem[]; page: number; pageSize: number; total: number; totalPages: number }> {
+  return request.get("/api/v1/student/notifications", { params }) as Promise<{
+    list: INotificationItem[]
+    page: number
+    pageSize: number
+    total: number
+    totalPages: number
+  }>
+}
+
+export function markNotificationRead(id: string): Promise<void> {
+  return request.put(`/api/v1/student/notifications/${id}/read`) as Promise<void>
+}
+
+export function markAllNotificationsRead(): Promise<void> {
+  return request.put("/api/v1/student/notifications/read-all") as Promise<void>
 }

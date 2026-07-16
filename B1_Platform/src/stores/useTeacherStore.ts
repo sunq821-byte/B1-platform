@@ -269,6 +269,10 @@ export const useTeacherStore = defineStore("teacher", () => {
     finally { dashboardLoading.value = false }
   }
 
+  async function remindTasks(taskIds: string[]): Promise<{ notifiedStudents: number; taskCount: number }> {
+    return teacherApi.remindTasks(taskIds)
+  }
+
   // === Reports ===
   async function fetchClassReport(className?: string): Promise<void> {
     classReportLoading.value = true
@@ -304,6 +308,7 @@ export const useTeacherStore = defineStore("teacher", () => {
     classReport, classReportLoading,
     collegeReport, collegeReportLoading,
     fetchDashboard,
+    remindTasks,
     fetchCourses, createCourse, updateCourse, deleteCourse,
     fetchTasks, createTask, updateTask, deleteTask, publishTask,
     fetchStudents, fetchStudentDetail,

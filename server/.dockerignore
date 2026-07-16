@@ -1,2 +1,5 @@
-*
-!target/b1-platform-1.0.0-SNAPSHOT.jar
+target/
+*.log
+.git/
+.idea/
+.vscode/

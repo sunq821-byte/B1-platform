@@ -79,6 +79,8 @@ services:
     build:
       context: ./server
       dockerfile: Dockerfile
+      args:
+        JDK_IMAGE: ${JDK_IMAGE:-loongarch64/openjdk:21}
     image: b1-backend:loong64
     container_name: b1-backend
     depends_on:
@@ -106,6 +108,9 @@ services:
     build:
       context: ./B1_Platform
       dockerfile: Dockerfile
+      args:
+        NODE_IMAGE: ${NODE_IMAGE:-loongarch64/node:20}
+        NGINX_IMAGE: ${NGINX_IMAGE:-loongarch64/nginx}
     image: b1-frontend:loong64
     container_name: b1-frontend
     depends_on:

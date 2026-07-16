@@ -4,10 +4,7 @@ import { useRouter } from "vue-router"
 import { useTeacherStore } from "@/stores/useTeacherStore"
 import { useUserStore } from "@/stores/useUserStore"
 import { ElMessage } from "element-plus"
-import {
-  BookOpen, PlayCircle, Inbox, Star, Plus, Sliders,
-  Download, Send, University,
-} from "lucide-vue-next"
+import { BookOpen, PlayCircle, Inbox, Star, Plus } from "lucide-vue-next"
 import PageHeader from "@/components/layout/PageHeader.vue"
 import BarChart from "@/components/chart/BarChart.vue"
 import BaseButton from "@/components/base/BaseButton.vue"
@@ -16,45 +13,56 @@ const store = useTeacherStore()
 const userStore = useUserStore()
 const router = useRouter()
 
-const checkedTodos = ref<Set<string>>(new Set())
+const checkedTasks = ref<Set<string>>(new Set())
 const selectAll = ref(false)
+const notifying = ref(false)
 
 const today = computed(() => {
   const d = new Date()
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
 })
 
-function toggleAllTodos() {
-  if (selectAll.value) {
-    const ids = store.dashboardData?.pendingReviews.map((p) => p.submissionId) ?? []
-    checkedTodos.value = new Set(ids)
-  } else {
-    checkedTodos.value = new Set()
-  }
+const upcomingTasks = computed(() => store.dashboardData?.upcomingTasks ?? [])
+
+function toggleAllTasks() {
+  checkedTasks.value = selectAll.value
+    ? new Set(upcomingTasks.value.map((t) => t.taskId))
+    : new Set()
 }
 
-function toggleTodo(id: string) {
-  const next = new Set(checkedTodos.value)
+function toggleTask(id: string) {
+  const next = new Set(checkedTasks.value)
   if (next.has(id)) next.delete(id)
   else next.add(id)
-  checkedTodos.value = next
-  selectAll.value = store.dashboardData
-    ? next.size === store.dashboardData.pendingReviews.length
-    : false
+  checkedTasks.value = next
+  selectAll.value = upcomingTasks.value.length > 0
+    && next.size === upcomingTasks.value.length
 }
 
-const hasChecked = computed(() => checkedTodos.value.size > 0)
+const hasChecked = computed(() => checkedTasks.value.size > 0)
 
-function batchProcess() {
-  ElMessage.success(`已标记 ${checkedTodos.value.size} 项为已处理`)
-  checkedTodos.value = new Set()
-  selectAll.value = false
+function formatDeadline(dt: string): string {
+  if (!dt) return "—"
+  return dt.replace("T", " ").substring(0, 16)
 }
 
-function batchNotify() {
-  ElMessage.success(`已向 ${checkedTodos.value.size} 名学生发送催交通知`)
-  checkedTodos.value = new Set()
-  selectAll.value = false
+async function batchNotify() {
+  if (checkedTasks.value.size === 0) return
+  notifying.value = true
+  try {
+    const res = await store.remindTasks([...checkedTasks.value])
+    if (res.notifiedStudents > 0) {
+      ElMessage.success(`已向未提交学生发送 ${res.notifiedStudents} 条催交通知`)
+    } else {
+      ElMessage.info("所选任务的学生均已提交，无需催交")
+    }
+    checkedTasks.value = new Set()
+    selectAll.value = false
+  } catch (e: unknown) {
+    ElMessage.error((e as Error)?.message || "催交失败")
+  } finally {
+    notifying.value = false
+  }
 }
 
 function goTo(path: string) {
@@ -125,85 +133,69 @@ onMounted(() => {
         </div>
       </div>
 
-      <!-- 3-col Content -->
-      <div class="content-grid content-grid--3 mt-24">
-        <!-- Todo List -->
+      <!-- 2-col Content -->
+      <div class="dash-grid mt-24">
+        <!-- Upcoming deadline tasks -->
         <div class="card">
           <div class="card__header">
-            <h3 class="card__title">待办事项</h3>
-            <label class="select-all">
+            <h3 class="card__title">快截止实训任务</h3>
+            <label v-if="upcomingTasks.length" class="select-all">
               <input
                 v-model="selectAll"
                 type="checkbox"
                 class="select-all__cb"
-                @change="toggleAllTodos"
+                @change="toggleAllTasks"
               />
               <span>全选</span>
             </label>
           </div>
-          <div class="todo-list">
+          <div class="task-list">
             <div
-              v-for="item in store.dashboardData.pendingReviews"
-              :key="item.submissionId"
-              class="todo-item"
-              :class="{
-                'todo-item--urgent': item.status === 'submitted',
-                'todo-item--warn': item.status === 'reviewing',
-              }"
+              v-for="item in upcomingTasks"
+              :key="item.taskId"
+              class="task-item"
+              :class="{ 'task-item--urgent': item.unsubmittedCount > 0 }"
             >
               <input
                 type="checkbox"
-                class="todo-item__cb"
-                :checked="checkedTodos.has(item.submissionId)"
-                @change="toggleTodo(item.submissionId)"
+                class="task-item__cb"
+                :checked="checkedTasks.has(item.taskId)"
+                @change="toggleTask(item.taskId)"
               />
-              <div class="todo-item__body">
-                <div class="todo-item__title">{{ item.studentName }} - {{ item.taskName }}</div>
-                <div class="todo-item__meta">{{ item.submittedAt.substring(0, 10) }}</div>
+              <div class="task-item__body">
+                <div class="task-item__title">{{ item.taskName }}</div>
+                <div class="task-item__meta">
+                  <span>{{ item.courseName }}</span>
+                  <span class="task-item__due">截止 {{ formatDeadline(item.deadline) }}</span>
+                </div>
               </div>
-              <button class="todo-item__action" @click="goTo('/teacher/submissions')">处理</button>
+              <span
+                class="task-item__badge"
+                :class="item.unsubmittedCount > 0 ? 'badge--danger' : 'badge--ok'"
+              >未提交 {{ item.unsubmittedCount }} 人</span>
             </div>
-            <div v-if="store.dashboardData.pendingReviews.length === 0" class="todo-empty">
-              暂无待办事项
+            <div v-if="upcomingTasks.length === 0" class="todo-empty">
+              近 7 天暂无临近截止的任务
             </div>
           </div>
           <div v-if="hasChecked" class="batch-actions">
-            <BaseButton size="small" type="primary" @click="batchNotify">批量发送催交</BaseButton>
-            <BaseButton size="small" @click="batchProcess">标记已处理</BaseButton>
+            <BaseButton size="small" type="primary" :loading="notifying" @click="batchNotify">
+              批量催交（{{ checkedTasks.size }}）
+            </BaseButton>
           </div>
         </div>
 
-        <!-- Grade Distribution Chart -->
+        <!-- Submission rate + average score chart -->
         <div class="chart-wrap lg">
           <BarChart
             title="班级提交率分布"
             :x-axis="store.dashboardData.submitRateByClass.classNames"
-            :series-data="[{ name: '提交率(%)', data: store.dashboardData.submitRateByClass.values }]"
+            :series-data="[
+              { name: '提交率(%)', data: store.dashboardData.submitRateByClass.values },
+              { name: '平均成绩', data: store.dashboardData.submitRateByClass.avgScores, color: '#10B981' },
+            ]"
             height="320px"
           />
-        </div>
-
-        <!-- Quick Actions -->
-        <div class="card">
-          <h3 class="card__title mb-12">快速入口</h3>
-          <div class="quick-actions">
-            <button class="quick-btn quick-btn--brand" @click="goTo('/teacher/tasks')">
-              <Sliders :size="16" />
-              新建实训任务
-            </button>
-            <button class="quick-btn" @click="goTo('/teacher/reports')">
-              <Download :size="16" />
-              导出班级报表
-            </button>
-            <button class="quick-btn" @click="batchNotify()">
-              <Send :size="16" />
-              批量发送催交通知
-            </button>
-            <button class="quick-btn" @click="goTo('/teacher/reports/college')">
-              <University :size="16" />
-              查看全院对比视图
-            </button>
-          </div>
         </div>
       </div>
     </template>
@@ -293,43 +285,54 @@ onMounted(() => {
   height: 14px;
 }
 
-/* Todo List */
-.todo-list {
+/* Task List */
+.task-list {
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
-.todo-item {
+.task-item {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 10px;
   padding: 10px;
   border-radius: 8px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--color-border, #e2e8f0);
 }
-.todo-item--urgent { background: #fef2f2; border-color: #fecaca; }
-.todo-item--warn { background: #fffbeb; border-color: #fde68a; }
-
-.todo-item__cb {
+.task-item--urgent { background: #fef2f2; border-color: #fecaca; }
+.task-item__cb {
   accent-color: var(--color-primary, #3B82F6);
   width: 16px;
   height: 16px;
-  margin-top: 2px;
   flex-shrink: 0;
 }
-.todo-item__body { flex: 1; min-width: 0; }
-.todo-item__title { font-size: 12px; font-weight: 500; color: var(--color-text-primary, #1e293b); }
-.todo-item__meta { font-size: 11px; color: var(--color-text-placeholder, #94a3b8); margin-top: 2px; }
-.todo-item__action {
-  flex-shrink: 0;
-  font-size: 12px;
-  color: var(--color-primary, #3B82F6);
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 0;
+.task-item__body { flex: 1; min-width: 0; }
+.task-item__title {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-primary, #1e293b);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.todo-item__action:hover { text-decoration: underline; }
+.task-item__meta {
+  display: flex;
+  gap: 10px;
+  margin-top: 3px;
+  font-size: 11px;
+  color: var(--color-text-placeholder, #94a3b8);
+}
+.task-item__due { font-family: var(--font-mono, monospace); }
+.task-item__badge {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 100px;
+  white-space: nowrap;
+}
+.badge--danger { background: #fef2f2; color: var(--color-danger, #EF4444); }
+.badge--ok { background: #ecfdf5; color: #047857; }
 .todo-empty {
   text-align: center;
   padding: 24px 0;
@@ -346,42 +349,15 @@ onMounted(() => {
   border-top: 1px solid var(--color-border, #e2e8f0);
 }
 
-/* Quick Actions */
-.quick-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.quick-btn {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  padding: 10px 12px;
-  border-radius: 8px;
-  border: 1px solid var(--color-border, #e2e8f0);
-  background: var(--color-card, #fff);
-  color: var(--color-text-primary, #1e293b);
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 150ms;
-}
-.quick-btn:hover { background: #f8fafc; }
-.quick-btn--brand {
-  border-color: #bfdbfe;
-  background: #eff6ff;
-  color: var(--color-primary, #3B82F6);
-}
-.quick-btn--brand:hover { background: #dbeafe; }
-
-/* 3-col grid */
-.content-grid--3 {
-  grid-template-columns: 1fr 1fr 1fr;
+/* Dashboard 2-col grid */
+.dash-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr);
+  gap: 16px;
 }
 
-@media (max-width: 1366px) {
-  .content-grid--3 {
+@media (max-width: 992px) {
+  .dash-grid {
     grid-template-columns: 1fr;
   }
 }

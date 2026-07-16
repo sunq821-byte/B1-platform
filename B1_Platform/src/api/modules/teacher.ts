@@ -117,6 +117,10 @@ export function fetchDashboard(): Promise<IDashboardData> {
   return request.get("/api/v1/teacher/dashboard") as Promise<IDashboardData>
 }
 
+export function remindTasks(taskIds: string[]): Promise<{ notifiedStudents: number; taskCount: number }> {
+  return request.post("/api/v1/teacher/tasks/remind", { taskIds }) as Promise<{ notifiedStudents: number; taskCount: number }>
+}
+
 // ========== Reports ==========
 
 export function fetchClassReport(params?: {
