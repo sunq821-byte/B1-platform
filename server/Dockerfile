@@ -1,4 +1,4 @@
-ARG JDK_IMAGE=loongarch64/openjdk:21
+ARG JDK_IMAGE=lcr.loongnix.cn/library/openjdk:21
 FROM ${JDK_IMAGE}
 
 WORKDIR /app

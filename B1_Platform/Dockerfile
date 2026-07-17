@@ -1,4 +1,4 @@
-ARG NGINX_IMAGE=loongarch64/nginx
+ARG NGINX_IMAGE=lcr.loongnix.cn/library/nginx:latest
 FROM ${NGINX_IMAGE}
 
 RUN rm -f /etc/nginx/conf.d/default.conf
