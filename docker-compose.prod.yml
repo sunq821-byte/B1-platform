@@ -82,7 +82,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      - minio
+      minio:
+        condition: service_started
     environment:
       SPRING_PROFILES_ACTIVE: docker
       DB_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
