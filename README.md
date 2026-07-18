@@ -79,6 +79,19 @@ npm run dev
 
 前端开发服务器：http://localhost:3000
 
+## 种子账号
+
+首次启动时 Flyway 自动灌入测试数据，包含以下账号：
+
+| 用户名 | 密码 | 真实姓名 | 角色 |
+|---|---|---|---|
+| `admin` | `admin123` | 系统管理员 | 管理员 |
+| `teacher1` | `123456` | 张教授 | 教师 |
+| `student1` | `123456` | 李明 | 学生 |
+| `student2` | `123456` | 王芳 | 学生 |
+
+> 若需新增/修改账号，编辑 `server/src/main/resources/db/migration/V4__test_accounts.sql` 后重新启动即可。
+
 ## 开发说明
 
 - 数据库迁移使用 Flyway，新建迁移文件放在 `server/src/main/resources/db/migration/`，命名格式 `V{序号}__{描述}.sql`
