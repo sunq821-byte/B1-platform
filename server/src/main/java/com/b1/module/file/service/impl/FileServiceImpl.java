@@ -75,7 +75,7 @@ public class FileServiceImpl implements FileService {
             storage.setFileMd5(md5);
             fileStorageMapper.insert(storage);
 
-            String accessUrl = generatePresignedUrl(bucket, objectKey);
+            String accessUrl = "/api/v1/files/" + storage.getId() + "/download";
 
             FileUploadVO vo = new FileUploadVO();
             vo.setFileId(storage.getId());
@@ -114,7 +114,7 @@ public class FileServiceImpl implements FileService {
     @Override
     public String getAccessUrl(Long fileId) {
         FileStorage storage = getById(fileId);
-        return generatePresignedUrl(storage.getBucket(), storage.getObjectKey());
+        return "/api/v1/files/" + fileId + "/download";
     }
 
     @Override
