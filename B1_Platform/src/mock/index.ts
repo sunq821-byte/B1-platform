@@ -1,28 +1,15 @@
 ﻿/**
- * Mock 数据基础设施
+ * Mock 基础设施（默认关闭，见 .env.development 中 VITE_USE_MOCK）
+ * 需要本地 Mock 时设为 true，并在 modules/ 下补充接口实现。
  */
 import Mock from "mockjs"
 import { APP_CONFIG } from "@/config/app"
-import setupAuthMock from "./modules/auth"
-import setupStudentMock from "./modules/student"
-import setupUserMock from "./modules/user"
-import setupFileMock from "./modules/file"
-import setupTeacherMock from "./modules/teacher"
-import setupAdminMock from "./modules/admin"
-
-Mock.setup({ timeout: "200-400" })
 
 export async function setupMock(): Promise<void> {
   if (!APP_CONFIG.useMock) return
 
-  setupAuthMock(Mock)
-  setupStudentMock(Mock)
-  setupUserMock(Mock)
-  setupFileMock(Mock)
-  setupTeacherMock(Mock)
-  setupAdminMock(Mock)
-
-  console.log("[Mock] Mock data initialized (auth + student + teacher + user + file + admin)")
+  Mock.setup({ timeout: "200-400" })
+  console.warn("[Mock] VITE_USE_MOCK=true 但未配置 Mock 数据，请求将走真实后端")
 }
 
 export default Mock
