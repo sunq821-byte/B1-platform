@@ -10,7 +10,7 @@ const props = withDefaults(defineProps<{
   loading?: boolean
   suffix?: string
 }>(), {
-  iconColor: "#3B82F6",
+  iconColor: "#1677FF",
   loading: false,
 })
 

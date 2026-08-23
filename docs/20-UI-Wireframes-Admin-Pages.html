@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>B1 Admin · 管理页线框（用户/班级/监控/日志/配置）</title>
+  <style>
+    :root {
+      --bg: #F5F7FA;
+      --card: #fff;
+      --line: #E5E7EB;
+      --ink: #1F2937;
+      --muted: #6B7280;
+      --navy: #0B3A5C;
+      --blue: #1677FF;
+      --green: #00B96B;
+      --amber: #FAAD14;
+      --red: #FF4D4F;
+      --ai: #722ED1;
+      --mono: "JetBrains Mono", "SF Mono", ui-monospace, monospace;
+      --sans: Inter, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: var(--sans);
+      background: var(--bg);
+      color: var(--ink);
+      line-height: 1.5;
+    }
+    .wrap { max-width: 1180px; margin: 0 auto; padding: 28px 28px 80px; }
+    .note {
+      margin-bottom: 24px;
+      padding: 14px 16px;
+      border: 1px dashed #91CAFF;
+      background: #E6F4FF;
+      border-radius: 12px;
+      font-size: 13px;
+      color: #0958D9;
+    }
+    .note b { color: var(--navy); }
+    .toc {
+      display: flex; flex-wrap: wrap; gap: 8px;
+      margin-bottom: 32px;
+    }
+    .toc a {
+      text-decoration: none;
+      font-size: 12px;
+      font-weight: 650;
+      padding: 8px 12px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: #fff;
+      color: var(--navy);
+    }
+    .toc a:hover { border-color: var(--blue); color: var(--blue); }
+    .page-block { margin-bottom: 56px; }
+    .eyebrow {
+      margin: 0 0 6px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    h1 {
+      margin: 0 0 8px;
+      font-size: 26px;
+      color: var(--navy);
+      letter-spacing: -0.03em;
+    }
+    .sub {
+      margin: 0 0 18px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 18px;
+      box-shadow: 0 1px 2px rgba(15,23,42,.04), 0 8px 24px rgba(15,23,42,.04);
+    }
+    .ph {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+    .ph h2 {
+      margin: 0;
+      font-size: 22px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      color: var(--navy);
+    }
+    .ph p { margin: 6px 0 0; font-size: 13px; color: var(--muted); }
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    .toolbar .spacer { flex: 1; }
+    .ctrl {
+      height: 36px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 0 12px;
+      background: #fff;
+      font-size: 13px;
+      color: var(--ink);
+      display: inline-flex;
+      align-items: center;
+    }
+    .ctrl.search { width: 220px; color: var(--muted); }
+    .btn {
+      height: 36px;
+      border-radius: 10px;
+      padding: 0 14px;
+      font-size: 13px;
+      font-weight: 700;
+      border: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      cursor: default;
+    }
+    .btn-primary { background: var(--blue); color: #fff; }
+    .btn-outline {
+      background: #fff;
+      color: var(--ink);
+      border: 1px solid var(--line);
+    }
+    .btn-ghost { background: transparent; color: var(--blue); font-weight: 650; }
+    .btn-danger { background: transparent; color: var(--red); font-weight: 650; }
+    .hint {
+      font-size: 11px;
+      color: var(--muted);
+      margin-left: 4px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    th, td {
+      padding: 12px 10px;
+      border-bottom: 1px solid #F1F5F9;
+      text-align: left;
+      vertical-align: middle;
+    }
+    th {
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 700;
+      background: #F8FAFC;
+    }
+    tr:last-child td { border-bottom: 0; }
+    .mono { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+    .badge {
+      display: inline-flex;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 999px;
+    }
+    .ok { background: #E6F7EF; color: #009A57; }
+    .warn { background: #FFF7E6; color: #D48806; }
+    .info { background: #E6F4FF; color: #1677FF; }
+    .danger { background: #FFF1F0; color: #FF4D4F; }
+    .muted-b { background: #F3F4F6; color: #6B7280; }
+    .ops { display: flex; gap: 10px; }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .stat {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 14px;
+      background: #fff;
+    }
+    .stat-label { font-size: 12px; color: var(--muted); }
+    .stat-val {
+      margin-top: 8px;
+      font-family: var(--mono);
+      font-size: 26px;
+      font-weight: 750;
+      letter-spacing: -0.04em;
+    }
+    .bar {
+      margin-top: 10px;
+      height: 6px;
+      border-radius: 999px;
+      background: #E5E7EB;
+      overflow: hidden;
+    }
+    .bar i { display: block; height: 100%; border-radius: 999px; }
+    .grid2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+    .card-title {
+      font-size: 15px;
+      font-weight: 800;
+      margin: 0 0 14px;
+    }
+    .field { margin-bottom: 14px; }
+    .field label {
+      display: block;
+      font-size: 12px;
+      font-weight: 650;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+    .field .box {
+      height: 36px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #F8FAFC;
+      padding: 0 12px;
+      display: flex;
+      align-items: center;
+      font-size: 13px;
+      color: var(--ink);
+    }
+    .field .box.disabled { color: var(--muted); }
+    .check {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      margin-bottom: 12px;
+    }
+    .check .sq {
+      width: 16px; height: 16px;
+      border-radius: 4px;
+      border: 1px solid var(--line);
+      background: #E6F4FF;
+    }
+    .check.danger { color: var(--red); font-weight: 650; }
+    .rules {
+      margin-top: 14px;
+      padding: 12px 14px;
+      background: #F8FAFC;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .rules li { margin: 4px 0; }
+    .modal-demo {
+      margin-top: 16px;
+      border: 1px dashed #BAE0FF;
+      border-radius: 14px;
+      padding: 14px;
+      background: #F8FAFC;
+    }
+    .modal-demo h4 { margin: 0 0 10px; font-size: 14px; color: var(--navy); }
+    @media (max-width: 900px) {
+      .stats, .grid2 { grid-template-columns: 1fr 1fr; }
+    }
+    @media (max-width: 640px) {
+      .stats, .grid2 { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="note">
+      <b>Batch 1 线框 · 管理员业务页。</b>
+      系统总览见 <code>docs/19-UI-Wireframes-Admin-Overview.html</code>（已实现，本文件不重复）。
+      原则：<b>界面即文档</b>——只画可落地控件；未开放能力标注「后续版本」。
+      Campus Blue 浅色体系；顶栏导航不在此线框重复绘制。
+    </div>
+
+    <div class="toc">
+      <a href="#users">用户管理</a>
+      <a href="#classes">班级管理</a>
+      <a href="#monitor">运行监控</a>
+      <a href="#logs">操作日志</a>
+      <a href="#system">系统配置</a>
+      <a href="#overview-ref">系统总览（引用）</a>
+    </div>
+
+    <!-- ========== USERS ========== -->
+    <section class="page-block" id="users">
+      <p class="eyebrow">Admin · 02</p>
+      <h1>用户管理</h1>
+      <p class="sub">手册：新建 / 编辑 / 角色分配 / 状态启停。删除不做入口（关联数据风险）。批量导入预留。</p>
+
+      <div class="card">
+        <div class="ph">
+          <div>
+            <h2>用户管理</h2>
+            <p>共 128 个用户 · 角色权限在此页分配</p>
+          </div>
+        </div>
+
+        <div class="toolbar">
+          <span class="ctrl">全部角色 ▾</span>
+          <span class="ctrl search">搜索姓名 / 学号…</span>
+          <span class="btn btn-outline">批量导入 <span class="hint">后续版本</span></span>
+          <span class="spacer"></span>
+          <span class="btn btn-primary">+ 新建用户</span>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>用户 ID</th>
+              <th>姓名</th>
+              <th>角色</th>
+              <th>班级 / 部门</th>
+              <th>邮箱</th>
+              <th>状态</th>
+              <th>创建时间</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="mono">2024001</td>
+              <td>张三</td>
+              <td><span class="badge ok">学生</span></td>
+              <td>软件 2401</td>
+              <td class="mono">zhang@edu.cn</td>
+              <td><span class="badge ok">启用</span></td>
+              <td class="mono">2026-02-01</td>
+              <td class="ops"><span class="btn-ghost">编辑</span><span class="btn-danger">禁用</span></td>
+            </tr>
+            <tr>
+              <td class="mono">T1001</td>
+              <td>李四</td>
+              <td><span class="badge info">教师</span></td>
+              <td>软件学院</td>
+              <td class="mono">li@edu.cn</td>
+              <td><span class="badge ok">启用</span></td>
+              <td class="mono">2025-09-01</td>
+              <td class="ops"><span class="btn-ghost">编辑</span><span class="btn-danger">禁用</span></td>
+            </tr>
+            <tr>
+              <td class="mono">A001</td>
+              <td>王管理</td>
+              <td><span class="badge warn">管理员</span></td>
+              <td>信息中心</td>
+              <td class="mono">admin@edu.cn</td>
+              <td><span class="badge ok">启用</span></td>
+              <td class="mono">2025-08-01</td>
+              <td class="ops"><span class="btn-ghost">编辑</span><span class="btn-danger">禁用</span></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="modal-demo">
+          <h4>弹窗 · 新建 / 编辑用户（所见字段）</h4>
+          <div class="grid2" style="margin:0;">
+            <div class="field"><label>姓名 *</label><div class="box">张三</div></div>
+            <div class="field"><label>角色 *</label><div class="box">学生 ▾</div></div>
+            <div class="field"><label>班级 / 部门</label><div class="box">软件 2401</div></div>
+            <div class="field"><label>邮箱</label><div class="box">zhang@edu.cn</div></div>
+            <div class="field"><label>状态</label><div class="box">启用 ▾</div></div>
+          </div>
+          <div class="toolbar" style="margin:8px 0 0;">
+            <span class="spacer"></span>
+            <span class="btn btn-outline">取消</span>
+            <span class="btn btn-primary">保存</span>
+          </div>
+        </div>
+
+        <ul class="rules">
+          <li>无「删除」按钮；停用 = 禁用状态。</li>
+          <li>「批量导入」可点但仅提示后续开放，不作主 CTA。</li>
+          <li>角色说明合入本页副标题，不另开权限矩阵页。</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ========== CLASSES ========== -->
+    <section class="page-block" id="classes">
+      <p class="eyebrow">Admin · 03</p>
+      <h1>班级管理</h1>
+      <p class="sub">手册：创建 / 编辑 / 删除；班主任与学生人数维护。</p>
+
+      <div class="card">
+        <div class="ph">
+          <div>
+            <h2>班级管理</h2>
+            <p>共 12 个班级 · 组织教学单元</p>
+          </div>
+        </div>
+
+        <div class="toolbar">
+          <span class="ctrl search">搜索班级 / 班主任…</span>
+          <span class="spacer"></span>
+          <span class="btn btn-primary">+ 新建班级</span>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>班级编号</th>
+              <th>班级名称</th>
+              <th>学生人数</th>
+              <th>班主任</th>
+              <th>创建时间</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="mono">CLS-01</td>
+              <td>软件 2401</td>
+              <td class="mono">42</td>
+              <td>李四</td>
+              <td class="mono">2025-09-01</td>
+              <td class="ops"><span class="btn-ghost">编辑</span><span class="btn-danger">删除</span></td>
+            </tr>
+            <tr>
+              <td class="mono">CLS-02</td>
+              <td>软件 2402</td>
+              <td class="mono">40</td>
+              <td>李四</td>
+              <td class="mono">2025-09-01</td>
+              <td class="ops"><span class="btn-ghost">编辑</span><span class="btn-danger">删除</span></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="modal-demo">
+          <h4>弹窗 · 新建 / 编辑班级</h4>
+          <div class="field"><label>班级名称 *</label><div class="box">软件 2401</div></div>
+          <div class="field"><label>班主任</label><div class="box">李四</div></div>
+          <div class="toolbar" style="margin:0;">
+            <span class="spacer"></span>
+            <span class="btn btn-outline">取消</span>
+            <span class="btn btn-primary">保存</span>
+          </div>
+        </div>
+
+        <ul class="rules">
+          <li>必须有搜索；禁止「只有新建」的空筛选条。</li>
+          <li>删除需二次确认；学生人数只读，由账号关联统计。</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ========== MONITOR ========== -->
+    <section class="page-block" id="monitor">
+      <p class="eyebrow">Admin · 04</p>
+      <h1>运行监控</h1>
+      <p class="sub">手册：CPU / 内存 / 磁盘 / 运行时间 + 依赖服务健康。</p>
+
+      <div class="card">
+        <div class="ph">
+          <div>
+            <h2>运行监控</h2>
+            <p>服务健康状态与资源使用情况</p>
+          </div>
+        </div>
+
+        <div class="stats">
+          <div class="stat">
+            <div class="stat-label">CPU 使用率</div>
+            <div class="stat-val">36%</div>
+            <div class="bar"><i style="width:36%;background:var(--blue)"></i></div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">内存使用率</div>
+            <div class="stat-val">62%</div>
+            <div class="bar"><i style="width:62%;background:var(--amber)"></i></div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">磁盘使用率</div>
+            <div class="stat-val">48%</div>
+            <div class="bar"><i style="width:48%;background:var(--green)"></i></div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">系统运行时间</div>
+            <div class="stat-val" style="font-size:18px;margin-top:14px;">12d 4h</div>
+            <div style="margin-top:8px;font-size:11px;color:var(--muted);">自上次重启</div>
+          </div>
+        </div>
+
+        <h3 style="margin:0 0 10px;font-size:15px;">服务状态</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>服务名称</th>
+              <th>状态</th>
+              <th>详情</th>
+              <th>延迟</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>AI 分析服务</td>
+              <td><span class="badge ok">运行中</span></td>
+              <td class="mono">队列空闲</td>
+              <td class="mono">320 ms</td>
+            </tr>
+            <tr>
+              <td>数据库服务</td>
+              <td><span class="badge ok">运行中</span></td>
+              <td class="mono">主库可用</td>
+              <td class="mono">12 ms</td>
+            </tr>
+            <tr>
+              <td>缓存服务</td>
+              <td><span class="badge warn">降级</span></td>
+              <td class="mono">命中率偏低</td>
+              <td class="mono">3 ms</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <ul class="rules">
+          <li>接口无详情/延迟时不造假列，仅展示名称+状态。</li>
+          <li>阈值 ≥85% 用危险色，≥70% 用警告色。</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ========== LOGS ========== -->
+    <section class="page-block" id="logs">
+      <p class="eyebrow">Admin · 05</p>
+      <h1>操作日志</h1>
+      <p class="sub">手册：按类型筛选；展示时间、用户、操作、IP、结果。</p>
+
+      <div class="card">
+        <div class="ph">
+          <div>
+            <h2>操作日志</h2>
+            <p>系统关键操作审计 · 可按类型筛选</p>
+          </div>
+        </div>
+
+        <div class="toolbar">
+          <span class="ctrl">全部类型 ▾</span>
+          <span class="ctrl search">搜索操作 / 用户…</span>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>时间</th>
+              <th>用户</th>
+              <th>操作</th>
+              <th>IP</th>
+              <th>结果</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="mono">2026-08-03 17:40</td>
+              <td>系统</td>
+              <td>AI 分析超时<br /><span class="mono">提交 sub-005 超过 60s</span></td>
+              <td class="mono">127.0.0.1</td>
+              <td><span class="badge warn">告警</span></td>
+            </tr>
+            <tr>
+              <td class="mono">2026-08-03 17:10</td>
+              <td>王管理</td>
+              <td>修改系统配置<br /><span class="mono">更新学期结束日期</span></td>
+              <td class="mono">10.0.0.8</td>
+              <td><span class="badge ok">成功</span></td>
+            </tr>
+            <tr>
+              <td class="mono">2026-08-03 16:02</td>
+              <td>王五</td>
+              <td>文件上传失败<br /><span class="mono">超出大小限制</span></td>
+              <td class="mono">10.0.2.41</td>
+              <td><span class="badge danger">失败</span></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <ul class="rules">
+          <li>类型：全部 / 信息 / 警告 / 错误 / 成功。</li>
+          <li>关键词筛选为前端过滤即可；不做复杂审计系统。</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ========== SYSTEM ========== -->
+    <section class="page-block" id="system">
+      <p class="eyebrow">Admin · 06</p>
+      <h1>系统配置</h1>
+      <p class="sub">手册：系统名称、学期与起止、上传限制、AI 自动分析、通知、维护模式。</p>
+
+      <div class="card">
+        <div class="ph">
+          <div>
+            <h2>系统配置</h2>
+            <p>管理平台全局参数</p>
+          </div>
+        </div>
+
+        <div class="grid2">
+          <div class="card" style="box-shadow:none;">
+            <div class="card-title">基本设置</div>
+            <div class="field"><label>系统名称</label><div class="box">B1 实训评价平台</div></div>
+            <div class="field"><label>当前学期</label><div class="box">2025-2026-2</div></div>
+            <div class="field"><label>学期开始</label><div class="box">2026-02-24</div></div>
+            <div class="field"><label>学期结束</label><div class="box">2026-07-10</div></div>
+            <div class="field"><label>最大上传大小 (MB)</label><div class="box">50</div></div>
+          </div>
+          <div class="card" style="box-shadow:none;">
+            <div class="card-title">AI 与运行开关</div>
+            <div class="field"><label>AI 模型版本</label><div class="box disabled">v2.1.0（只读）</div></div>
+            <div class="check"><span class="sq"></span>提交后自动 AI 分析</div>
+            <div class="check"><span class="sq"></span>启用系统通知</div>
+            <div class="check danger"><span class="sq"></span>维护模式</div>
+            <div class="toolbar" style="margin-top:18px;">
+              <span class="btn btn-primary">保存配置</span>
+            </div>
+          </div>
+        </div>
+
+        <h3 style="margin:8px 0 10px;font-size:15px;">学期记录（只读）</h3>
+        <table>
+          <thead>
+            <tr><th>学期</th><th>开始日期</th><th>结束日期</th><th>状态</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>2025-2026-2</td>
+              <td class="mono">2026-02-24</td>
+              <td class="mono">2026-07-10</td>
+              <td><span class="badge ok">当前</span></td>
+            </tr>
+            <tr>
+              <td>2025-2026-1</td>
+              <td class="mono">2025-09-01</td>
+              <td class="mono">2026-01-17</td>
+              <td><span class="badge muted-b">已归档</span></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <ul class="rules">
+          <li><b>禁止</b>「+ 新建学期」空壳按钮。</li>
+          <li>全页仅一处「保存配置」；维护模式文案用危险色。</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ========== OVERVIEW REF ========== -->
+    <section class="page-block" id="overview-ref">
+      <p class="eyebrow">Admin · 01</p>
+      <h1>系统总览（引用）</h1>
+      <p class="sub">布局以 <code>docs/19-UI-Wireframes-Admin-Overview.html</code> 为准，Vue 已按该线框落地。本批实现时只做字段验收与小修，不重做结构。</p>
+      <div class="card">
+        <ul class="rules" style="margin:0;">
+          <li>上：Welcome + 四进度胶囊 + 三 KPI</li>
+          <li>中：运行摘要 | 活跃趋势 | 优先处理</li>
+          <li>下：运维事件 | 角色构成 | 运维快捷台（无 AI 对话壳）</li>
+        </ul>
+      </div>
+    </section>
+  </div>
+</body>
+</html>

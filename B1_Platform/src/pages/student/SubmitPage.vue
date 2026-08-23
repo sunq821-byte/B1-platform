@@ -25,6 +25,24 @@ const submitting = ref(false)
 // --- Mode ---
 type SubmitMode = "file" | "code" | "git"
 const currentMode = ref<SubmitMode>("file")
+const allowedModes = ref<SubmitMode[]>(["file", "code", "git"])
+
+function resolveAllowedModes(t?: string): SubmitMode[] {
+  const u = (t || "").toUpperCase()
+  if (!u || u.includes("MIX") || u.includes("ALL")) return ["file", "code", "git"]
+  if (u.includes("GIT")) return ["git"]
+  if (u.includes("CODE") || u.includes("ONLINE")) return ["code"]
+  if (u.includes("ZIP") || u.includes("FILE") || u.includes("UPLOAD")) return ["file"]
+  return ["file", "code", "git"]
+}
+
+function selectMode(mode: SubmitMode) {
+  if (!allowedModes.value.includes(mode)) {
+    ElMessage.warning("当前任务不支持该提交方式")
+    return
+  }
+  currentMode.value = mode
+}
 
 // --- File ---
 const fileInput = ref<HTMLInputElement | null>(null)
@@ -61,6 +79,9 @@ async function initPage() {
   loadError.value = ""
   try {
     await store.fetchTaskDetail(taskId.value)
+    const modes = resolveAllowedModes(store.currentTask?.submissionType)
+    allowedModes.value = modes
+    currentMode.value = modes[0] || "file"
     await loadHistory()
   } catch (err: unknown) {
     loadError.value = (err as Error)?.message || "加载任务信息失败"
@@ -299,30 +320,34 @@ function formatDate(dateStr: string) {
 
         <div class="mode-cards">
           <div
+            v-if="allowedModes.includes('file')"
             :class="['mode-card', { 'mode-card--active': currentMode === 'file' }]"
-            @click="currentMode = 'file'"
+            @click="selectMode('file')"
           >
             <div class="mode-card__icon">&#x1F4C1;</div>
             <div class="mode-card__label">文件上传</div>
             <div class="mode-card__desc">文档 / 截图</div>
           </div>
           <div
+            v-if="allowedModes.includes('code')"
             :class="['mode-card', { 'mode-card--active': currentMode === 'code' }]"
-            @click="currentMode = 'code'"
+            @click="selectMode('code')"
           >
             <div class="mode-card__icon">&#x1F4BB;</div>
             <div class="mode-card__label">代码提交</div>
             <div class="mode-card__desc">在线编辑器</div>
           </div>
           <div
+            v-if="allowedModes.includes('git')"
             :class="['mode-card', { 'mode-card--active': currentMode === 'git' }]"
-            @click="currentMode = 'git'"
+            @click="selectMode('git')"
           >
             <div class="mode-card__icon">&#x1F517;</div>
             <div class="mode-card__label">Git 仓库</div>
             <div class="mode-card__desc">URL 提交</div>
           </div>
         </div>
+        <p class="mode-hint">仅显示本任务允许的提交方式（{{ store.currentTask?.submissionType || '未配置' }}）</p>
 
         <!-- File Upload Panel -->
         <div v-show="currentMode === 'file'">
@@ -429,16 +454,18 @@ function formatDate(dateStr: string) {
 /* --- Card --- */
 .card {
   background: var(--color-card, #fff);
-  border-radius: var(--radius-md, 8px);
+  border: 1px solid var(--color-border, #E5E7EB);
+  border-radius: var(--radius-xl, 16px);
   padding: var(--spacing-lg, 24px);
   margin-bottom: var(--spacing-md, 16px);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  box-shadow: var(--shadow-card);
 }
 
 .card__title {
-  font-size: var(--font-size-base, 16px);
-  font-weight: 600;
-  color: var(--color-text-primary, #1e293b);
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--color-navy, #0B3A5C);
   margin-bottom: var(--spacing-md, 16px);
 }
 
@@ -451,30 +478,35 @@ function formatDate(dateStr: string) {
 /* --- Mode Cards --- */
 .mode-cards {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: 12px;
-  margin-bottom: 20px;
+  margin-bottom: 8px;
+}
+.mode-hint {
+  margin: 0 0 16px;
+  font-size: 12px;
+  color: var(--color-text-placeholder, #94a3b8);
 }
 
 .mode-card {
-  border: 2px solid var(--color-border, #e2e8f0);
-  border-radius: var(--radius-md, 8px);
+  border: 2px solid var(--color-border, #E5E7EB);
+  border-radius: var(--radius-xl, 16px);
   padding: 20px 16px;
   text-align: center;
   cursor: pointer;
   transition: border-color 150ms, background 150ms, box-shadow 150ms;
-  background: var(--color-bg, #f8fafc);
+  background: var(--color-bg, #F5F7FA);
 }
 
 .mode-card:hover {
-  border-color: var(--color-primary, #3b82f6);
-  background: var(--color-primary-light, #eff6ff);
+  border-color: var(--color-primary, #1677FF);
+  background: var(--color-primary-light, #E6F4FF);
 }
 
 .mode-card--active {
-  border-color: var(--color-primary, #3b82f6);
-  background: var(--color-primary-light, #eff6ff);
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+  border-color: var(--color-primary, #1677FF);
+  background: var(--color-primary-light, #E6F4FF);
+  box-shadow: 0 0 0 3px rgba(22, 119, 255, 0.15);
 }
 
 .mode-card__icon { font-size: 32px; margin-bottom: 8px; }
@@ -483,19 +515,19 @@ function formatDate(dateStr: string) {
 
 /* --- Upload Zone --- */
 .upload-zone {
-  border: 2px dashed var(--color-border, #e2e8f0);
-  border-radius: var(--radius-md, 8px);
+  border: 2px dashed var(--color-primary-mid, #91CAFF);
+  border-radius: var(--radius-xl, 16px);
   padding: 40px 24px;
   text-align: center;
   cursor: pointer;
   transition: border-color 150ms, background 150ms;
-  background: var(--color-bg, #f8fafc);
+  background: var(--color-primary-light, #E6F4FF);
 }
 
 .upload-zone:hover,
 .upload-zone--dragging {
-  border-color: var(--color-primary, #3b82f6);
-  background: var(--color-primary-light, #eff6ff);
+  border-color: var(--color-primary, #1677FF);
+  background: var(--color-primary-light, #E6F4FF);
 }
 
 .upload-zone__icon { font-size: 40px; margin-bottom: 10px; }
@@ -523,13 +555,13 @@ function formatDate(dateStr: string) {
   display: flex;
   align-items: center;
   gap: 8px;
-  background: var(--color-primary-light, #eff6ff);
-  border: 1px solid var(--color-primary, #3b82f6);
+  background: var(--color-primary-light, #E6F4FF);
+  border: 1px solid var(--color-primary, #1677FF);
   border-radius: var(--radius-sm, 4px);
   padding: 10px 14px;
   margin-top: 12px;
   font-size: 13px;
-  color: var(--color-primary, #3b82f6);
+  color: var(--color-primary, #1677FF);
 }
 
 .upload-file-info__remove {
@@ -553,11 +585,11 @@ function formatDate(dateStr: string) {
 .git-verify-result {
   margin-top: var(--spacing-md, 16px);
   padding: 10px 14px;
-  background: #ecfdf5;
-  border: 1px solid #10b981;
+  background: #E6F7EF;
+  border: 1px solid #00B96B;
   border-radius: var(--radius-sm, 4px);
   font-size: 13px;
-  color: #065f46;
+  color: #009A57;
 }
 
 .form-group { margin-bottom: var(--spacing-md, 16px); }
@@ -585,7 +617,7 @@ function formatDate(dateStr: string) {
   box-sizing: border-box;
 }
 
-.remark-textarea:focus { border-color: var(--color-primary, #3b82f6); }
+.remark-textarea:focus { border-color: var(--color-primary, #1677FF); }
 .remark-textarea::placeholder { color: var(--color-text-placeholder, #94a3b8); }
 .remark-textarea:disabled { background: var(--color-bg, #f8fafc); }
 
@@ -624,7 +656,7 @@ function formatDate(dateStr: string) {
   font-family: "JetBrains Mono", "SF Mono", monospace;
   font-size: 13px;
   font-weight: 600;
-  color: var(--color-primary, #3b82f6);
+  color: var(--color-primary, #1677FF);
   width: 40px;
   text-align: right;
 }

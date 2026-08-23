@@ -31,7 +31,9 @@ const filteredUsers = computed(() => {
   }
   if (searchKeyword.value.trim()) {
     const kw = searchKeyword.value.trim().toLowerCase()
-    list = list.filter((u) => u.name.toLowerCase().includes(kw) || (u.userId || "").toLowerCase().includes(kw))
+    list = list.filter((u) =>
+      u.name.toLowerCase().includes(kw) || (u.userId || "").toLowerCase().includes(kw),
+    )
   }
   return list
 })
@@ -42,14 +44,21 @@ function roleLabel(role: string) {
 }
 
 function roleBadgeClass(role: string) {
-  const map: Record<string, string> = { student: "badge--success", teacher: "badge--info", admin: "badge--warning" }
+  const map: Record<string, string> = {
+    student: "badge--success",
+    teacher: "badge--info",
+    admin: "badge--warning",
+  }
   return map[role] || "badge--default"
 }
 
 async function loadUsers() {
   loadError.value = ""
   try {
-    await store.fetchUsers({ role: filterRole.value === "all" ? undefined : filterRole.value, keyword: searchKeyword.value.trim() || undefined })
+    await store.fetchUsers({
+      role: filterRole.value === "all" ? undefined : filterRole.value,
+      keyword: searchKeyword.value.trim() || undefined,
+    })
   } catch (e: unknown) {
     loadError.value = (e as Error)?.message || "加载用户列表失败"
   }
@@ -96,113 +105,169 @@ async function handleToggleStatus(user: IAdminUserItem) {
   ElMessage.success("用户状态已更新")
 }
 
+function onImportClick() {
+  ElMessage.info("批量导入将在后续版本开放")
+}
+
 onMounted(() => { loadUsers() })
 </script>
 
 <template>
   <div>
-    <PageHeader title="用户管理" :subtitle="`共 ${filteredUsers.length} 个用户`" />
+    <PageHeader
+      title="用户管理"
+      :subtitle="`共 ${filteredUsers.length} 个用户 · 角色权限在此页分配`"
+    />
 
     <LoadingState v-if="store.usersLoading" text="加载用户列表..." />
     <ErrorState v-else-if="loadError" :message="loadError" @retry="loadUsers" />
 
     <template v-else>
-    <div class="filter-bar">
-      <select v-model="filterRole" class="form-select" style="width:140px;" @change="loadUsers">
-        <option value="all">全部角色</option>
-        <option value="student">学生</option>
-        <option value="teacher">教师</option>
-        <option value="admin">管理员</option>
-      </select>
-      <input
-        v-model="searchKeyword"
-        class="form-input"
-        placeholder="搜索姓名..."
-        style="width:200px;"
-        @input="loadUsers"
-      />
-      <button class="btn btn-primary" style="margin-left:auto;" @click="openCreateModal">+ 新建用户</button>
-    </div>
+      <div class="filter-bar">
+        <select v-model="filterRole" class="form-select w-role" @change="loadUsers">
+          <option value="all">全部角色</option>
+          <option value="student">学生</option>
+          <option value="teacher">教师</option>
+          <option value="admin">管理员</option>
+        </select>
+        <input
+          v-model="searchKeyword"
+          class="form-input w-search"
+          placeholder="搜索姓名 / 学号..."
+          @input="loadUsers"
+        />
+        <button type="button" class="btn btn-outline" @click="onImportClick">
+          批量导入
+          <span class="hint">后续版本</span>
+        </button>
+        <button type="button" class="btn btn-primary ml-auto" @click="openCreateModal">
+          + 新建用户
+        </button>
+      </div>
 
-    <div class="data-table">
-      <table>
-        <thead>
-          <tr>
-            <th>用户ID</th>
-            <th>姓名</th>
-            <th>角色</th>
-            <th>班级/部门</th>
-            <th>邮箱</th>
-            <th>状态</th>
-            <th>创建时间</th>
-            <th>操作</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="u in filteredUsers" :key="u.userId">
-            <td><span style="font-family:var(--font-mono);font-size:11px;">{{ u.userId }}</span></td>
-            <td>{{ u.name }}</td>
-            <td><span :class="`badge ${roleBadgeClass(u.role)}`">{{ roleLabel(u.role) }}</span></td>
-            <td>{{ u.className || "-" }}</td>
-            <td><span style="color:var(--color-text-tertiary,#94a3b8);font-size:12px;">{{ u.email || "-" }}</span></td>
-            <td>
-              <span v-if="u.status === 'active'" class="badge badge--success">启用</span>
-              <span v-else class="badge badge--danger">禁用</span>
-            </td>
-            <td><span style="font-family:var(--font-mono);font-size:11px;">{{ u.createdAt ? u.createdAt.substring(0, 10) : "-" }}</span></td>
-            <td>
-              <button class="btn btn-ghost btn-sm" @click="openEditModal(u)">编辑</button>
-              <button
-                class="btn btn-ghost btn-sm"
-                :style="{ color: u.status === 'active' ? 'var(--color-danger,#ef4444)' : 'var(--color-success,#10b981)' }"
-                @click="handleToggleStatus(u)"
-              >{{ u.status === "active" ? "禁用" : "启用" }}</button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+      <div class="data-table">
+        <table>
+          <thead>
+            <tr>
+              <th>用户 ID</th>
+              <th>姓名</th>
+              <th>角色</th>
+              <th>班级 / 部门</th>
+              <th>邮箱</th>
+              <th>状态</th>
+              <th>创建时间</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="u in filteredUsers" :key="u.userId">
+              <td><span class="mono">{{ u.userId }}</span></td>
+              <td>{{ u.name }}</td>
+              <td><span :class="`badge ${roleBadgeClass(u.role)}`">{{ roleLabel(u.role) }}</span></td>
+              <td>{{ u.className || "-" }}</td>
+              <td><span class="email">{{ u.email || "-" }}</span></td>
+              <td>
+                <span v-if="u.status === 'active'" class="badge badge--success">启用</span>
+                <span v-else class="badge badge--danger">禁用</span>
+              </td>
+              <td>
+                <span class="mono">{{ u.createdAt ? u.createdAt.substring(0, 10) : "-" }}</span>
+              </td>
+              <td class="ops">
+                <button type="button" class="btn btn-ghost btn-sm" @click="openEditModal(u)">编辑</button>
+                <button
+                  type="button"
+                  class="btn btn-ghost btn-sm"
+                  :class="u.status === 'active' ? 'is-danger' : 'is-ok'"
+                  @click="handleToggleStatus(u)"
+                >
+                  {{ u.status === "active" ? "禁用" : "启用" }}
+                </button>
+              </td>
+            </tr>
+            <tr v-if="!filteredUsers.length">
+              <td colspan="8" class="empty">暂无用户</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
 
-    <!-- Modal -->
-    <div v-if="modalVisible" class="modal-overlay" @click.self="modalVisible = false">
-      <div class="modal">
-        <div class="modal-header">
-          <h3 class="modal-title">{{ modalTitle }}</h3>
-          <span class="modal-close" style="cursor:pointer;font-size:18px;" @click="modalVisible = false">&times;</span>
-        </div>
-        <div class="form-group">
-          <label class="form-label">姓名</label>
-          <input v-model="form.name" class="form-input" />
-        </div>
-        <div class="form-group">
-          <label class="form-label">角色</label>
-          <select v-model="form.role" class="form-select">
-            <option value="student">学生</option>
-            <option value="teacher">教师</option>
-            <option value="admin">管理员</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label class="form-label">班级</label>
-          <input v-model="form.className" class="form-input" placeholder="如 软件2401" />
-        </div>
-        <div class="form-group">
-          <label class="form-label">邮箱</label>
-          <input v-model="form.email" class="form-input" />
-        </div>
-        <div class="form-group">
-          <label class="form-label">状态</label>
-          <select v-model="form.status" class="form-select">
-            <option value="active">启用</option>
-            <option value="inactive">禁用</option>
-          </select>
-        </div>
-        <div class="modal-footer">
-          <button class="btn btn-outline" @click="modalVisible = false">取消</button>
-          <button class="btn btn-primary" @click="handleSave">保存</button>
+      <div v-if="modalVisible" class="modal-overlay" @click.self="modalVisible = false">
+        <div class="modal">
+          <div class="modal-header">
+            <h3 class="modal-title">{{ modalTitle }}</h3>
+            <button type="button" class="modal-close" @click="modalVisible = false">&times;</button>
+          </div>
+          <div class="form-group">
+            <label class="form-label">姓名 *</label>
+            <input v-model="form.name" class="form-input" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">角色 *</label>
+            <select v-model="form.role" class="form-select">
+              <option value="student">学生</option>
+              <option value="teacher">教师</option>
+              <option value="admin">管理员</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">班级 / 部门</label>
+            <input v-model="form.className" class="form-input" placeholder="如 软件2401" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">邮箱</label>
+            <input v-model="form.email" class="form-input" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">状态</label>
+            <select v-model="form.status" class="form-select">
+              <option value="active">启用</option>
+              <option value="inactive">禁用</option>
+            </select>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-outline" @click="modalVisible = false">取消</button>
+            <button type="button" class="btn btn-primary" @click="handleSave">保存</button>
+          </div>
         </div>
       </div>
-    </div>
     </template>
   </div>
 </template>
+
+<style scoped>
+.w-role { width: 140px; }
+.w-search { width: 220px; }
+.ml-auto { margin-left: auto; }
+.hint {
+  margin-left: 6px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--color-text-placeholder, #9CA3AF);
+}
+.mono {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-text-secondary);
+}
+.email {
+  color: var(--color-text-tertiary, #94a3b8);
+  font-size: 12px;
+}
+.ops { display: flex; gap: 4px; }
+.is-danger { color: var(--color-danger, #FF4D4F) !important; }
+.is-ok { color: var(--color-success, #00B96B) !important; }
+.empty {
+  text-align: center;
+  padding: 28px 0;
+  color: var(--color-text-placeholder);
+}
+.modal-close {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+  color: var(--color-text-secondary);
+}
+</style>

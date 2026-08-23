@@ -1,28 +1,21 @@
 import type Mock from "mockjs"
+import {
+  cloneCourses,
+  cloneStudents,
+  cloneSubmissions,
+  cloneTasks,
+  EVAL_DIMENSIONS,
+  isPendingTeacherReview,
+  type SeedCourse,
+  type SeedStudent,
+  type SeedSubmission,
+  type SeedTask,
+} from "../seed/teaching"
 
-interface CourseData {
-  courseId: string
-  courseCode: string
-  courseName: string
-  className: string
-  semester: string
-  credits: number
-}
-
-interface StandardData {
-  standardId: string
-  name: string
-  courseType: string
-  dimensionCount: number
-  version: string
-  status: "published" | "draft"
-  updatedAt: string
-}
-
-function ok(data: unknown, message?: string) {
+function ok(data: unknown, message = "ok") {
   return {
     code: 0,
-    message: message || "ok",
+    message,
     data,
     success: true,
     timestamp: Date.now(),
@@ -41,64 +34,133 @@ function err(code: number, message: string) {
   }
 }
 
-interface TaskData {
-  taskId: string; taskName: string; courseId: string; description: string
-  dueDate: string; weight: number; priority: string
-  status: "published" | "draft"; maxScore: number; createdAt: string
+function studentCountForClass(className: string, students: SeedStudent[]): number {
+  return students.filter((s) => s.className === className).length
 }
 
-interface StudentData {
-  userId: string; studentId: string; name: string; className: string; email: string
+function enrichCourse(c: SeedCourse, tasks: SeedTask[], students: SeedStudent[]) {
+  return {
+    ...c,
+    studentCount: studentCountForClass(c.className, students),
+    taskCount: tasks.filter((t) => t.courseId === c.courseId).length,
+  }
 }
 
-interface SubmissionData {
-  submissionId: string; studentId: string; taskId: string; submittedAt: string
-  status: "submitted" | "reviewing" | "approved"
-  finalScore: number | null; reviewedAt: string | null
-  submissionType: "code" | "file"
-  fileName?: string; fileSize?: number
+function enrichTask(t: SeedTask, courses: SeedCourse[], submissions: SeedSubmission[]) {
+  const course = courses.find((c) => c.courseId === t.courseId)
+  const taskSubs = submissions.filter((s) => s.taskId === t.taskId)
+  const reviewed = taskSubs.filter((s) => s.status === "APPROVED" || s.status === "REJECTED")
+  return {
+    taskId: t.taskId,
+    taskName: t.taskName,
+    courseId: t.courseId,
+    courseName: course?.courseName ?? "",
+    description: t.description,
+    deadline: t.deadline,
+    totalScore: t.totalScore,
+    weight: t.weight,
+    priority: t.priority,
+    status: t.status,
+    submissionType: t.submissionType,
+    maxSubmitCount: t.maxSubmitCount,
+    gradingRule: t.gradingRule,
+    createTime: t.createdAt,
+    publishTime: t.publishTime,
+    submissionCount: taskSubs.length,
+    reviewedCount: reviewed.length,
+  }
 }
 
-interface AIData {
-  submissionId: string; aiScore: number; totalDeductions: number; totalDeductScore: number
-  deductions: Array<{
-    issueType: string; agentType: string; reason: string; suggestDeduct: number
-    adjustedDeduct?: number; filePath: string; lineNumber: number; confidence: number
-    overridden: boolean; overrideAction?: string; overrideReason?: string
-  }>
-  aiIssueLines: number[]
+function buildDiagnosisResult(sub: SeedSubmission, task: SeedTask | undefined, student: SeedStudent | undefined) {
+  const dims = [
+    {
+      agentType: "CODE",
+      issueType: "异常处理不完整",
+      suggestDeduct: 5,
+      comment: "catch 块仅打印异常，缺少重试与友好错误提示",
+      filePath: "src/Main.java",
+      lineNumber: 12,
+      confidence: 0.92,
+    },
+    {
+      agentType: "CODE",
+      issueType: "算法效率不足",
+      suggestDeduct: 3,
+      comment: "findById 使用 hashCode 匹配，存在碰撞风险，建议 equals",
+      filePath: "src/Main.java",
+      lineNumber: 20,
+      confidence: 0.85,
+    },
+    {
+      agentType: "DOC",
+      issueType: "缺少单元测试",
+      suggestDeduct: 4,
+      comment: "提交中未包含单元测试，覆盖率不足",
+      filePath: "src/test/",
+      lineNumber: 0,
+      confidence: 0.78,
+    },
+  ]
+  const aiScore = sub.aiScore ?? 80
+  const summary = [
+    `// ${task?.taskName ?? "项目"} - 代码预览`,
+    `// 提交者: ${student?.realName ?? ""}`,
+    `// 提交时间: ${sub.submittedAt.slice(0, 10)}`,
+    "",
+    "package com.b1.demo;",
+    "",
+    "public class Main {",
+    "    public static void main(String[] args) {",
+    "        // ... 演示代码片段 ...",
+    "    }",
+    "}",
+  ].join("\n")
+
+  return {
+    status: "COMPLETED",
+    result: {
+      overallScore: aiScore,
+      dimensions: dims,
+      summary,
+      strengths: ["结构清晰", "核心功能已实现"],
+      weaknesses: ["异常处理不足", "测试覆盖偏低"],
+      improvementPlan: "补齐单元测试与统一错误处理。",
+    },
+  }
 }
 
 export default function setupTeacherMock(mock: typeof Mock): void {
+  const courses = cloneCourses()
+  const tasks = cloneTasks()
+  const students = cloneStudents()
+  const submissions = cloneSubmissions()
+  let nextCourseSeq = courses.length + 1
+
   // ========== Courses ==========
 
-  const courses: CourseData[] = [
-    { courseId: "C001", courseCode: "CS301", courseName: "软件工程综合实训", className: "软件2401", semester: "2025-2026-2", credits: 4 },
-    { courseId: "C002", courseCode: "CS302", courseName: "数据库原理与应用", className: "软件2401", semester: "2025-2026-2", credits: 3 },
-    { courseId: "C003", courseCode: "CS303", courseName: "Web前端开发", className: "软件2402", semester: "2025-2026-2", credits: 3 },
-    { courseId: "C004", courseCode: "CS304", courseName: "人工智能导论", className: "计科2401", semester: "2025-2026-2", credits: 4 },
-    { courseId: "C005", courseCode: "CS305", courseName: "操作系统", className: "计科2402", semester: "2025-2026-2", credits: 4 },
-  ]
-
-  let nextCourseId = 6
-
-  mock.mock("/api/v1/teacher/courses", "get", () => ok(courses))
+  mock.mock("/api/v1/teacher/courses", "get", () =>
+    ok(courses.map((c) => enrichCourse(c, tasks, students))),
+  )
 
   mock.mock("/api/v1/teacher/courses", "post", (options: { body: string }) => {
     const body = JSON.parse(options.body)
-    const newCourse: CourseData = {
-      courseId: `C${String(nextCourseId++).padStart(3, "0")}`,
+    const newCourse: SeedCourse = {
+      courseId: `C${String(nextCourseSeq++).padStart(3, "0")}`,
       courseCode: body.courseCode,
       courseName: body.courseName,
       className: body.className || "",
       semester: body.semester || "2025-2026-2",
       credits: body.credits || 4,
+      teacherName: "李四",
+      teacherEmail: "lisi@example.com",
+      description: body.description || "",
+      status: "ACTIVE",
     }
     courses.push(newCourse)
-    return ok(newCourse, "课程创建成功")
+    return ok(enrichCourse(newCourse, tasks, students), "课程创建成功")
   })
 
-  mock.mock(/\/api\/v1\/teacher\/courses\/(?!\?).+/, "put", (options: { url: string; body: string }) => {
+  mock.mock(/\/api\/v1\/teacher\/courses\/(?!\?).+$/, "put", (options: { url: string; body: string }) => {
     const courseId = options.url.split("/").pop()
     const body = JSON.parse(options.body)
     const c = courses.find((x) => x.courseId === courseId)
@@ -120,7 +182,7 @@ export default function setupTeacherMock(mock: typeof Mock): void {
     return ok(null, "课程已删除")
   })
 
-  mock.mock(/\/api\/v1\/teacher\/courses\/(?!\?).+/, "delete", (options: { url: string }) => {
+  mock.mock(/\/api\/v1\/teacher\/courses\/(?!\?).+$/, "delete", (options: { url: string }) => {
     const courseId = options.url.split("/").pop()
     const idx = courses.findIndex((x) => x.courseId === courseId)
     if (idx < 0) return err(4001, "课程不存在")
@@ -130,20 +192,14 @@ export default function setupTeacherMock(mock: typeof Mock): void {
 
   // ========== Standards ==========
 
-  const standards: StandardData[] = [
+  const standards = [
     { standardId: "S001", name: "软件工程实训评价标准", courseType: "软件工程", dimensionCount: 5, version: "v2.1", status: "published", updatedAt: "2025-12-20T10:30:00" },
     { standardId: "S002", name: "Web前端评价标准", courseType: "Web前端", dimensionCount: 4, version: "v1.0", status: "draft", updatedAt: "2026-01-15T14:00:00" },
     { standardId: "S003", name: "数据库课程设计评价标准", courseType: "数据库", dimensionCount: 5, version: "v1.5", status: "published", updatedAt: "2025-11-08T09:15:00" },
   ]
 
   const dimensionsStore = new Map<string, { name: string; weight: number }[]>([
-    ["S001", [
-      { name: "功能实现", weight: 30 },
-      { name: "代码质量", weight: 25 },
-      { name: "文档质量", weight: 20 },
-      { name: "创新能力", weight: 15 },
-      { name: "答辩表现", weight: 10 },
-    ]],
+    ["S001", EVAL_DIMENSIONS.map((d) => ({ name: d.dimensionName, weight: d.weight }))],
     ["S002", [
       { name: "页面还原度", weight: 30 },
       { name: "代码规范", weight: 25 },
@@ -166,11 +222,10 @@ export default function setupTeacherMock(mock: typeof Mock): void {
     const standardId = parts[parts.length - 2]
     const standard = standards.find((s) => s.standardId === standardId)
     if (!standard) return err(4001, "评价标准不存在")
-    const dims = dimensionsStore.get(standardId) || []
     return ok({
       standardId: standard.standardId,
       standardName: standard.name,
-      dimensions: dims,
+      dimensions: dimensionsStore.get(standardId) || [],
     })
   })
 
@@ -189,42 +244,40 @@ export default function setupTeacherMock(mock: typeof Mock): void {
 
   // ========== Tasks ==========
 
-  const tasks: TaskData[] = [
-    { taskId: "C001_T1", taskName: "用户管理系统API开发", courseId: "C001", description: "设计并实现一个完整的用户管理REST API，包含CRUD操作、分页查询、JWT认证等功能", dueDate: "2026-07-15T23:59:00", weight: 30, priority: "high", status: "published", maxScore: 100, createdAt: "2026-02-20T08:00:00" },
-    { taskId: "C001_T2", taskName: "数据库设计与优化", courseId: "C001", description: "完成MySQL数据库表设计，编写存储过程和优化SQL查询", dueDate: "2026-07-01T23:59:00", weight: 25, priority: "high", status: "published", maxScore: 100, createdAt: "2026-03-01T08:00:00" },
-    { taskId: "C002_T1", taskName: "ER图绘制与范式分析", courseId: "C002", description: "绘制概念ER图，进行范式分解，编写建表脚本", dueDate: "2026-07-10T23:59:00", weight: 25, priority: "medium", status: "published", maxScore: 100, createdAt: "2026-03-05T08:00:00" },
-    { taskId: "C003_T1", taskName: "响应式页面布局实战", courseId: "C003", description: "使用Flexbox/Grid实现一个企业官网首页响应式布局", dueDate: "2026-07-20T23:59:00", weight: 30, priority: "medium", status: "draft", maxScore: 100, createdAt: "2026-03-10T08:00:00" },
-    { taskId: "C004_T1", taskName: "机器学习模型训练", courseId: "C004", description: "使用scikit-learn完成数据预处理、模型训练和评估", dueDate: "2026-07-25T23:59:00", weight: 35, priority: "high", status: "published", maxScore: 100, createdAt: "2026-03-15T08:00:00" },
-  ]
-
   mock.mock(/\/api\/v1\/teacher\/tasks(\?.*)?$/, "get", (options: { url: string }) => {
     const params = new URL(`http://localhost${options.url}`).searchParams
     const courseId = params.get("courseId")
     const filtered = courseId ? tasks.filter((t) => t.courseId === courseId) : tasks
-    return ok(filtered)
+    return ok(filtered.map((t) => enrichTask(t, courses, submissions)))
   })
 
   mock.mock("/api/v1/teacher/tasks", "post", (options: { body: string }) => {
     const body = JSON.parse(options.body)
     const prefix = body.courseId || "C001"
     const count = tasks.filter((t) => t.courseId === prefix).length + 1
-    const newTask: TaskData = {
+    const newTask: SeedTask = {
       taskId: `${prefix}_T${count}`,
       taskName: body.taskName,
       courseId: body.courseId,
       description: body.description || "",
-      dueDate: new Date(body.dueDate + "T23:59:00").toISOString(),
+      requirements: body.requirements || "",
+      deadline: body.deadline
+        ? (String(body.deadline).includes("T") ? body.deadline : `${body.deadline}T23:59:00`)
+        : "2026-09-01T23:59:00",
+      totalScore: body.totalScore || 100,
       weight: body.weight || 25,
       priority: body.priority || "medium",
-      status: "published",
-      maxScore: 100,
+      status: "DRAFT",
+      submissionType: body.submissionType || "ZIP_UPLOAD",
+      maxSubmitCount: body.maxSubmitCount || 3,
+      gradingRule: body.gradingRule,
       createdAt: new Date().toISOString(),
     }
     tasks.push(newTask)
-    return ok(newTask, "任务创建成功")
+    return ok(enrichTask(newTask, courses, submissions), "任务创建成功")
   })
 
-  mock.mock(/\/api\/v1\/teacher\/tasks\/.+$/, "put", (options: { url: string; body: string }) => {
+  mock.mock(/\/api\/v1\/teacher\/tasks\/[^/]+$/, "put", (options: { url: string; body: string }) => {
     const url = options.url.split("?")[0]
     const taskId = url.split("/").pop() || ""
     const body = JSON.parse(options.body)
@@ -233,9 +286,16 @@ export default function setupTeacherMock(mock: typeof Mock): void {
     if (body.taskName) t.taskName = body.taskName
     if (body.courseId) t.courseId = body.courseId
     if (body.description !== undefined) t.description = body.description
-    if (body.dueDate) t.dueDate = new Date(body.dueDate + "T23:59:00").toISOString()
+    if (body.requirements !== undefined) t.requirements = body.requirements
+    if (body.deadline) {
+      t.deadline = String(body.deadline).includes("T") ? body.deadline : `${body.deadline}T23:59:00`
+    }
+    if (body.totalScore !== undefined) t.totalScore = body.totalScore
     if (body.weight !== undefined) t.weight = body.weight
     if (body.priority) t.priority = body.priority
+    if (body.submissionType) t.submissionType = body.submissionType
+    if (body.maxSubmitCount !== undefined) t.maxSubmitCount = body.maxSubmitCount
+    if (body.gradingRule !== undefined) t.gradingRule = body.gradingRule
     return ok(null, "任务更新成功")
   })
 
@@ -244,7 +304,8 @@ export default function setupTeacherMock(mock: typeof Mock): void {
     const taskId = parts[parts.length - 2]
     const t = tasks.find((x) => x.taskId === taskId)
     if (!t) return err(4001, "任务不存在")
-    t.status = "published"
+    t.status = "PUBLISHED"
+    t.publishTime = new Date().toISOString()
     return ok(null, "任务已发布")
   })
 
@@ -267,77 +328,61 @@ export default function setupTeacherMock(mock: typeof Mock): void {
 
   // ========== Students ==========
 
-  const students: StudentData[] = [
-    { userId: "S001", studentId: "2024001", name: "张三", className: "软件2401", email: "zhangsan@b1.edu.cn" },
-    { userId: "S002", studentId: "2024002", name: "李四", className: "软件2401", email: "lisi@b1.edu.cn" },
-    { userId: "S003", studentId: "2024003", name: "王五", className: "软件2402", email: "wangwu@b1.edu.cn" },
-    { userId: "S004", studentId: "2024004", name: "赵六", className: "软件2402", email: "zhaoliu@b1.edu.cn" },
-    { userId: "S005", studentId: "2024005", name: "钱七", className: "计科2401", email: "qianqi@b1.edu.cn" },
-    { userId: "S006", studentId: "2024006", name: "孙八", className: "计科2401", email: "sunba@b1.edu.cn" },
-    { userId: "S007", studentId: "2024007", name: "周九", className: "计科2402", email: "zhoujiu@b1.edu.cn" },
-  ]
-
-  const submissions: SubmissionData[] = [
-    { submissionId: "SUB001", studentId: "S001", taskId: "C001_T1", submittedAt: "2026-06-20T10:00:00", status: "submitted", finalScore: null, reviewedAt: null, submissionType: "code" },
-    { submissionId: "SUB002", studentId: "S002", taskId: "C001_T1", submittedAt: "2026-06-21T14:30:00", status: "reviewing", finalScore: null, reviewedAt: null, submissionType: "code" },
-    { submissionId: "SUB003", studentId: "S003", taskId: "C001_T2", submittedAt: "2026-06-18T09:00:00", status: "submitted", finalScore: null, reviewedAt: null, submissionType: "file", fileName: "数据库设计文档.zip", fileSize: 2457600 },
-    { submissionId: "SUB004", studentId: "S001", taskId: "C001_T2", submittedAt: "2026-06-15T16:00:00", status: "approved", finalScore: 88.5, reviewedAt: "2026-06-17T10:00:00", submissionType: "file", fileName: "设计方案.pdf", fileSize: 5120000 },
-    { submissionId: "SUB005", studentId: "S004", taskId: "C002_T1", submittedAt: "2026-06-22T11:00:00", status: "submitted", finalScore: null, reviewedAt: null, submissionType: "file", fileName: "ER图与范式分析.docx", fileSize: 1890400 },
-    { submissionId: "SUB006", studentId: "S002", taskId: "C002_T1", submittedAt: "2026-06-10T08:00:00", status: "approved", finalScore: 76.0, reviewedAt: "2026-06-12T14:00:00", submissionType: "code" },
-    { submissionId: "SUB007", studentId: "S005", taskId: "C004_T1", submittedAt: "2026-06-25T13:00:00", status: "submitted", finalScore: null, reviewedAt: null, submissionType: "code" },
-    { submissionId: "SUB008", studentId: "S001", taskId: "C004_T1", submittedAt: "2026-06-01T09:00:00", status: "approved", finalScore: 92.0, reviewedAt: "2026-06-03T11:00:00", submissionType: "file", fileName: "模型训练报告.pdf", fileSize: 3400000 },
-  ]
-
-  const aiResults = new Map<string, AIData>()
-
-  function ensureAIResult(submissionId: string, _taskId: string): AIData {
-    if (!aiResults.has(submissionId)) {
-      aiResults.set(submissionId, {
-        submissionId,
-        aiScore: 75 + Math.floor(Math.random() * 20),
-        totalDeductions: 3,
-        totalDeductScore: 12 + Math.floor(Math.random() * 10),
-        deductions: [
-          { issueType: "异常处理不完整", agentType: "CODE", reason: "catch块中仅打印异常信息，缺少重试机制和用户友好的错误提示", suggestDeduct: 5, adjustedDeduct: undefined, filePath: "src/Main.java", lineNumber: 12, confidence: 0.92, overridden: false, overrideAction: undefined, overrideReason: undefined },
-          { issueType: "算法效率不足", agentType: "CODE", reason: "findById使用hashCode进行匹配，存在哈希碰撞风险，建议使用equals比较", suggestDeduct: 3, adjustedDeduct: undefined, filePath: "src/Main.java", lineNumber: 20, confidence: 0.85, overridden: false, overrideAction: undefined, overrideReason: undefined },
-          { issueType: "缺少单元测试", agentType: "DOC", reason: "代码提交中未包含单元测试，测试覆盖率不足", suggestDeduct: 4, adjustedDeduct: undefined, filePath: "src/test/", lineNumber: 0, confidence: 0.78, overridden: false, overrideAction: undefined, overrideReason: undefined },
-        ],
-        aiIssueLines: [12, 20, 24],
-      })
-    }
-    return aiResults.get(submissionId)!
-  }
-
   mock.mock(/\/api\/v1\/teacher\/students(\?.*)?$/, "get", (options: { url: string }) => {
     const params = new URL(`http://localhost${options.url}`).searchParams
     const className = params.get("className")
     const keyword = params.get("keyword")
     let filtered = [...students]
     if (className) filtered = filtered.filter((s) => s.className === className)
-    if (keyword) filtered = filtered.filter((s) => s.studentId.includes(keyword) || s.name.includes(keyword))
+    if (keyword) {
+      filtered = filtered.filter(
+        (s) => s.studentId.includes(keyword) || s.realName.includes(keyword) || s.userId.includes(keyword),
+      )
+    }
     const result = filtered.map((s) => {
-      const studentSubs = submissions.filter((sub) => sub.studentId === s.userId && sub.finalScore !== null)
-      const avgScore = studentSubs.length > 0
-        ? studentSubs.reduce((a, b) => a + (b.finalScore || 0), 0) / studentSubs.length
+      const studentSubs = submissions.filter((sub) => sub.studentUserId === s.userId)
+      const scored = studentSubs.filter((sub) => sub.finalScore !== null)
+      const avgScore = scored.length > 0
+        ? scored.reduce((a, b) => a + (b.finalScore || 0), 0) / scored.length
         : null
-      return { ...s, completedCount: studentSubs.length, avgScore }
+      return {
+        userId: s.userId,
+        studentId: s.studentId,
+        realName: s.realName,
+        name: s.realName,
+        className: s.className,
+        email: s.email,
+        phone: s.phone,
+        submissionCount: studentSubs.length,
+        completedCount: scored.length,
+        avgScore,
+      }
     })
     return ok(result)
   })
 
   mock.mock(/\/api\/v1\/teacher\/students\/(?!\?).+$/, "get", (options: { url: string }) => {
     const userId = options.url.split("/").pop() || ""
-    const s = students.find((x) => x.userId === userId)
+    const s = students.find((x) => x.userId === userId || x.studentId === userId)
     if (!s) return err(4001, "学生不存在")
-    const studentSubs = submissions.filter((sub) => sub.studentId === userId)
+    const studentSubs = submissions.filter((sub) => sub.studentUserId === s.userId)
     const scored = studentSubs.filter((sub) => sub.finalScore !== null)
-    const avgScore = scored.length > 0 ? scored.reduce((a, b) => a + (b.finalScore || 0), 0) / scored.length : null
+    const avgScore = scored.length > 0
+      ? scored.reduce((a, b) => a + (b.finalScore || 0), 0) / scored.length
+      : null
     const grades = scored.map((sub) => {
       const t = tasks.find((x) => x.taskId === sub.taskId)
       return { taskName: t?.taskName || "-", score: sub.finalScore!, reviewedAt: sub.reviewedAt || "" }
     })
     return ok({
-      ...s,
+      userId: s.userId,
+      studentId: s.studentId,
+      realName: s.realName,
+      name: s.realName,
+      className: s.className,
+      email: s.email,
+      phone: s.phone,
+      submissionCount: studentSubs.length,
       completedCount: scored.length,
       avgScore,
       grades,
@@ -348,24 +393,58 @@ export default function setupTeacherMock(mock: typeof Mock): void {
 
   mock.mock("/api/v1/teacher/submissions", "get", () => {
     const pending = submissions
-      .filter((s) => s.status === "submitted" || s.status === "reviewing")
+      .filter((s) => isPendingTeacherReview(s.status))
       .map((s) => {
-        const stu = students.find((x) => x.userId === s.studentId)
+        const stu = students.find((x) => x.userId === s.studentUserId)
         const t = tasks.find((x) => x.taskId === s.taskId)
         return {
           submissionId: s.submissionId,
-          studentId: s.studentId,
-          studentName: stu?.name || "Unknown",
+          studentName: stu?.realName || "Unknown",
+          studentUserId: s.studentUserId,
+          studentEmail: stu?.email || "",
           taskId: s.taskId,
           taskName: t?.taskName || "Unknown",
           submittedAt: s.submittedAt,
           status: s.status,
-          submissionType: s.submissionType,
+          submitType: s.submitType,
+          submitCount: s.submitCount,
+          isLate: s.isLate,
+          hasReview: s.aiScore != null,
           fileName: s.fileName,
           fileSize: s.fileSize,
         }
       })
-    return ok(pending)
+    return ok({ list: pending, total: pending.length })
+  })
+
+  mock.mock(/\/api\/v1\/teacher\/submissions\/[^/]+$/, "get", (options: { url: string }) => {
+    const submissionId = options.url.split("/").pop() || ""
+    const sub = submissions.find((s) => s.submissionId === submissionId)
+    if (!sub) return err(4001, "提交不存在")
+    const attachments = sub.fileName
+      ? [{
+          fileId: `file-${sub.submissionId}`,
+          fileName: sub.fileName,
+          fileSize: sub.fileSize || 0,
+          fileType: "application/zip",
+          downloadUrl: `#mock-download/${sub.submissionId}`,
+        }]
+      : sub.gitUrl
+        ? [{
+            fileId: `git-${sub.submissionId}`,
+            fileName: "repository.git",
+            fileSize: 0,
+            fileType: "text/uri-list",
+            downloadUrl: sub.gitUrl,
+          }]
+        : []
+    return ok({
+      submissionId: sub.submissionId,
+      taskId: sub.taskId,
+      status: sub.status,
+      submittedAt: sub.submittedAt,
+      attachments,
+    })
   })
 
   mock.mock(/\/api\/v1\/teacher\/submissions\/.+\/diagnosis$/, "get", (options: { url: string }) => {
@@ -373,60 +452,9 @@ export default function setupTeacherMock(mock: typeof Mock): void {
     const submissionId = parts[parts.length - 2]
     const sub = submissions.find((s) => s.submissionId === submissionId)
     if (!sub) return err(4001, "提交不存在")
-    const ai = ensureAIResult(submissionId, sub.taskId)
     const t = tasks.find((x) => x.taskId === sub.taskId)
-    const student = students.find((x) => x.userId === sub.studentId)
-
-    const codePreview = [
-      `// ${t?.taskName || "项目"} - 代码预览`,
-      `// 提交者: ${student?.name || ""}`,
-      `// 提交时间: ${sub.submittedAt.substring(0, 10)}`,
-      "",
-      "package com.b1.demo;",
-      "",
-      "import java.util.*;",
-      "import java.io.*;",
-      "",
-      "public class Main {",
-      "    private static List<String> dataList;",
-      "    private static DatabaseManager db;",
-      "",
-      "    public static void main(String[] args) {",
-      "        db = new DatabaseManager();",
-      "        db.connect();",
-      "        dataList = new ArrayList<>();",
-      "        loadInitialData();",
-      `        System.out.println("系统启动成功");`,
-      "    }",
-      "",
-      "    private static void loadInitialData() {",
-      "        try {",
-      `            List<String> raw = db.query("SELECT * FROM data");`,
-      "            for (String row : raw) {",
-      "                dataList.add(processRow(row));",
-      "            }",
-      "        } catch (Exception e) {",
-      `            System.err.println("数据加载失败: " + e.getMessage());`,
-      "        }",
-      "    }",
-      "",
-      "    private static String processRow(String row) {",
-      "        if (row == null || row.isEmpty()) return \"\";",
-      "        return row.trim().toUpperCase();",
-      "    }",
-      "",
-      "    public static String findById(int id) {",
-      "        for (String item : dataList) {",
-      "            if (item.hashCode() == id) {",
-      "                return item;",
-      "            }",
-      "        }",
-      "        return null;",
-      "    }",
-      "}",
-    ].join("\n")
-
-    return ok({ ...ai, codePreview })
+    const student = students.find((x) => x.userId === sub.studentUserId)
+    return ok(buildDiagnosisResult(sub, t, student))
   })
 
   mock.mock(/\/api\/v1\/teacher\/submissions\/.+\/publish$/, "post", (options: { url: string; body: string }) => {
@@ -435,53 +463,97 @@ export default function setupTeacherMock(mock: typeof Mock): void {
     const sub = submissions.find((s) => s.submissionId === submissionId)
     if (!sub) return err(4001, "提交不存在")
     const body = JSON.parse(options.body)
-    sub.status = "approved"
-    sub.finalScore = body.finalScore
+    if (body.status === "REJECTED") {
+      sub.status = "REJECTED"
+      sub.finalScore = null
+      sub.rejectReason = body.comment || "请修改后重新提交"
+    } else {
+      sub.status = "APPROVED"
+      sub.finalScore = body.finalScore
+      sub.reviewComment = body.comment || null
+    }
     sub.reviewedAt = new Date().toISOString()
-    return ok(null, `发布成功！总分 ${body.finalScore} 分`)
+    return ok(null, body.status === "REJECTED" ? "已退回" : `发布成功！总分 ${body.finalScore} 分`)
   })
 
   // ========== Dashboard ==========
 
   mock.mock("/api/v1/teacher/dashboard", "get", () => {
-    const allSubs = submissions
-    const pending = allSubs.filter((s) => s.status === "submitted" || s.status === "reviewing")
-    const reviewed = allSubs.filter((s) => s.status === "approved")
-    const totalTasks = tasks.length
+    const pending = submissions.filter((s) => isPendingTeacherReview(s.status))
+    const pendingAi = pending.filter((s) => s.status === "AI_EVALUATING" || s.status === "SUBMITTED")
+    const pendingTeacher = pending.filter((s) => s.status === "AI_COMPLETED" || s.status === "TEACHER_SCORING")
+    const reviewed = submissions.filter((s) => s.status === "APPROVED")
+    const returned = submissions.filter((s) => s.status === "REJECTED")
+    const totalTasks = tasks.filter((t) => t.status === "PUBLISHED").length
     const totalStudents = students.length
     const submissionRate = totalStudents > 0 && totalTasks > 0
-      ? Math.round((allSubs.length / (totalStudents * totalTasks)) * 100)
+      ? Math.round((submissions.length / (totalStudents * totalTasks)) * 100)
       : 0
 
-    const classSet = new Map<string, StudentData[]>()
+    const classSet = new Map<string, SeedStudent[]>()
     students.forEach((s) => {
       if (!classSet.has(s.className)) classSet.set(s.className, [])
       classSet.get(s.className)!.push(s)
     })
-
     const classNames = Array.from(classSet.keys())
     const submitRateByClass = classNames.map((cls) => {
       const sts = classSet.get(cls)!
-      let submitted = 0, total = 0
+      let submitted = 0
+      let total = 0
       sts.forEach((st) => {
-        const stSubs = submissions.filter((sub) => sub.studentId === st.userId)
-        submitted += stSubs.length
-        total += tasks.length
+        submitted += submissions.filter((sub) => sub.studentUserId === st.userId).length
+        total += totalTasks
       })
       return total > 0 ? Math.round((submitted / total) * 100) : 0
     })
+    const avgScoresByClass = classNames.map((cls) => {
+      const sts = classSet.get(cls)!
+      const scores: number[] = []
+      sts.forEach((st) => {
+        submissions
+          .filter((sub) => sub.studentUserId === st.userId && sub.finalScore !== null)
+          .forEach((sub) => scores.push(sub.finalScore as number))
+      })
+      if (scores.length === 0) return 0
+      return Math.round(scores.reduce((a, b) => a + b, 0) / scores.length)
+    })
 
     const pendingItems = pending.slice(0, 5).map((s) => {
-      const stu = students.find((x) => x.userId === s.studentId)
+      const stu = students.find((x) => x.userId === s.studentUserId)
       const t = tasks.find((x) => x.taskId === s.taskId)
       return {
         submissionId: s.submissionId,
-        studentName: stu?.name || "Unknown",
+        studentName: stu?.realName || "Unknown",
         taskName: t?.taskName || "Unknown",
         submittedAt: s.submittedAt,
         status: s.status,
       }
     })
+
+    const now = Date.now()
+    const weekMs = 7 * 24 * 60 * 60 * 1000
+    const upcomingTasks = tasks
+      .filter((t) => t.status === "PUBLISHED")
+      .map((t) => {
+        const course = courses.find((c) => c.courseId === t.courseId)
+        const classStudents = students.filter((s) => s.className === (course?.className || ""))
+        const submittedIds = new Set(
+          submissions.filter((s) => s.taskId === t.taskId).map((s) => s.studentUserId),
+        )
+        return {
+          taskId: t.taskId,
+          taskName: t.taskName,
+          courseName: course?.courseName || "未命名课程",
+          deadline: t.deadline,
+          unsubmittedCount: classStudents.filter((s) => !submittedIds.has(s.userId)).length,
+          totalStudents: classStudents.length,
+          _due: new Date(t.deadline).getTime(),
+        }
+      })
+      .filter((t) => t._due >= now - weekMs && t._due <= now + weekMs * 4)
+      .sort((a, b) => a._due - b._due)
+      .slice(0, 6)
+      .map(({ _due, ...rest }) => rest)
 
     return ok({
       stats: {
@@ -492,19 +564,32 @@ export default function setupTeacherMock(mock: typeof Mock): void {
         submissionRate,
       },
       pendingReviews: pendingItems,
-      submitRateByClass: { classNames, values: submitRateByClass },
+      submitRateByClass: {
+        classNames,
+        values: submitRateByClass,
+        avgScores: avgScoresByClass,
+      },
+      upcomingTasks,
+      reviewStatus: {
+        pendingAi: pendingAi.length,
+        pendingTeacher: pendingTeacher.length,
+        approved: reviewed.length,
+        returned: returned.length,
+      },
+      aiConfidence: { high: 3, mid: 2, low: 1, total: 6 },
+      semesterTaskCount: totalTasks,
+      knowledgeEntryCount: 86,
     })
   })
 
   // ========== Standards Library ==========
 
   mock.mock("/api/v1/teacher/standards-library", "get", () => {
-    const templates = [
+    return ok([
       { id: "TMPL001", name: "综合实训通用标准", type: "综合实训", dims: 5, version: "v2.0", status: "published", updatedAt: "2026-02-15" },
       { id: "TMPL002", name: "课程设计通用标准", type: "课程设计", dims: 4, version: "v1.5", status: "published", updatedAt: "2026-03-01" },
       { id: "TMPL003", name: "毕业设计评审标准", type: "毕业设计", dims: 6, version: "v1.0", status: "draft", updatedAt: "2026-04-20" },
-    ]
-    return ok(templates)
+    ])
   })
 
   // ========== Reports ==========
@@ -512,20 +597,19 @@ export default function setupTeacherMock(mock: typeof Mock): void {
   mock.mock(/\/api\/v1\/teacher\/reports(\?.*)?$/, "get", (options: { url: string }) => {
     const params = new URL(`http://localhost${options.url}`).searchParams
     const className = params.get("className")
-
     const filteredStudents = className
       ? students.filter((s) => s.className === className)
       : students
 
     const studentStats = filteredStudents.map((st) => {
-      const subs = submissions.filter((s) => s.studentId === st.userId && s.finalScore !== null)
+      const subs = submissions.filter((s) => s.studentUserId === st.userId && s.finalScore !== null)
       const scores = subs.map((s) => s.finalScore!)
       return {
         studentId: st.studentId,
-        name: st.name,
+        name: st.realName,
         className: st.className,
         completedCount: subs.length,
-        avgScore: scores.length > 0 ? scores.reduce((a, b) => a + b, 0) / scores.length : 0,
+        avgScore: scores.length > 0 ? +(scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1) : 0,
         maxScore: scores.length > 0 ? Math.max(...scores) : 0,
         minScore: scores.length > 0 ? Math.min(...scores) : 0,
       }
@@ -567,22 +651,19 @@ export default function setupTeacherMock(mock: typeof Mock): void {
     })
   })
 
-  // ========== College Reports ==========
-
   mock.mock("/api/v1/teacher/reports-college", "get", () => {
-    const classNames = ["软件2401", "软件2402", "计算机2401", "计算机2402", "人工智能2401", "大数据2401"]
+    const classNames = ["软件2401", "软件2402", "计科2401", "计科2402"]
     const crossClassValues = classNames.map((cls) => {
       const sts = students.filter((s) => s.className === cls)
-      if (sts.length === 0) return +(40 + Math.random() * 50).toFixed(1)
       const scores: number[] = []
       sts.forEach((st) => {
         submissions
-          .filter((sub) => sub.studentId === st.userId && sub.finalScore !== null)
+          .filter((sub) => sub.studentUserId === st.userId && sub.finalScore !== null)
           .forEach((sub) => scores.push(sub.finalScore!))
       })
       return scores.length > 0
         ? +(scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1)
-        : +(40 + Math.random() * 50).toFixed(1)
+        : 72
     })
 
     return ok({
@@ -597,4 +678,5 @@ export default function setupTeacherMock(mock: typeof Mock): void {
       },
     })
   })
+
 }

@@ -77,7 +77,7 @@ npm install    # 首次运行
 npm run dev
 ```
 
-前端开发服务器：http://localhost:3000
+前端开发服务器：http://127.0.0.1:5173
 
 ## 种子账号
 

@@ -50,9 +50,17 @@ function handleAction() {
   if (!task) return
   if (actionState.value === "submit") router.push(`/student/submit/${taskId.value}`)
   else if (actionState.value === "viewGrade") {
-    const sid = task.mySubmissionId || taskId.value
-    router.push(`/student/grades/${sid}`)
+    if (!task.mySubmissionId) {
+      return
+    }
+    router.push(`/student/grades/${task.mySubmissionId}`)
   }
+}
+
+function viewAIDiagnosis() {
+  const sid = store.currentTask?.mySubmissionId
+  if (!sid) return
+  router.push({ path: "/student/ai-result", query: { sid } })
 }
 
 onMounted(() => { loadTaskDetail() })
@@ -119,7 +127,11 @@ onMounted(() => { loadTaskDetail() })
             <span>{{ store.currentTask.mySubmissionStatus === "SUBMITTED" ? "已提交，等待分析..." : "AI 正在分析中..." }}</span>
           </div>
           <BaseButton v-else-if="actionState === 'viewGrade'" type="primary" @click="handleAction">查看成绩</BaseButton>
-          <span v-else class="idle-text">状态：{{ store.currentTask.mySubmissionStatus }}</span>
+          <BaseButton
+            v-if="actionState === 'viewGrade' && store.currentTask?.mySubmissionId"
+            @click="viewAIDiagnosis"
+          >查看 AI 诊断</BaseButton>
+          <span v-else-if="actionState === 'idle'" class="idle-text">暂无可用操作</span>
         </div>
       </div>
     </template>
@@ -130,7 +142,7 @@ onMounted(() => { loadTaskDetail() })
 .task-detail-page { height: 100%; display: flex; flex-direction: column; overflow-y: auto; padding-bottom: var(--spacing-lg, 24px); }
 .task-detail-page__top { display: flex; align-items: center; gap: var(--spacing-sm, 8px); margin-bottom: var(--spacing-lg, 24px); }
 .task-detail-page__back { display: flex; align-items: center; justify-content: center; color: var(--color-text-secondary, #64748b); cursor: pointer; padding: var(--spacing-xs, 4px); border-radius: var(--radius-sm, 4px); transition: color .2s, background .2s; flex-shrink: 0; }
-.task-detail-page__back:hover { color: var(--color-primary, #3b82f6); background: var(--color-bg, #f8fafc); }
+.task-detail-page__back:hover { color: var(--color-primary, #1677FF); background: var(--color-bg, #f8fafc); }
 
 .card { background: var(--color-card, #fff); border-radius: var(--radius-md, 8px); padding: var(--spacing-lg, 24px); margin-bottom: var(--spacing-md, 16px); box-shadow: var(--shadow-sm, 0 1px 2px rgba(0,0,0,.05)); }
 .card__title { font-size: var(--font-size-md, 16px); font-weight: 600; color: var(--color-text-primary, #1e293b); margin-bottom: var(--spacing-md, 16px); padding-bottom: var(--spacing-sm, 8px); border-bottom: 1px solid var(--color-border, #e2e8f0); }
@@ -143,7 +155,7 @@ onMounted(() => { loadTaskDetail() })
 .info-item__val { font-size: var(--font-size-md, 16px); color: var(--color-text-primary, #1e293b); font-weight: 500; }
 
 .analyzing { display: flex; align-items: center; gap: var(--spacing-sm, 8px); font-size: var(--font-size-sm, 14px); color: var(--color-text-secondary, #64748b); }
-.analyzing__spinner { width: 16px; height: 16px; border: 2px solid var(--color-border, #e2e8f0); border-top-color: var(--color-primary, #3b82f6); border-radius: 50%; animation: spin .8s linear infinite; }
+.analyzing__spinner { width: 16px; height: 16px; border: 2px solid var(--color-border, #e2e8f0); border-top-color: var(--color-primary, #1677FF); border-radius: 50%; animation: spin .8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
 .idle-text { font-size: var(--font-size-sm, 14px); color: var(--color-text-secondary, #64748b); }

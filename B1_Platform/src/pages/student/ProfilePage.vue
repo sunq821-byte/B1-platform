@@ -119,9 +119,10 @@ onUnmounted(() => {
         </div>
         <template v-if="!isEditing">
           <div class="info-list">
+            <div class="info-row"><span class="info-label">学号 / 账号</span><span class="info-value mono">{{ userInfo.username }}</span></div>
             <div class="info-row"><span class="info-label">姓名</span><span class="info-value">{{ userInfo.realName }}</span></div>
-            <div class="info-row"><span class="info-label">邮箱</span><span class="info-value">{{ userInfo.email }}</span></div>
-            <div class="info-row"><span class="info-label">手机</span><span class="info-value">{{ userInfo.phone }}</span></div>
+            <div class="info-row"><span class="info-label">邮箱</span><span class="info-value">{{ userInfo.email || "-" }}</span></div>
+            <div class="info-row"><span class="info-label">手机</span><span class="info-value">{{ userInfo.phone || "-" }}</span></div>
           </div>
           <BaseButton class="mt-sm" :disabled="!isOnline" @click="enterEdit">编辑信息</BaseButton>
         </template>
@@ -149,8 +150,21 @@ onUnmounted(() => {
 <style scoped>
 .profile-page { height: 100%; display: flex; flex-direction: column; }
 .profile-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--spacing-lg, 24px); }
-.profile-card { background: var(--color-card, #fff); border-radius: var(--radius-md, 8px); padding: var(--spacing-lg, 24px); box-shadow: var(--shadow-sm, 0 1px 2px rgba(0,0,0,.05)); }
-.profile-card__title { font-size: var(--font-size-base, 16px); font-weight: 600; color: var(--color-text-primary, #1e293b); margin-bottom: var(--spacing-lg, 24px); padding-bottom: var(--spacing-sm, 8px); border-bottom: 1px solid var(--color-border, #e2e8f0); }
+.profile-card {
+  background: var(--color-card, #fff);
+  border: 1px solid var(--color-border, #E5E7EB);
+  border-radius: var(--radius-xl, 16px);
+  padding: var(--spacing-lg, 24px);
+  box-shadow: var(--shadow-card, 0 1px 2px rgba(15,23,42,.04), 0 8px 24px rgba(15,23,42,.04));
+}
+.profile-card__title {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--color-navy, #0B3A5C);
+  margin-bottom: var(--spacing-lg, 24px);
+  padding-bottom: var(--spacing-sm, 8px);
+  border-bottom: 1px solid var(--color-border, #e2e8f0);
+}
 .profile-card__avatar { display: flex; justify-content: center; margin-bottom: var(--spacing-lg, 24px); }
 .avatar-wrap { position: relative; }
 .avatar-overlay { position: absolute; inset: 0; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,.5); color: #fff; cursor: pointer; opacity: 0; transition: opacity var(--transition-fast, 150ms ease); }
@@ -159,6 +173,7 @@ onUnmounted(() => {
 .info-row { display: flex; justify-content: space-between; align-items: center; padding: var(--spacing-sm, 8px) 0; border-bottom: 1px solid var(--color-border, #e2e8f0); }
 .info-label { font-size: var(--font-size-sm, 14px); color: var(--color-text-secondary, #64748b); }
 .info-value { font-size: var(--font-size-sm, 14px); color: var(--color-text-primary, #1e293b); font-weight: 500; }
+.mono { font-family: var(--font-mono); font-size: 13px; }
 .mt-sm { margin-top: var(--spacing-md, 16px); }
 .edit-form { display: flex; flex-direction: column; gap: var(--spacing-md, 16px); }
 .field { display: flex; flex-direction: column; gap: var(--spacing-xs, 4px); }

@@ -124,7 +124,7 @@ export const useTeacherStore = defineStore("teacher", () => {
   }
 
   async function createTask(data: ITaskFormData): Promise<ITeacherTaskItem> {
-    const t = await teacherApi.createTask(data)
+    const t = mapTask(await teacherApi.createTask(data) as unknown as Record<string, unknown>)
     tasks.value.push(t)
     return t
   }
@@ -151,18 +151,18 @@ export const useTeacherStore = defineStore("teacher", () => {
   // === Students ===
   function mapStudent(raw: Record<string, unknown>): IStudentItem {
     const userId = String(raw.userId ?? '')
-    const realName = String(raw.realName ?? '')
+    const realName = String(raw.realName ?? raw.name ?? '')
     return {
       userId,
-      studentId: userId,
+      studentId: String(raw.studentId ?? userId),
       name: realName,
       realName,
       className: String(raw.className || ''),
       email: String(raw.email ?? ''),
       phone: String(raw.phone ?? ''),
-      completedCount: Number(raw.submissionCount ?? ''),
+      completedCount: Number(raw.completedCount ?? raw.submissionCount ?? 0),
       submissionCount: Number(raw.submissionCount ?? 0),
-      avgScore: null,
+      avgScore: raw.avgScore != null ? Number(raw.avgScore) : null,
     }
   }
 
@@ -265,8 +265,29 @@ export const useTeacherStore = defineStore("teacher", () => {
   // === Dashboard ===
   async function fetchDashboard(): Promise<void> {
     dashboardLoading.value = true
-    try { dashboardData.value = await teacherApi.fetchDashboard() }
-    finally { dashboardLoading.value = false }
+    try {
+      const raw = await teacherApi.fetchDashboard()
+      dashboardData.value = {
+        ...raw,
+        upcomingTasks: raw.upcomingTasks ?? [],
+        submitRateByClass: {
+          classNames: raw.submitRateByClass?.classNames ?? [],
+          values: raw.submitRateByClass?.values ?? [],
+          avgScores: raw.submitRateByClass?.avgScores ?? [],
+        },
+        reviewStatus: raw.reviewStatus ?? {
+          pendingAi: 0,
+          pendingTeacher: raw.stats?.pendingCount ?? 0,
+          approved: raw.stats?.reviewedCount ?? 0,
+          returned: 0,
+        },
+        aiConfidence: raw.aiConfidence ?? { high: 0, mid: 0, low: 0, total: 0 },
+        semesterTaskCount: raw.semesterTaskCount ?? 0,
+        knowledgeEntryCount: raw.knowledgeEntryCount ?? 0,
+      }
+    } finally {
+      dashboardLoading.value = false
+    }
   }
 
   async function remindTasks(taskIds: string[]): Promise<{ notifiedStudents: number; taskCount: number }> {

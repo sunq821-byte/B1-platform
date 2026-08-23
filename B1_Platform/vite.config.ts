@@ -24,7 +24,10 @@ export default defineConfig({
     },
   },
   server: {
-    port: 3000,
+    // 避开本机其他项目（如 Trek）占用/缓存的 3000 端口
+    port: 5173,
+    strictPort: true,
+    host: '127.0.0.1',
     proxy: {
       '/api': {
         target: 'http://localhost:8080',

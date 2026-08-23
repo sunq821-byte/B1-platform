@@ -8,6 +8,8 @@ const props = withDefaults(defineProps<{
   height?: string
   title?: string
   smooth?: boolean
+  yMin?: number | "dataMin"
+  yMax?: number | "dataMax"
 }>(), {
   height: "320px",
   smooth: true,
@@ -16,7 +18,7 @@ const props = withDefaults(defineProps<{
 const chartRef = ref<HTMLDivElement>()
 let chartInstance: echarts.ECharts | null = null
 
-const COLOR_PALETTE = ["#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6", "#EC4899"]
+const COLOR_PALETTE = ["#1677FF", "#00B96B", "#FAAD14", "#FF4D4F", "#722ED1", "#0B3A5C"]
 
 function getOption(): echarts.EChartsOption {
   return {
@@ -35,6 +37,8 @@ function getOption(): echarts.EChartsOption {
     },
     yAxis: {
       type: "value",
+      min: props.yMin,
+      max: props.yMax,
       splitLine: { lineStyle: { color: "#F1F5F9" } },
       axisLabel: { color: "#94A3B8", fontSize: 12 },
     },

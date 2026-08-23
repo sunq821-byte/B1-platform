@@ -95,7 +95,7 @@ const passwordStrength = computed(() => {
 })
 
 const strengthColor = computed(() => {
-  const colors = ["#ef4444", "#f97316", "#f59e0b", "#22c55e"]
+  const colors = ["#FF4D4F", "#f97316", "#FAAD14", "#22c55e"]
   return passwordStrength.value > 0 ? colors[passwordStrength.value - 1] : "#e2e8f0"
 })
 
@@ -553,7 +553,10 @@ function resetPassword() {
   padding: 16px;
   position: relative;
   overflow: hidden;
-  background: linear-gradient(135deg, oklch(0.25 0.08 260) 0%, oklch(0.18 0.06 280) 50%, oklch(0.22 0.10 300) 100%);
+  background:
+    radial-gradient(ellipse 80% 60% at 15% 20%, rgba(22, 119, 255, 0.35), transparent 55%),
+    radial-gradient(ellipse 70% 50% at 85% 75%, rgba(0, 185, 107, 0.18), transparent 50%),
+    linear-gradient(145deg, #0B3A5C 0%, #0A4A7A 42%, #0958D9 100%);
 }
 
 /* Decorative circles */
@@ -573,7 +576,7 @@ function resetPassword() {
   top: 0; left: 0; right: 0;
   z-index: 1000;
   padding: 8px 24px;
-  background: var(--color-warning, #f59e0b);
+  background: var(--color-warning, #FAAD14);
   color: #fff;
   font-size: 13px;
   text-align: center;
@@ -618,6 +621,18 @@ function resetPassword() {
   align-items: center;
   justify-content: center;
   color: #fff;
+  position: relative;
+}
+.brand-logo::after {
+  content: "";
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-brand-accent, #E03C31);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.25);
 }
 
 .brand-name {
@@ -699,11 +714,10 @@ function resetPassword() {
 }
 
 .login-card {
-  background: rgba(255, 255, 255, 0.97);
-  backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  border-radius: 16px;
-  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.2);
+  background: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  border-radius: 20px;
+  box-shadow: 0 24px 64px rgba(11, 58, 92, 0.28);
   padding: 28px 32px 32px;
   position: relative;
 }
@@ -732,7 +746,7 @@ function resetPassword() {
 }
 
 .step-dot--active {
-  background: var(--color-primary, #3b82f6);
+  background: var(--color-primary, #1677FF);
 }
 
 .step-label {
@@ -807,8 +821,8 @@ function resetPassword() {
 }
 
 .role-card:hover {
-  border-color: var(--color-primary, #3b82f6);
-  background: var(--color-primary-light, #eff6ff);
+  border-color: var(--color-primary, #1677FF);
+  background: var(--color-primary-light, #E6F4FF);
   transform: translateY(-2px);
 }
 
@@ -823,9 +837,9 @@ function resetPassword() {
   transition: all 200ms;
 }
 
-.role--student .role-icon-wrap { background: #dcfce7; color: #16a34a; }
-.role--teacher .role-icon-wrap { background: #eef2ff; color: #4f46e5; }
-.role--admin   .role-icon-wrap { background: #f1f5f9; color: #475569; }
+.role--student .role-icon-wrap { background: var(--color-success-light, #E6F7EF); color: var(--color-success, #00B96B); }
+.role--teacher .role-icon-wrap { background: var(--color-primary-light, #E6F4FF); color: var(--color-primary, #1677FF); }
+.role--admin   .role-icon-wrap { background: var(--color-navy-light, #E8F1F7); color: var(--color-navy, #0B3A5C); }
 
 .role-name {
   font-weight: 600;
@@ -841,11 +855,11 @@ function resetPassword() {
 
 /* Selected state */
 .role-card--selected {
-  border-color: var(--color-primary, #3b82f6);
-  background: var(--color-primary-light, #eff6ff);
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+  border-color: var(--color-primary, #1677FF);
+  background: var(--color-primary-light, #E6F4FF);
+  box-shadow: 0 0 0 3px rgba(22, 119, 255, 0.15);
 }
-.role-card--selected .role-icon-wrap { background: var(--color-primary, #3b82f6); color: #fff; }
+.role-card--selected .role-icon-wrap { background: var(--color-primary, #1677FF); color: #fff; }
 
 .contact-hint {
   text-align: center;
@@ -854,7 +868,7 @@ function resetPassword() {
   color: #94a3b8;
 }
 .contact-link {
-  color: var(--color-primary, #3b82f6);
+  color: var(--color-primary, #1677FF);
   cursor: pointer;
 }
 .contact-link:hover { text-decoration: underline; }
@@ -877,9 +891,9 @@ function resetPassword() {
   font-weight: 500;
 }
 
-.role--student.role-badge { background: #dcfce7; color: #166534; }
-.role--teacher.role-badge { background: #eef2ff; color: #4f46e5; }
-.role--admin.role-badge   { background: #f1f5f9; color: #475569; }
+.role--student.role-badge { background: var(--color-success-light, #E6F7EF); color: var(--color-success-hover, #009A57); }
+.role--teacher.role-badge { background: var(--color-primary-light, #E6F4FF); color: var(--color-primary, #1677FF); }
+.role--admin.role-badge   { background: var(--color-navy-light, #E8F1F7); color: var(--color-navy, #0B3A5C); }
 
 /* ====== Input fields ====== */
 .input-wrap {
@@ -912,8 +926,8 @@ function resetPassword() {
 }
 
 .input-field:focus {
-  border-color: var(--color-primary, #3b82f6);
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  border-color: var(--color-primary, #1677FF);
+  box-shadow: 0 0 0 3px rgba(22, 119, 255, 0.12);
 }
 
 .input-field::placeholder { color: #94a3b8; }
@@ -943,7 +957,7 @@ function resetPassword() {
 
 .forgot-link {
   font-size: 13px;
-  color: var(--color-primary, #3b82f6);
+  color: var(--color-primary, #1677FF);
   cursor: pointer;
 }
 .forgot-link:hover { text-decoration: underline; }
@@ -1005,14 +1019,14 @@ function resetPassword() {
   border-radius: 12px;
   font-size: 13px;
   font-weight: 500;
-  border: 1px solid #c7d2fe;
+  border: 1px solid var(--color-primary-mid, #91CAFF);
   background: transparent;
-  color: var(--color-primary, #3b82f6);
+  color: var(--color-primary, #1677FF);
   cursor: pointer;
   white-space: nowrap;
   transition: background 150ms;
 }
-.sms-btn:hover:not(:disabled) { background: var(--color-primary-light, #eff6ff); }
+.sms-btn:hover:not(:disabled) { background: var(--color-primary-light, #E6F4FF); }
 .sms-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
 /* ====== Form group ====== */
@@ -1064,8 +1078,8 @@ function resetPassword() {
   width: 64px;
   height: 64px;
   border-radius: 50%;
-  background: #dcfce7;
-  color: #16a34a;
+  background: #E6F7EF;
+  color: #00B96B;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1096,7 +1110,7 @@ function resetPassword() {
 .success-bar-fill {
   height: 100%;
   border-radius: 3px;
-  background: var(--color-primary, #3b82f6);
+  background: var(--color-primary, #1677FF);
   animation: progressFill 2s linear forwards;
 }
 

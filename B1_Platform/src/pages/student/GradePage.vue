@@ -92,6 +92,12 @@ onUnmounted(() => { store.stopPolling() })
         @retry="handleRetry"
       />
 
+      <div v-if="!isPolling && !pollingError" class="grade-page__ai-link">
+        <BaseButton type="primary" @click="router.push({ path: '/student/ai-result', query: { sid: submissionId } })">
+          查看完整 AI 诊断
+        </BaseButton>
+      </div>
+
       <!-- Rejected state -->
       <div v-if="isRejected" class="grade-page__reject">
         <h3 class="grade-page__section-title">作业已退回</h3>
@@ -127,18 +133,21 @@ onUnmounted(() => { store.stopPolling() })
 <style scoped>
 .grade-page { max-width: 900px; margin: 0 auto; }
 .grade-page__state { padding: var(--spacing-2xl, 48px) 0; }
+.grade-page__ai-link { margin: 12px 0 20px; }
 
 .grade-page__section-title {
-  font-size: var(--font-size-base, 16px);
-  font-weight: 600;
-  color: var(--color-text-primary, #1e293b);
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--color-navy, #0B3A5C);
   margin: 0 0 var(--spacing-md, 16px) 0;
 }
 
 .grade-page__teacher-review {
   background: var(--color-card, #fff);
-  border-radius: var(--radius-lg, 12px);
-  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--color-border, #E5E7EB);
+  border-radius: var(--radius-xl, 16px);
+  box-shadow: var(--shadow-card);
   padding: var(--spacing-lg, 24px);
   margin-top: var(--spacing-md, 16px);
 }
@@ -158,7 +167,7 @@ onUnmounted(() => { store.stopPolling() })
 .grade-page__teacher-value {
   font-size: var(--font-size-2xl, 24px);
   font-weight: 700;
-  color: var(--color-primary, #3b82f6);
+  color: var(--color-primary, #1677FF);
 }
 
 .grade-page__teacher-comment {
@@ -168,7 +177,7 @@ onUnmounted(() => { store.stopPolling() })
   background: var(--color-bg, #f8fafc);
   padding: var(--spacing-md, 16px);
   border-radius: var(--radius-md, 8px);
-  border-left: 4px solid var(--color-primary, #3b82f6);
+  border-left: 4px solid var(--color-primary, #1677FF);
 }
 
 .grade-page__reviewer {
@@ -179,15 +188,16 @@ onUnmounted(() => { store.stopPolling() })
 
 .grade-page__reject {
   background: var(--color-card, #fff);
-  border-radius: var(--radius-lg, 12px);
-  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--color-danger-light, #FFF1F0);
+  border-radius: var(--radius-xl, 16px);
+  box-shadow: var(--shadow-card);
   padding: var(--spacing-lg, 24px);
   margin-top: var(--spacing-md, 16px);
 }
 
 .grade-page__reject-text {
   font-size: var(--font-size-sm, 14px);
-  color: var(--color-danger, #EF4444);
+  color: var(--color-danger, #FF4D4F);
   line-height: 1.6;
   margin: 0 0 var(--spacing-md, 16px) 0;
 }

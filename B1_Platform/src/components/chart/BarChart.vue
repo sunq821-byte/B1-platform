@@ -16,7 +16,7 @@ const props = withDefaults(defineProps<{
 const chartRef = ref<HTMLDivElement>()
 let chartInstance: echarts.ECharts | null = null
 
-const COLOR_PALETTE = ["#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6", "#EC4899"]
+const COLOR_PALETTE = ["#1677FF", "#00B96B", "#FAAD14", "#FF4D4F", "#722ED1", "#0B3A5C"]
 
 function getOption(): echarts.EChartsOption {
   const categoryAxis: Record<string, unknown> = {
@@ -98,9 +98,9 @@ onUnmounted(() => {
 
 <style scoped>
 .chart-card {
-  background: var(--color-card);
-  border-radius: 12px;
-  padding: 16px;
+  background: transparent;
+  border-radius: var(--radius-lg, 16px);
+  padding: 0;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
@@ -108,9 +108,10 @@ onUnmounted(() => {
 
 .chart-card__title {
   margin: 0 0 8px 0;
-  font-size: 14px;
-  font-weight: 600;
-  color: inherit;
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--color-text-primary, #0f172a);
   flex-shrink: 0;
 }
 

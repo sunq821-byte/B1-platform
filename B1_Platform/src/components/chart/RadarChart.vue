@@ -14,12 +14,7 @@ const props = withDefaults(defineProps<{
 const chartRef = ref<HTMLDivElement>()
 let chartInstance: echarts.ECharts | null = null
 
-const COLOR_PALETTE = ["#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6", "#EC4899"]
-
-function getMaxValue(): number {
-  const allValues = props.seriesData.flatMap((s) => s.data)
-  return allValues.length > 0 ? Math.ceil(Math.max(...allValues) / 10) * 10 : 100
-}
+const COLOR_PALETTE = ["#1677FF", "#00B96B", "#FAAD14", "#FF4D4F", "#722ED1", "#0B3A5C"]
 
 function hasValidData(): boolean {
   return props.categories.length > 0 && props.seriesData.some(s => s.data.length > 0)
@@ -31,7 +26,6 @@ function getOption(): echarts.EChartsOption {
       title: { text: "暂无数据", left: "center", top: "center", textStyle: { fontSize: 14, color: "#94a3b8" } },
     }
   }
-  const maxVal = getMaxValue()
   return {
     tooltip: {},
     legend: {
@@ -39,7 +33,7 @@ function getOption(): echarts.EChartsOption {
       textStyle: { fontSize: 12, color: "#64748B" },
     },
     radar: {
-      indicator: props.categories.map((name) => ({ name, max: maxVal })),
+      indicator: props.categories.map((name) => ({ name, max: 100 })),
       shape: "polygon",
       radius: "65%",
       splitArea: {

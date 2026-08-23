@@ -1,16 +1,17 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from "vue"
-import { ElMessage } from "element-plus"
+import { ElMessage, ElMessageBox } from "element-plus"
 import { FileText, Download } from "lucide-vue-next"
 import { useTeacherStore } from "@/stores/useTeacherStore"
 import * as teacherApi from "@/api/modules/teacher"
-import type { IManualDeduction, IAttachment } from "@/types/teacher"
+import type { IManualDeduction, IAttachment, IPublishRequest } from "@/types/teacher"
 import BaseButton from "@/components/base/BaseButton.vue"
 import LoadingState from "@/components/common/LoadingState.vue"
 import ErrorState from "@/components/common/ErrorState.vue"
 
 const store = useTeacherStore()
 const loadError = ref("")
+const listKeyword = ref("")
 const currentIndex = ref(-1)
 const teacherComment = ref("")
 const manualDeductions = ref<IManualDeduction[]>([])
@@ -24,9 +25,32 @@ const codeContent = ref("")
 const codeLoading = ref(false)
 
 const currentSub = computed(() => {
-  if (currentIndex.value < 0 || currentIndex.value >= store.pendingSubmissions.length) return null
-  return store.pendingSubmissions[currentIndex.value]
+  if (currentIndex.value < 0 || currentIndex.value >= filteredPending.value.length) return null
+  return filteredPending.value[currentIndex.value]
 })
+
+const filteredPending = computed(() => {
+  const kw = listKeyword.value.trim().toLowerCase()
+  if (!kw) return store.pendingSubmissions
+  return store.pendingSubmissions.filter((s) =>
+    (s.studentName || "").toLowerCase().includes(kw)
+    || (s.taskName || "").toLowerCase().includes(kw),
+  )
+})
+
+function buildDeductionOverrides(): IPublishRequest["deductionOverrides"] {
+  const overrides: IPublishRequest["deductionOverrides"] = {}
+  const list = store.currentDiagnosis?.deductions ?? []
+  list.forEach((d, idx) => {
+    if (!d.overridden) return
+    overrides[idx] = {
+      action: d.overrideAction || "adjust",
+      adjustedDeduct: d.adjustedDeduct,
+      reason: d.overrideReason,
+    }
+  })
+  return overrides
+}
 
 const isCodeSubmission = computed(() => currentSub.value?.submissionType === "code")
 
@@ -79,7 +103,7 @@ function formatFileSize(bytes?: number) {
 
 async function selectSubmission(idx: number) {
   currentIndex.value = idx
-  const sub = store.pendingSubmissions[idx]
+  const sub = filteredPending.value[idx]
   if (!sub) return
   teacherComment.value = ""
   manualDeductions.value = []
@@ -118,7 +142,7 @@ async function selectSubmission(idx: number) {
 }
 
 function nextSubmission() {
-  if (currentIndex.value < store.pendingSubmissions.length - 1) {
+  if (currentIndex.value < filteredPending.value.length - 1) {
     selectSubmission(currentIndex.value + 1)
   }
 }
@@ -177,17 +201,23 @@ async function handlePublish() {
   if (!currentSub.value) return
   const final = parseFloat(finalScore.value.toFixed(1))
   const comment = teacherComment.value.trim()
-  if (!window.confirm(`确认发布？\n总分: ${final} 分\n评语: ${comment || "无"}`)) return
+  try {
+    await ElMessageBox.confirm(
+      `确认发布终审成绩？\n总分: ${final} 分\n评语: ${comment || "无"}\n此操作不可逆。`,
+      "发布成绩",
+      { type: "warning", confirmButtonText: "确认发布", cancelButtonText: "取消" },
+    )
+  } catch { return }
   try {
     await store.publishReview(currentSub.value.submissionId, {
       status: "PUBLISHED",
       finalScore: final, comment,
       manualDeductions: manualDeductions.value,
-      deductionOverrides: {},
+      deductionOverrides: buildDeductionOverrides(),
     })
     ElMessage.success(`发布成功！总分 ${final} 分`)
-    if (store.pendingSubmissions.length > 0) {
-      currentIndex.value = Math.min(currentIndex.value, store.pendingSubmissions.length - 1)
+    if (filteredPending.value.length > 0) {
+      currentIndex.value = Math.min(currentIndex.value, filteredPending.value.length - 1)
       if (currentIndex.value >= 0) {
         teacherComment.value = ""; manualDeductions.value = []
         await selectSubmission(currentIndex.value)
@@ -200,17 +230,23 @@ async function handleReject() {
   if (!currentSub.value) return
   const comment = teacherComment.value.trim()
   if (!comment) { ElMessage.warning("打回时请填写打回原因"); return }
-  if (!window.confirm(`确认打回该提交？\n原因: ${comment}`)) return
+  try {
+    await ElMessageBox.confirm(
+      `确认打回该提交？\n原因: ${comment}\n此操作不可逆。`,
+      "打回提交",
+      { type: "warning", confirmButtonText: "确认打回", cancelButtonText: "取消" },
+    )
+  } catch { return }
   try {
     await store.publishReview(currentSub.value.submissionId, {
       status: "REJECTED",
       finalScore: 0, comment,
       manualDeductions: [],
-      deductionOverrides: {},
+      deductionOverrides: buildDeductionOverrides(),
     })
     ElMessage.warning("已打回")
-    if (store.pendingSubmissions.length > 0) {
-      currentIndex.value = Math.min(currentIndex.value, store.pendingSubmissions.length - 1)
+    if (filteredPending.value.length > 0) {
+      currentIndex.value = Math.min(currentIndex.value, filteredPending.value.length - 1)
       if (currentIndex.value >= 0) {
         teacherComment.value = ""; manualDeductions.value = []
         await selectSubmission(currentIndex.value)
@@ -246,17 +282,26 @@ onMounted(() => { initPage() })
     <template v-else>
       <!-- Breadcrumb -->
       <div class="review-topbar">
-        <span class="breadcrumb">审核工作台</span>
+        <div>
+          <div class="breadcrumb">审核工作台</div>
+          <div class="topbar-sub">待审 {{ store.pendingSubmissions.length }} 份 · 终审不可逆</div>
+        </div>
       </div>
 
       <!-- Three-panel area -->
       <div class="review-wb">
         <!-- LEFT: Student list -->
         <div class="review-left">
-          <div class="panel-title">待审核提交 ({{ store.pendingSubmissions.length }})</div>
+          <div class="panel-title">待审核提交 ({{ filteredPending.length }})</div>
+          <input
+            v-model="listKeyword"
+            class="list-search"
+            placeholder="搜索学生 / 任务..."
+            @input="currentIndex = -1"
+          />
           <div class="student-list">
             <div
-              v-for="(sub, idx) in store.pendingSubmissions"
+              v-for="(sub, idx) in filteredPending"
               :key="sub.submissionId"
               :class="['student-item', { 'student-item--active': idx === currentIndex }]"
               @click="selectSubmission(idx)"
@@ -271,7 +316,7 @@ onMounted(() => { initPage() })
               </div>
             </div>
           </div>
-          <div v-if="store.pendingSubmissions.length === 0" class="empty-hint">暂无待审核提交</div>
+          <div v-if="filteredPending.length === 0" class="empty-hint">暂无待审核提交</div>
         </div>
 
         <!-- CENTER: Preview -->
@@ -426,34 +471,60 @@ onMounted(() => { initPage() })
 }
 
 .breadcrumb {
-  font-size: 13px;
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--color-navy, #0B3A5C);
+}
+.topbar-sub {
+  margin-top: 4px;
+  font-size: 12px;
   color: var(--color-text-secondary, #64748b);
 }
+.list-search {
+  width: 100%;
+  margin: 0 0 10px;
+  height: 34px;
+  border: 1px solid var(--color-border, #E5E7EB);
+  border-radius: 10px;
+  padding: 0 10px;
+  font-size: 12px;
+  outline: none;
+  box-sizing: border-box;
+}
+.list-search:focus { border-color: var(--color-primary, #1677FF); }
 
 /* === Three-panel === */
 .review-wb {
   display: flex;
   flex: 1;
   min-height: 0;
+  margin: 12px 0 0;
+  border: 1px solid var(--color-border, #E5E7EB);
+  border-radius: var(--radius-xl, 16px);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+  background: var(--color-card, #fff);
 }
 
 /* LEFT */
 .review-left {
   width: 280px;
-  border-right: 1px solid var(--color-border, #e2e8f0);
+  border-right: 1px solid var(--color-border, #E5E7EB);
   overflow-y: auto;
   padding: 16px;
   flex-shrink: 0;
   background: var(--color-card, #fff);
+  border-radius: var(--radius-xl, 16px) 0 0 var(--radius-xl, 16px);
 }
 
 /* CENTER */
 .review-center {
   flex: 1;
   overflow-y: auto;
-  border-right: 1px solid var(--color-border, #e2e8f0);
+  border-right: 1px solid var(--color-border, #E5E7EB);
   display: flex;
   flex-direction: column;
+  background: var(--color-bg, #F5F7FA);
 }
 
 /* RIGHT */
@@ -463,22 +534,30 @@ onMounted(() => { initPage() })
   padding: 16px;
   flex-shrink: 0;
   background: var(--color-card, #fff);
+  border-radius: 0 var(--radius-xl, 16px) var(--radius-xl, 16px) 0;
 }
 
-.panel-title { font-weight: 600; font-size: 13px; margin-bottom: 12px; padding: 0 4px; color: var(--color-text-primary, #1e293b); }
+.panel-title {
+  font-weight: 800;
+  font-size: 14px;
+  letter-spacing: -0.02em;
+  margin-bottom: 12px;
+  padding: 0 4px;
+  color: var(--color-navy, #0B3A5C);
+}
 .empty-hint { color: var(--color-text-placeholder, #94a3b8); text-align: center; padding: 80px 0; font-size: 13px; }
 
 /* Student list */
 .student-list { display: flex; flex-direction: column; gap: 2px; }
-.student-item { padding: 12px; border-radius: var(--radius-sm, 4px); cursor: pointer; transition: background 0.1s; border-left: 3px solid transparent; }
+.student-item { padding: 12px; border-radius: 12px; cursor: pointer; transition: background 0.1s; border-left: 3px solid transparent; }
 .student-item:hover { background: var(--color-bg, #f8fafc); }
-.student-item--active { background: var(--color-primary-light, #eff6ff); border-left-color: var(--color-primary, #3b82f6); }
+.student-item--active { background: var(--color-primary-light, #E6F4FF); border-left-color: var(--color-primary, #1677FF); }
 .si-name { font-size: 14px; font-weight: 500; color: var(--color-text-primary, #1e293b); }
 .si-task { font-size: 12px; color: var(--color-text-placeholder, #94a3b8); margin-top: 2px; }
 .si-meta { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
 .si-type-tag { font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 3px; }
-.si-type-tag--code { background: var(--color-primary-light, #eff6ff); color: var(--color-primary, #3b82f6); }
-.si-type-tag--file { background: var(--color-success-light, #ecfdf5); color: #047857; }
+.si-type-tag--code { background: var(--color-primary-light, #E6F4FF); color: var(--color-primary, #1677FF); }
+.si-type-tag--file { background: var(--color-success-light, #E6F7EF); color: #009A57; }
 .si-time { font-size: 11px; color: var(--color-text-placeholder, #94a3b8); font-family: var(--font-mono); }
 
 /* Code preview */
@@ -516,10 +595,10 @@ onMounted(() => { initPage() })
 /* Score ring */
 .score-header { display: flex; align-items: center; gap: 14px; margin-bottom: 16px; }
 .score-ring { width: 56px; height: 56px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-family: var(--font-mono); font-size: 16px; font-weight: 700; flex-shrink: 0; }
-.ring-excellent { background: #d1fae5; color: #065f46; border: 3px solid var(--color-success, #10b981); }
-.ring-good { background: #eff6ff; color: #1d4ed8; border: 3px solid var(--color-primary, #3b82f6); }
-.ring-fair { background: #fef3c7; color: #92400e; border: 3px solid var(--color-warning, #f59e0b); }
-.ring-poor { background: #fee2e2; color: #991b1b; border: 3px solid var(--color-danger, #ef4444); }
+.ring-excellent { background: #E6F7EF; color: #009A57; border: 3px solid var(--color-success, #00B96B); }
+.ring-good { background: #E6F4FF; color: #0958D9; border: 3px solid var(--color-primary, #1677FF); }
+.ring-fair { background: #fef3c7; color: #92400e; border: 3px solid var(--color-warning, #FAAD14); }
+.ring-poor { background: #fee2e2; color: #991b1b; border: 3px solid var(--color-danger, #FF4D4F); }
 .grade-label { font-size: 13px; font-weight: 500; color: var(--color-text-primary, #1e293b); }
 .grade-meta { font-size: 11px; color: var(--color-text-placeholder, #94a3b8); }
 
@@ -530,35 +609,35 @@ onMounted(() => { initPage() })
 .deduction-item--rejected .ded-reason { text-decoration: line-through; }
 .ded-header { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
 .ded-tag { font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 3px; text-transform: uppercase; }
-.ded-tag--code { background: var(--color-primary-light, #eff6ff); color: var(--color-primary, #3b82f6); }
-.ded-tag--doc { background: var(--color-success-light, #ecfdf5); color: #047857; }
+.ded-tag--code { background: var(--color-primary-light, #E6F4FF); color: var(--color-primary, #1677FF); }
+.ded-tag--doc { background: var(--color-success-light, #E6F7EF); color: #009A57; }
 .ded-tag--req { background: var(--color-warning-light, #fffbeb); color: #b45309; }
 .ded-type { font-size: 12px; font-weight: 500; flex: 1; color: var(--color-text-primary, #1e293b); }
-.ded-score { font-family: var(--font-mono); font-size: 13px; font-weight: 600; color: var(--color-danger, #ef4444); margin-left: auto; }
+.ded-score { font-family: var(--font-mono); font-size: 13px; font-weight: 600; color: var(--color-danger, #FF4D4F); margin-left: auto; }
 .ded-reason { font-size: 12px; color: var(--color-text-secondary, #64748b); line-height: 1.4; }
 .ded-file { font-size: 11px; color: var(--color-text-placeholder, #94a3b8); font-family: var(--font-mono); margin-top: 2px; }
 .ded-actions { display: flex; gap: 4px; margin-top: 6px; }
 .ded-btn { font-size: 11px; padding: 2px 8px; border-radius: 3px; border: 1px solid var(--color-border, #e2e8f0); background: var(--color-bg, #f8fafc); cursor: pointer; color: var(--color-text-secondary, #64748b); }
 .ded-btn:hover { background: #f1f5f9; }
-.ded-btn--active { background: #d1fae5; border-color: #10b981; color: #047857; }
+.ded-btn--active { background: #E6F7EF; border-color: #00B96B; color: #009A57; }
 
 /* Score zone */
 .score-zone { background: var(--color-bg, #f8fafc); border: 1px solid var(--color-border, #e2e8f0); border-radius: var(--radius-md, 8px); padding: 16px; margin-top: 0; }
 .score-zone__title { font-size: 13px; font-weight: 600; margin-bottom: 8px; color: var(--color-text-primary, #1e293b); }
 .score-zone__textarea { width: 100%; min-height: 80px; resize: vertical; padding: 8px 12px; font-size: 13px; font-family: inherit; border: 1px solid var(--color-border, #e2e8f0); border-radius: var(--radius-sm, 4px); background: var(--color-card, #fff); color: var(--color-text-primary, #1e293b); outline: none; box-sizing: border-box; }
-.score-zone__textarea:focus { border-color: var(--color-primary, #3b82f6); }
+.score-zone__textarea:focus { border-color: var(--color-primary, #1677FF); }
 .quick-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
 .quick-tag { font-size: 11px; padding: 2px 8px; border-radius: 12px; border: 1px solid var(--color-border, #e2e8f0); background: var(--color-card, #fff); cursor: pointer; color: var(--color-text-secondary, #64748b); transition: all var(--transition-fast, 150ms); }
-.quick-tag:hover { background: var(--color-primary-light, #eff6ff); border-color: var(--color-primary, #3b82f6); color: var(--color-primary, #3b82f6); }
+.quick-tag:hover { background: var(--color-primary-light, #E6F4FF); border-color: var(--color-primary, #1677FF); color: var(--color-primary, #1677FF); }
 .manual-row { display: flex; gap: 6px; align-items: center; margin-top: 10px; }
 .manual-label { font-size: 12px; color: var(--color-text-placeholder, #94a3b8); white-space: nowrap; }
 .manual-points { width: 64px; padding: 5px 8px; font-size: 12px; border: 1px solid var(--color-border, #e2e8f0); border-radius: var(--radius-sm, 4px); background: var(--color-card, #fff); outline: none; box-sizing: border-box; }
 .manual-reason { flex: 1; padding: 5px 8px; font-size: 12px; border: 1px solid var(--color-border, #e2e8f0); border-radius: var(--radius-sm, 4px); background: var(--color-card, #fff); outline: none; box-sizing: border-box; }
 .manual-add { padding: 5px 10px; font-size: 13px; border: 1px solid var(--color-border, #e2e8f0); background: var(--color-bg, #f8fafc); border-radius: var(--radius-sm, 4px); cursor: pointer; color: var(--color-text-secondary, #64748b); }
 .manual-item { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid #f1f5f9; font-size: 12px; }
-.manual-item__pts { font-family: var(--font-mono); color: var(--color-danger, #ef4444); }
+.manual-item__pts { font-family: var(--font-mono); color: var(--color-danger, #FF4D4F); }
 .manual-item__reason { flex: 1; color: var(--color-text-secondary, #64748b); }
-.manual-item__remove { color: var(--color-danger, #ef4444); cursor: pointer; font-size: 14px; }
+.manual-item__remove { color: var(--color-danger, #FF4D4F); cursor: pointer; font-size: 14px; }
 
 /* Final score */
 .final-score { text-align: center; margin-top: 16px; font-size: 12px; color: var(--color-text-placeholder, #94a3b8); }
@@ -577,7 +656,7 @@ onMounted(() => { initPage() })
 .form-group { margin-bottom: 16px; }
 .form-label { display: block; font-size: 13px; font-weight: 500; color: var(--color-text-secondary, #64748b); margin-bottom: 5px; }
 .form-input { width: 100%; padding: 8px 12px; font-size: 14px; border: 1px solid var(--color-border, #e2e8f0); border-radius: var(--radius-sm, 4px); background: var(--color-card, #fff); color: var(--color-text-primary, #1e293b); outline: none; box-sizing: border-box; }
-.form-input:focus { border-color: var(--color-primary, #3b82f6); }
+.form-input:focus { border-color: var(--color-primary, #1677FF); }
 .form-textarea { width: 100%; padding: 8px 12px; font-size: 14px; border: 1px solid var(--color-border, #e2e8f0); border-radius: var(--radius-sm, 4px); background: var(--color-card, #fff); color: var(--color-text-primary, #1e293b); resize: vertical; outline: none; font-family: inherit; box-sizing: border-box; }
-.form-textarea:focus { border-color: var(--color-primary, #3b82f6); }
+.form-textarea:focus { border-color: var(--color-primary, #1677FF); }
 </style>

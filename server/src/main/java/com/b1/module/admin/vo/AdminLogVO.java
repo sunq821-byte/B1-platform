@@ -16,5 +16,7 @@ public class AdminLogVO {
     private String message;
     private String detail;
     private String operator;
+    private String ip;
+    private String result;
     private String createdAt;
 }

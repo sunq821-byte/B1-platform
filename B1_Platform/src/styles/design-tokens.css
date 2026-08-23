@@ -1,29 +1,72 @@
 :root {
-  /* === Primary Colors === */
-  --color-primary: #3B82F6;
-  --color-primary-hover: #2563EB;
-  --color-primary-active: #1D4ED8;
-  --color-primary-light: #EFF6FF;
+  /* === Campus Blue × Canvas / 腾讯教育 (UI Design System v1.1) === */
 
-  /* === Semantic Colors === */
-  --color-success: #10B981;
-  --color-success-light: #ECFDF5;
-  --color-warning: #F59E0B;
-  --color-warning-light: #FFFBEB;
-  --color-danger: #EF4444;
-  --color-danger-light: #FEF2F2;
-  --color-info: #06B6D4;
-  --color-info-light: #ECFEFF;
+  /* Primary · 操作蓝 */
+  --color-primary: #1677FF;
+  --color-primary-hover: #0958D9;
+  --color-primary-active: #003EB3;
+  --color-primary-light: #E6F4FF;
+  --color-primary-mid: #91CAFF;
 
-  /* === Neutral Colors === */
-  --color-bg: #F8FAFC;
+  /* Navy · 机构海军蓝 */
+  --color-navy: #0B3A5C;
+  --color-navy-light: #E8F1F7;
+
+  /* Canvas Red · 仅 Logo 点缀 */
+  --color-brand-accent: #E03C31;
+  --color-brand-accent-light: #FDECEC;
+
+  /* Status / Success · 状态绿（不作主按钮） */
+  --color-success: #00B96B;
+  --color-success-hover: #009A57;
+  --color-success-light: #E6F7EF;
+  --color-success-mid: #7AD9A8;
+
+  /* AI · 专属紫 */
+  --color-ai: #722ED1;
+  --color-ai-light: #F9F0FF;
+
+  /* Semantic */
+  --color-warning: #FAAD14;
+  --color-warning-light: #FFF7E6;
+  --color-danger: #FF4D4F;
+  --color-danger-hover: #CF1322;
+  --color-danger-light: #FFF1F0;
+  --color-info: #1677FF;
+  --color-info-light: #E6F4FF;
+
+  /* Neutrals */
+  --color-bg: #F5F7FA;
   --color-card: #FFFFFF;
-  --color-border: #E2E8F0;
-  --color-border-hover: #CBD5E1;
-  --color-text-primary: #1E293B;
-  --color-text-secondary: #64748B;
-  --color-text-placeholder: #94A3B8;
-  --color-text-disabled: #CBD5E1;
+  --color-border: #E5E7EB;
+  --color-border-hover: #D1D5DB;
+  --color-text-primary: #1F2937;
+  --color-text-secondary: #6B7280;
+  --color-text-placeholder: #9CA3AF;
+  --color-text-disabled: #D1D5DB;
+
+  /* Legacy aliases（兼容旧引用） */
+  --color-ink: #1F2937;
+  --color-ink-hover: #111827;
+  --color-accent-green: var(--color-success);
+  --color-accent-green-soft: var(--color-success-mid);
+  --color-accent-purple: var(--color-ai);
+  --color-accent-amber: var(--color-warning);
+  --color-secondary: #6B7280;
+  --color-secondary-hover: #4B5563;
+
+  /* Element Plus bridge */
+  --el-color-primary: #1677FF;
+  --el-color-primary-light-3: #69B1FF;
+  --el-color-primary-light-5: #91CAFF;
+  --el-color-primary-light-7: #BAE0FF;
+  --el-color-primary-light-8: #D6EBFF;
+  --el-color-primary-light-9: #E6F4FF;
+  --el-color-primary-dark-2: #0958D9;
+  --el-color-success: #00B96B;
+  --el-color-warning: #FAAD14;
+  --el-color-danger: #FF4D4F;
+  --el-color-info: #1677FF;
 
   /* === Spacing (8pt Grid) === */
   --spacing-xs: 4px;
@@ -35,21 +78,23 @@
   --spacing-3xl: 64px;
 
   /* === Border Radius === */
-  --radius-sm: 4px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 14px;
   --radius-xl: 16px;
+  --radius-2xl: 20px;
   --radius-full: 9999px;
 
   /* === Shadows === */
-  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-md: 0 4px 16px rgba(15, 23, 42, 0.05);
+  --shadow-lg: 0 12px 32px rgba(15, 23, 42, 0.07);
+  --shadow-xl: 0 20px 40px rgba(15, 23, 42, 0.08);
+  --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 24px rgba(15, 23, 42, 0.05);
 
   /* === Typography === */
-  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --font-mono: 'JetBrains Mono', 'SF Mono', 'Cascadia Code', monospace;
+  --font-sans: Inter, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --font-mono: "JetBrains Mono", "SF Mono", "Cascadia Code", monospace;
   --font-size-xs: 12px;
   --font-size-sm: 14px;
   --font-size-base: 16px;
@@ -57,6 +102,7 @@
   --font-size-xl: 20px;
   --font-size-2xl: 24px;
   --font-size-3xl: 30px;
+  --font-size-hero: 30px;
 
   /* === Transitions === */
   --transition-fast: 150ms ease;
@@ -64,7 +110,36 @@
   --transition-slow: 350ms ease;
 
   /* === Layout === */
-  --header-height: 56px;
+  --header-height: 64px;
+  --content-max: 1280px;
   --sidebar-width: 240px;
   --sidebar-collapsed-width: 64px;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  color: var(--color-text-primary);
+  background: var(--color-bg);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
 }

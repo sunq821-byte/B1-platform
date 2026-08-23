@@ -3,12 +3,14 @@ import { ref, onMounted, computed } from "vue"
 import { useRouter } from "vue-router"
 import { useStudentStore } from "@/stores/useStudentStore"
 import { useUserStore } from "@/stores/useUserStore"
-import StatCard from "@/components/business/StatCard.vue"
-import TaskStatusBadge from "@/components/business/TaskStatusBadge.vue"
-import PageHeader from "@/components/layout/PageHeader.vue"
+import {
+  ClipboardList, CheckCircle2, Award, Sparkles, AlertTriangle,
+  Upload, ArrowRight, BookOpen,
+} from "lucide-vue-next"
+import LineChart from "@/components/chart/LineChart.vue"
+import RadarChart from "@/components/chart/RadarChart.vue"
 import LoadingState from "@/components/common/LoadingState.vue"
 import ErrorState from "@/components/common/ErrorState.vue"
-import EmptyState from "@/components/common/EmptyState.vue"
 
 const router = useRouter()
 const studentStore = useStudentStore()
@@ -22,257 +24,629 @@ const today = computed(() => {
   return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日 ${weekDays[d.getDay()]}`
 })
 
-onMounted(async () => {
+const data = computed(() => studentStore.dashboardData)
+const stats = computed(() => data.value?.stats)
+
+const scoreSpark = computed(() => data.value?.scoreTrend?.myScores?.slice(-7) ?? [])
+
+const firstPendingTaskId = computed(() => {
+  const tasks = data.value?.recentTasks ?? []
+  const pending = tasks.find((t) =>
+    t.status === "NOT_SUBMITTED" || t.status === "REJECTED",
+  )
+  return pending?.taskId ?? tasks[0]?.taskId
+})
+
+async function loadDashboard() {
+  loadError.value = ""
   try {
     await studentStore.fetchDashboard()
   } catch (err: unknown) {
     loadError.value = (err as Error)?.message || "加载仪表盘数据失败"
   }
-})
-
-function handleRetry() {
-  loadError.value = ""
-  studentStore.fetchDashboard().catch((err: unknown) => {
-    loadError.value = (err as Error)?.message || "加载仪表盘数据失败"
-  })
 }
 
-function handleTaskClick(taskId: string) {
-  router.push(`/student/tasks/${taskId}`)
+onMounted(() => { loadDashboard() })
+
+function goTo(path: string) {
+  router.push(path)
 }
 
-const statValues = computed(() => {
-  const d = studentStore.dashboardData
-  if (!d) return null
-  return {
-    totalCourses: d.totalCourses,
-    totalSubmissions: d.totalSubmissions,
-    pendingReviewCount: d.pendingReviewCount,
-    averageScore: d.averageScore ?? 0,
+function goSubmitCta() {
+  if (firstPendingTaskId.value) {
+    goTo(`/student/submit/${firstPendingTaskId.value}`)
+  } else {
+    goTo("/student/tasks")
   }
-})
-
-const statIcons = ["BookOpen", "FileText", "Clock", "Award"]
-const statColors = ["#3B82F6", "#10B981", "#F59E0B", "#8B5CF6"]
-const statLabels: Record<string, string> = {
-  totalCourses: "在学课程",
-  totalSubmissions: "已提交作业",
-  pendingReviewCount: "待批阅",
-  averageScore: "平均成绩",
 }
 
-const activityTypeLabels: Record<string, string> = {
-  SUBMISSION: "提交了作业",
-  AI_COMPLETE: "AI 分析完成",
-  TEACHER_REVIEW: "教师评阅完成",
+function formatDeadline(dt: string): string {
+  if (!dt) return "—"
+  return dt.replace("T", " ").substring(0, 16)
 }
 
-function formatDate(dateStr: string): string {
-  if (!dateStr) return ""
-  const d = new Date(dateStr)
-  return `${d.getMonth() + 1}月${d.getDate()}日 ${d.getHours().toString().padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")}`
+function formatNearest(dateStr: string | null): string {
+  if (!dateStr) return "暂无临近截止"
+  const m = dateStr.match(/(\d{2})-(\d{2})$/) || dateStr.match(/(\d{2})-(\d{2})/)
+  if (m) return `最近截止 ${m[1]}-${m[2]}`
+  return `最近截止 ${dateStr}`
+}
+
+function statusMeta(status: string): { label: string; action: string; tone: "danger" | "ok" | "ai" | "muted" } {
+  switch (status) {
+    case "NOT_SUBMITTED":
+      return { label: "进行中 · 未提交", action: "去提交", tone: "danger" }
+    case "REJECTED":
+      return { label: "已退回", action: "去修改", tone: "danger" }
+    case "AI_EVALUATING":
+      return { label: "AI 分析中", action: "查看进度", tone: "ai" }
+    case "AI_COMPLETED":
+      return { label: "AI 分析完成", action: "查看反馈", tone: "ok" }
+    case "TEACHER_SCORING":
+      return { label: "教师评阅中", action: "查看详情", tone: "muted" }
+    case "COMPLETED":
+      return { label: "已终审", action: "查看成绩", tone: "ok" }
+    default:
+      return { label: status || "未知", action: "查看", tone: "muted" }
+  }
+}
+
+function taskAction(taskId: string, status: string) {
+  if (status === "NOT_SUBMITTED" || status === "REJECTED") {
+    goTo(`/student/submit/${taskId}`)
+    return
+  }
+  goTo(`/student/tasks/${taskId}`)
 }
 </script>
 
 <template>
-  <div class="dashboard">
-    <PageHeader
-      :title="`欢迎回来，${userStore.userName}`"
-      :description="today"
-    />
+  <div class="dash">
+    <div class="dash-hero">
+      <div>
+        <h1 class="dash-hero__title">欢迎回来，{{ userStore.userName || "同学" }}!</h1>
+        <p class="dash-hero__sub">{{ today }} · 继续推进进行中的实训任务</p>
+      </div>
+      <button type="button" class="cta-primary" @click="goSubmitCta">
+        <Upload :size="16" />
+        去提交成果
+      </button>
+    </div>
 
-    <div v-if="studentStore.dashboardLoading" class="dashboard__loading">
+    <div v-if="studentStore.dashboardLoading" class="dash-state">
       <LoadingState text="正在加载仪表盘数据..." />
     </div>
-
-    <div v-else-if="loadError" class="dashboard__error">
-      <ErrorState :message="loadError" @retry="handleRetry" />
+    <div v-else-if="loadError" class="dash-state">
+      <ErrorState :message="loadError" @retry="loadDashboard" />
     </div>
 
-    <template v-else-if="studentStore.dashboardData">
-      <!-- Stats -->
-      <div class="dashboard__stats">
-        <StatCard
-          v-for="(val, key, idx) in statValues"
-          :key="key"
-          :title="statLabels[key as string] ?? key"
-          :value="val"
-          :icon="statIcons[idx]"
-          :icon-color="statColors[idx]"
-          :suffix="key === 'averageScore' ? '分' : ''"
-        />
+    <template v-else-if="data && stats">
+      <div class="stat-grid">
+        <section class="stat-group">
+          <h2 class="section-label">我的任务</h2>
+          <div class="stat-pair">
+            <article class="stat-card" @click="goTo('/student/tasks')">
+              <div class="stat-card__top">
+                <div>
+                  <div class="stat-label">待完成任务</div>
+                  <div class="stat-value" :class="{ danger: stats.pendingTasks > 0 }">
+                    {{ stats.pendingTasks }}
+                  </div>
+                </div>
+                <div class="stat-icon y"><ClipboardList :size="18" /></div>
+              </div>
+              <div class="stat-foot">
+                <span>{{ formatNearest(stats.nearestDeadline) }}</span>
+              </div>
+            </article>
+            <article class="stat-card" @click="goTo('/student/tasks')">
+              <div class="stat-card__top">
+                <div>
+                  <div class="stat-label">已完成任务</div>
+                  <div class="stat-value success">{{ stats.completedTasks }}</div>
+                </div>
+                <div class="stat-icon g"><CheckCircle2 :size="18" /></div>
+              </div>
+              <div class="stat-foot">
+                <span>本学期累计</span>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section class="stat-group">
+          <h2 class="section-label">学习状态</h2>
+          <div class="stat-triple">
+            <article class="stat-card" @click="goTo('/student/reports')">
+              <div class="stat-card__top">
+                <div>
+                  <div class="stat-label">平均成绩</div>
+                  <div class="stat-value">
+                    {{ stats.averageScore != null ? stats.averageScore.toFixed(1) : "—" }}
+                  </div>
+                </div>
+                <div class="stat-icon b"><Award :size="18" /></div>
+              </div>
+              <div class="stat-foot between">
+                <span>
+                  班级均值
+                  {{ stats.classAverageScore != null ? stats.classAverageScore.toFixed(1) : "—" }}
+                </span>
+                <div v-if="scoreSpark.length" class="spark">
+                  <b
+                    v-for="(h, i) in scoreSpark"
+                    :key="i"
+                    :style="{ height: Math.max(20, Math.min(100, Number(h) || 0)) + '%' }"
+                  />
+                </div>
+              </div>
+            </article>
+            <article class="stat-card" @click="goTo('/student/tasks')">
+              <div class="stat-card__top">
+                <div>
+                  <div class="stat-label">AI 分析中</div>
+                  <div class="stat-value">{{ stats.analyzingCount }}</div>
+                </div>
+                <div class="stat-icon ai"><Sparkles :size="18" /></div>
+              </div>
+              <div class="stat-foot">
+                <span>预计 {{ stats.analyzingEtaMinutes }} 分钟</span>
+              </div>
+            </article>
+            <article class="stat-card" @click="goTo('/student/growth')">
+              <div class="stat-card__top">
+                <div>
+                  <div class="stat-label">待改进项</div>
+                  <div class="stat-value" :class="{ danger: stats.improvementCount > 0 }">
+                    {{ stats.improvementCount }}
+                  </div>
+                </div>
+                <div class="stat-icon r"><AlertTriangle :size="18" /></div>
+              </div>
+              <div class="stat-foot">
+                <span>来自最近 AI 建议</span>
+              </div>
+            </article>
+          </div>
+        </section>
       </div>
 
-      <div class="dashboard__grid">
-        <!-- Upcoming Deadlines -->
-        <div class="dashboard__section">
-          <h3 class="dashboard__section-title">即将截止</h3>
-          <div v-if="studentStore.dashboardData.upcomingDeadlines.length === 0">
-            <EmptyState description="暂无即将截止的任务" />
-          </div>
-          <el-table
-            v-else
-            :data="studentStore.dashboardData.upcomingDeadlines"
-            stripe
-            @row-click="(row: any) => handleTaskClick(row.taskId)"
-          >
-            <el-table-column prop="taskName" label="任务名称" />
-            <el-table-column prop="courseName" label="所属课程" />
-            <el-table-column prop="deadline" label="截止日期" width="180">
-              <template #default="{ row }">
-                {{ formatDate(row.deadline) }}
-              </template>
-            </el-table-column>
-            <el-table-column label="剩余" width="100">
-              <template #default="{ row }">
-                <span
-                  class="dashboard__remaining"
-                  :class="{ 'dashboard__remaining--urgent': row.remainingDays <= 1 }"
-                >
-                  {{ row.remainingDays <= 0 ? '今天截止' : `剩余 ${row.remainingDays} 天` }}
-                </span>
-              </template>
-            </el-table-column>
-            <el-table-column label="状态" width="130">
-              <template #default="{ row }">
-                <TaskStatusBadge :status="row.myStatus" />
-              </template>
-            </el-table-column>
-          </el-table>
-        </div>
-
-        <!-- Recent Activities -->
-        <div class="dashboard__section">
-          <h3 class="dashboard__section-title">最近动态</h3>
-          <div v-if="studentStore.dashboardData.recentActivities.length === 0">
-            <EmptyState description="暂无动态" />
-          </div>
-          <div v-else class="dashboard__activities">
-            <div
-              v-for="(item, idx) in studentStore.dashboardData.recentActivities"
-              :key="idx"
-              class="dashboard__activity-item"
-            >
-              <div class="dashboard__activity-dot" :class="`dashboard__activity-dot--${item.type}`" />
-              <div class="dashboard__activity-content">
-                <div class="dashboard__activity-title">
-                  {{ activityTypeLabels[item.type] || item.title }}
-                </div>
-                <div class="dashboard__activity-desc">{{ item.description }}</div>
-                <div class="dashboard__activity-time">{{ formatDate(item.occurredAt) }}</div>
-              </div>
+      <div class="mid-grid">
+        <section class="panel chart-panel">
+          <div class="panel__head">
+            <h3 class="panel__title">成绩趋势</h3>
+            <div class="legend">
+              <span><i class="dot solid" />我的成绩</span>
+              <span><i class="dot soft" />班级平均</span>
             </div>
           </div>
-        </div>
+          <LineChart
+            :x-axis="data.scoreTrend?.xAxis ?? []"
+            :y-min="0"
+            :y-max="100"
+            :series-data="[
+              { name: '我的成绩', data: data.scoreTrend?.myScores ?? [], color: '#1677FF' },
+              { name: '班级平均', data: data.scoreTrend?.classAvg ?? [], color: '#9CA3AF' },
+            ]"
+            height="280px"
+          />
+        </section>
+
+        <section class="panel chart-panel">
+          <div class="panel__head">
+            <h3 class="panel__title">能力维度</h3>
+            <span class="panel__chip">本学期</span>
+          </div>
+          <RadarChart
+            :categories="data.radarData?.categories ?? []"
+            :series-data="[
+              { name: '我的能力', data: data.radarData?.myScores ?? [], color: '#1677FF' },
+              { name: '班级均值', data: data.radarData?.classAvg ?? [], color: '#00B96B' },
+            ]"
+            height="260px"
+          />
+        </section>
+      </div>
+
+      <div class="bottom-grid">
+        <section class="panel tasks-panel">
+          <div class="panel__head">
+            <h3 class="panel__title">近期任务</h3>
+            <button type="button" class="link-all" @click="goTo('/student/tasks')">
+              查看全部 <ArrowRight :size="14" />
+            </button>
+          </div>
+          <div class="task-list">
+            <div
+              v-for="item in (data.recentTasks ?? [])"
+              :key="item.taskId"
+              class="task-item"
+              :class="{ urgent: item.status === 'NOT_SUBMITTED' || item.status === 'REJECTED' }"
+            >
+              <div class="task-item__body">
+                <div class="task-item__title">{{ item.taskName }}</div>
+                <div class="task-item__meta">
+                  <span>{{ item.courseName }}</span>
+                  <span>截止 {{ formatDeadline(item.deadline) }}</span>
+                  <span>{{ statusMeta(item.status).label }}</span>
+                  <span v-if="item.score != null">得分 {{ item.score }}</span>
+                </div>
+              </div>
+              <button
+                type="button"
+                class="badge"
+                :class="statusMeta(item.status).tone"
+                @click="taskAction(item.taskId, item.status)"
+              >
+                {{ statusMeta(item.status).action }}
+              </button>
+            </div>
+            <div v-if="!(data.recentTasks?.length)" class="empty">暂无近期任务</div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel__head">
+            <h3 class="panel__title">AI 学习建议</h3>
+            <span class="panel__chip ai">AI</span>
+          </div>
+          <ul class="suggest-list">
+            <li v-for="(tip, i) in (data.aiSuggestions ?? [])" :key="i">{{ tip }}</li>
+          </ul>
+          <div v-if="!(data.aiSuggestions?.length)" class="empty">暂无建议，完成提交后生成</div>
+          <p class="ai-note">仅建议，不构成最终成绩 · 终评由教师确认</p>
+          <div class="quick-links">
+            <button type="button" class="mini" @click="goTo('/student/courses')">
+              <div class="mini__k"><BookOpen :size="14" />我的课程</div>
+              <div class="mini__v linkish">进入</div>
+            </button>
+            <button type="button" class="mini" @click="goTo('/student/growth')">
+              <div class="mini__k"><Sparkles :size="14" />成长档案</div>
+              <div class="mini__v linkish">查看</div>
+            </button>
+          </div>
+        </section>
       </div>
     </template>
   </div>
 </template>
 
 <style scoped>
-.dashboard__loading,
-.dashboard__error {
-  padding: var(--spacing-2xl, 48px) 0;
+.dash-state { padding: 48px 0; }
+
+.dash-hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 4px 0 28px;
+}
+.dash-hero__title {
+  margin: 0;
+  font-size: var(--font-size-hero, 30px);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--color-navy, #0B3A5C);
+  line-height: 1.15;
+}
+.dash-hero__sub {
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+.cta-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: none;
+  border-radius: 10px;
+  padding: 12px 16px;
+  background: var(--color-primary, #1677FF);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 8px 18px rgba(22, 119, 255, 0.25);
+  transition: background var(--transition-fast), transform var(--transition-fast);
+}
+.cta-primary:hover {
+  background: var(--color-primary-hover, #0958D9);
+  transform: translateY(-1px);
 }
 
-.dashboard__stats {
+.section-label {
+  margin: 0 0 12px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-placeholder);
+}
+
+.stat-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: var(--spacing-md, 16px);
-  margin-bottom: var(--spacing-lg, 24px);
+  grid-template-columns: 1.05fr 1.55fr;
+  gap: 18px;
+  margin-bottom: 18px;
 }
-
-.dashboard__grid {
+.stat-pair, .stat-triple {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--spacing-md, 16px);
+  gap: 14px;
 }
+.stat-pair { grid-template-columns: 1fr 1fr; }
+.stat-triple { grid-template-columns: repeat(3, 1fr); }
 
-.dashboard__section {
-  background: var(--color-card, #fff);
-  border-radius: var(--radius-lg, 12px);
-  box-shadow: var(--shadow-sm);
-  padding: var(--spacing-lg, 24px);
+.stat-card, .panel {
+  background: var(--color-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl, 20px);
+  box-shadow: var(--shadow-card);
 }
-
-.dashboard__section-title {
-  font-size: var(--font-size-base, 16px);
-  font-weight: 600;
-  color: var(--color-text-primary, #1e293b);
-  margin: 0 0 var(--spacing-md, 16px) 0;
-}
-
-.dashboard__remaining {
-  font-weight: 500;
-  color: var(--color-primary, #3b82f6);
-}
-
-.dashboard__remaining--urgent {
-  color: var(--color-danger, #ef4444);
-  font-weight: 600;
-}
-
-.dashboard__activities {
+.stat-card {
+  cursor: pointer;
+  padding: 18px;
+  min-height: 128px;
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-md, 16px);
+  justify-content: space-between;
+  transition: box-shadow var(--transition-fast), transform var(--transition-fast);
 }
-
-.dashboard__activity-item {
+.stat-card:hover {
+  box-shadow: var(--shadow-lg);
+  transform: translateY(-2px);
+}
+.stat-card__top {
   display: flex;
-  gap: var(--spacing-sm, 12px);
-  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+.stat-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+}
+.stat-value {
+  margin-top: 8px;
+  font-family: var(--font-mono);
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  color: var(--color-text-primary);
+  line-height: 1;
+}
+.stat-value.danger { color: var(--color-danger); }
+.stat-value.success { color: var(--color-success); }
+.stat-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+}
+.stat-icon.g { background: var(--color-success-light, #E6F7EF); color: var(--color-success-hover, #009A57); }
+.stat-icon.b { background: var(--color-primary-light, #E6F4FF); color: var(--color-primary, #1677FF); }
+.stat-icon.y { background: var(--color-warning-light, #FFF7E6); color: #D48806; }
+.stat-icon.r { background: var(--color-danger-light, #FFF1F0); color: var(--color-danger, #FF4D4F); }
+.stat-icon.ai { background: var(--color-ai-light, #F9F0FF); color: var(--color-ai, #722ED1); }
+.stat-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+  font-size: 12px;
+  color: var(--color-text-placeholder);
+}
+.stat-foot.between { justify-content: space-between; }
+
+.spark {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 22px;
+}
+.spark b {
+  width: 4px;
+  border-radius: 2px;
+  background: var(--color-primary-mid, #91CAFF);
+  display: block;
 }
 
-.dashboard__activity-dot {
+.mid-grid {
+  display: grid;
+  grid-template-columns: 1.35fr 1fr;
+  gap: 18px;
+  margin-bottom: 18px;
+}
+.bottom-grid {
+  display: grid;
+  grid-template-columns: 1.75fr 1fr;
+  gap: 18px;
+}
+
+.panel { padding: 20px; }
+.panel__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.panel__title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--color-text-primary);
+}
+.panel__chip {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  padding: 6px 10px;
+  background: #f8fafc;
+}
+.panel__chip.ai {
+  background: var(--color-ai-light, #F9F0FF);
+  color: var(--color-ai, #722ED1);
+  border-color: transparent;
+}
+.chart-panel :deep(.chart-card) {
+  background: transparent;
+  padding: 0;
+  box-shadow: none;
+  border-radius: 0;
+}
+.chart-panel :deep(.chart-card__title) { display: none; }
+
+.legend {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+.dot {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  margin-top: 6px;
+  display: inline-block;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+.dot.solid { background: var(--color-primary, #1677FF); }
+.dot.soft { background: #9CA3AF; }
+
+.link-all {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: none;
+  background: transparent;
+  color: var(--color-text-placeholder);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 0;
+}
+.link-all:hover { color: var(--color-primary, #1677FF); }
+
+.task-list { display: flex; flex-direction: column; gap: 8px; }
+.task-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid var(--color-border);
+  background: #f8fafc;
+}
+.task-item.urgent {
+  background: #FFF1F0;
+  border-color: #FFCCC7;
+}
+.task-item__body { flex: 1; min-width: 0; }
+.task-item__title {
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--color-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.task-item__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 3px;
+  font-size: 11px;
+  color: var(--color-text-placeholder);
+  font-family: var(--font-mono);
+}
+.badge {
   flex-shrink: 0;
-  background: var(--color-primary, #3b82f6);
+  font-size: 11px;
+  font-weight: 650;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+}
+.badge.danger { background: #FFF1F0; color: #FF4D4F; }
+.badge.ok { background: #E6F7EF; color: #009A57; }
+.badge.ai { background: #F9F0FF; color: #722ED1; }
+.badge.muted { background: #F3F4F6; color: #6B7280; }
+
+.suggest-list {
+  margin: 0;
+  padding: 0 0 0 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--color-text-secondary);
+}
+.suggest-list li::marker { color: var(--color-ai, #722ED1); }
+
+.ai-note {
+  margin: 14px 0 0;
+  padding-top: 12px;
+  border-top: 1px dashed var(--color-border);
+  font-size: 11px;
+  color: var(--color-text-placeholder);
 }
 
-.dashboard__activity-dot--AI_COMPLETE {
-  background: var(--color-success, #10b981);
+.quick-links {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 14px;
+}
+.mini {
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  padding: 12px;
+  background: #f8fafc;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  transition: box-shadow var(--transition-fast), background var(--transition-fast);
+}
+.mini:hover {
+  background: #fff;
+  box-shadow: var(--shadow-md);
+}
+.mini__k {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  margin-bottom: 8px;
+}
+.mini__v {
+  font-family: var(--font-mono);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+.mini__v.linkish { color: var(--color-primary, #1677FF); }
+
+.empty {
+  text-align: center;
+  padding: 28px 0;
+  font-size: 13px;
+  color: var(--color-text-placeholder);
 }
 
-.dashboard__activity-dot--SUBMISSION {
-  background: var(--color-primary, #3b82f6);
+@media (max-width: 1100px) {
+  .stat-grid, .mid-grid, .bottom-grid { grid-template-columns: 1fr; }
+  .stat-triple { grid-template-columns: 1fr 1fr; }
 }
-
-.dashboard__activity-dot--TEACHER_REVIEW {
-  background: var(--color-warning, #f59e0b);
-}
-
-.dashboard__activity-content {
-  flex: 1;
-}
-
-.dashboard__activity-title {
-  font-size: var(--font-size-sm, 14px);
-  font-weight: 500;
-  color: var(--color-text-primary, #1e293b);
-}
-
-.dashboard__activity-desc {
-  font-size: var(--font-size-xs, 13px);
-  color: var(--color-text-secondary, #64748b);
-  margin-top: 2px;
-}
-
-.dashboard__activity-time {
-  font-size: var(--font-size-xs, 12px);
-  color: var(--color-text-placeholder, #94a3b8);
-  margin-top: 4px;
-}
-
-@media (max-width: 1366px) {
-  .dashboard__stats {
-    grid-template-columns: repeat(2, 1fr);
-  }
-  .dashboard__grid {
-    grid-template-columns: 1fr;
-  }
+@media (max-width: 640px) {
+  .dash-hero { flex-direction: column; align-items: flex-start; }
+  .dash-hero__title { font-size: 26px; }
+  .stat-pair, .stat-triple { grid-template-columns: 1fr; }
 }
 </style>

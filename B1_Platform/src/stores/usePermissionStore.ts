@@ -24,20 +24,20 @@ const ROLE_MENUS: Record<string, MenuItem[]> = {
   teacher: [
     { path: "/teacher/dashboard", title: "仪表盘", icon: "LayoutDashboard" },
     { path: "/teacher/courses", title: "课程管理", icon: "BookOpen" },
-    { path: "/teacher/knowledge-base", title: "知识库", icon: "BookMarked" },
-    { path: "/teacher/tasks", title: "实训任务管理", icon: "ClipboardList" },
+    { path: "/teacher/tasks", title: "实训任务", icon: "ClipboardList" },
     { path: "/teacher/students", title: "学生管理", icon: "Users" },
     { path: "/teacher/submissions", title: "审核工作台", icon: "FileText" },
     { path: "/teacher/reports", title: "班级报告", icon: "BarChart3" },
     { path: "/teacher/reports-college", title: "学院报告", icon: "TrendingUp" },
+    { path: "/teacher/knowledge-base", title: "知识库", icon: "BookMarked" },
   ],
   admin: [
-    { path: "/admin/dashboard", title: "仪表盘", icon: "LayoutDashboard" },
+    { path: "/admin/dashboard", title: "系统总览", icon: "LayoutDashboard" },
     { path: "/admin/users", title: "用户管理", icon: "Users" },
     { path: "/admin/classes", title: "班级管理", icon: "School" },
-    { path: "/admin/system", title: "系统配置", icon: "Settings" },
+    { path: "/admin/monitor", title: "运行监控", icon: "Activity" },
     { path: "/admin/logs", title: "操作日志", icon: "ScrollText" },
-    { path: "/admin/monitor", title: "系统监控", icon: "Activity" },
+    { path: "/admin/system", title: "系统配置", icon: "Settings" },
   ],
 }
 

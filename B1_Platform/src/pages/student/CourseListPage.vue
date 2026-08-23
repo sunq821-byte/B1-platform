@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, watch } from "vue"
+import { ref, onMounted } from "vue"
 import { useRouter } from "vue-router"
 import { useStudentStore } from "@/stores/useStudentStore"
 import PageHeader from "@/components/layout/PageHeader.vue"
@@ -41,28 +41,24 @@ function handlePageChange() {
   loadCourses()
 }
 
-watch(keyword, () => {
-  currentPage.value = 1
-  loadCourses()
-})
-
 onMounted(() => { loadCourses() })
 </script>
 
 <template>
   <div class="course-list-page">
-    <PageHeader title="我的课程">
-      <template #extra>
-        <BaseInput
-          v-model="keyword"
-          placeholder="搜索课程名称或编号..."
-          clearable
-          :style="{ width: '280px' }"
-          @keyup.enter="onSearch"
-          @clear="onSearch"
-        />
-      </template>
-    </PageHeader>
+    <PageHeader title="我的课程" subtitle="本学期在学课程与实训进度入口" />
+
+    <div class="filter-bar">
+      <BaseInput
+        v-model="keyword"
+        placeholder="搜索课程名称或编号..."
+        clearable
+        :style="{ width: '280px' }"
+        @keyup.enter="onSearch"
+        @clear="onSearch"
+      />
+      <BaseButton type="primary" class="ml-auto" @click="onSearch">搜索</BaseButton>
+    </div>
 
     <LoadingState v-if="store.coursesLoading" text="加载课程列表..." />
 
@@ -121,12 +117,13 @@ onMounted(() => { loadCourses() })
 }
 
 .course-list-page__course-name {
-  color: var(--color-primary, #3b82f6);
+  color: var(--color-primary, #1677FF);
   cursor: pointer;
   font-weight: 500;
 }
 
 .course-list-page__course-name:hover {
-  color: var(--color-primary-hover, #2563eb);
+  color: var(--color-primary-hover, #0958D9);
 }
+.ml-auto { margin-left: auto; }
 </style>

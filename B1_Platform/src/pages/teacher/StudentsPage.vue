@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from "vue"
 import { ElMessage } from "element-plus"
+import { Upload, Download } from "lucide-vue-next"
 import { useTeacherStore } from "@/stores/useTeacherStore"
 import PageHeader from "@/components/layout/PageHeader.vue"
 import BaseButton from "@/components/base/BaseButton.vue"
@@ -22,7 +23,12 @@ const classes = computed(() => {
 const filteredStudents = computed(() => {
   return store.students.filter((s) => {
     if (filterClass.value !== "all" && s.className !== filterClass.value) return false
-    if (searchTerm.value && !s.userId.includes(searchTerm.value) && !s.realName.includes(searchTerm.value)) return false
+    if (searchTerm.value) {
+      const kw = searchTerm.value.trim().toLowerCase()
+      const sid = (s.studentId || s.userId || "").toLowerCase()
+      const name = (s.realName || s.name || "").toLowerCase()
+      if (!sid.includes(kw) && !name.includes(kw)) return false
+    }
     return true
   })
 })
@@ -129,7 +135,7 @@ function handleExport() {
   const BOM = "﻿"
   const header = "学号,姓名,班级,邮箱,完成数,均分"
   const lines = rows.map((s) =>
-    `${s.userId},${s.realName},${s.className},${s.email},${s.submissionCount},${s.avgScore != null ? s.avgScore.toFixed(1) : ""}`,
+    `${s.studentId || s.userId},${s.realName || s.name},${s.className},${s.email},${s.submissionCount},${s.avgScore != null ? s.avgScore.toFixed(1) : ""}`,
   )
   const csv = BOM + header + "\n" + lines.join("\n")
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" })
@@ -155,7 +161,7 @@ onMounted(() => { initPage() })
 
 <template>
   <div class="page">
-    <PageHeader title="学生管理" :subtitle="`共 ${filteredStudents.length} 名学生`" />
+    <PageHeader title="学生管理" :subtitle="`共 ${filteredStudents.length} 名学生 · 名单以导入维护`" />
 
     <LoadingState v-if="store.studentsLoading" />
     <ErrorState v-else-if="loadError" :message="loadError" @retry="initPage" />
@@ -168,9 +174,9 @@ onMounted(() => { initPage() })
         </select>
         <input v-model="searchTerm" class="form-input filter-input" placeholder="搜索学号或姓名..." />
         <div class="filter-actions">
-          <input ref="fileInput" type="file" accept=".csv,.xlsx,.xls" class="file-input-hidden" @change="handleImportFile" />
-          <BaseButton size="small" @click="handleImportClick">📥 导入学生</BaseButton>
-          <BaseButton size="small" @click="handleExport">📤 导出名单</BaseButton>
+          <input ref="fileInput" type="file" accept=".csv,text/csv" class="file-input-hidden" @change="handleImportFile" />
+          <BaseButton size="small" @click="handleImportClick"><Upload :size="14" /> 导入 CSV</BaseButton>
+          <BaseButton size="small" @click="handleExport"><Download :size="14" /> 导出名单</BaseButton>
         </div>
       </div>
 
@@ -181,8 +187,8 @@ onMounted(() => { initPage() })
           </thead>
           <tbody>
             <tr v-for="s in filteredStudents" :key="s.userId">
-              <td><span class="mono-sm">{{ s.userId }}</span></td>
-              <td>{{ s.realName }}</td>
+              <td><span class="mono-sm">{{ s.studentId || s.userId }}</span></td>
+              <td>{{ s.realName || s.name }}</td>
               <td>{{ s.className || '-' }}</td>
               <td><span class="email">{{ s.email || '-' }}</span></td>
               <td>{{ s.submissionCount }}</td>
@@ -195,6 +201,9 @@ onMounted(() => { initPage() })
                 <BaseButton size="small" @click="openDetail(s.userId)">详情</BaseButton>
               </td>
             </tr>
+            <tr v-if="!filteredStudents.length">
+              <td colspan="7" class="empty">暂无学生，可通过「导入 CSV」添加</td>
+            </tr>
           </tbody>
         </table>
       </div>
@@ -203,7 +212,7 @@ onMounted(() => { initPage() })
         <LoadingState v-if="detailLoading" />
         <template v-else-if="store.currentStudent">
           <div class="detail-grid">
-            <div><span class="dl">学号</span><br>{{ store.currentStudent.userId }}</div>
+            <div><span class="dl">学号</span><br>{{ store.currentStudent.studentId || store.currentStudent.userId }}</div>
             <div><span class="dl">姓名</span><br>{{ store.currentStudent.realName }}</div>
             <div><span class="dl">班级</span><br>{{ store.currentStudent.className || '-' }}</div>
             <div><span class="dl">邮箱</span><br>{{ store.currentStudent.email || '-' }}</div>
@@ -231,7 +240,18 @@ onMounted(() => { initPage() })
 <style scoped>
 .page { /* width/centering handled by AppLayout */ }
 
-.filter-bar { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+.filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  padding: 12px 14px;
+  background: var(--color-card, #fff);
+  border: 1px solid var(--color-border, #E5E7EB);
+  border-radius: var(--radius-xl, 16px);
+  box-shadow: var(--shadow-sm);
+}
 .filter-select { width: 160px; }
 .filter-input { width: 200px; }
 .filter-actions { margin-left: auto; display: flex; gap: 8px; }
@@ -239,15 +259,18 @@ onMounted(() => { initPage() })
 
 .form-select, .form-input {
   padding: 8px 12px; font-size: 14px;
-  border: 1px solid var(--color-border, #e2e8f0); border-radius: var(--radius-sm, 4px);
-  background: var(--color-card, #fff); color: var(--color-text-primary, #1e293b); outline: none;
+  border: 1px solid var(--color-border, #E5E7EB); border-radius: var(--radius-md, 12px);
+  background: var(--color-card, #fff); color: var(--color-text-primary, #1F2937); outline: none;
   box-sizing: border-box;
 }
-.form-select:focus, .form-input:focus { border-color: var(--color-primary, #3b82f6); }
+.form-select:focus, .form-input:focus { border-color: var(--color-primary, #1677FF); }
 
 .data-table {
   width: 100%; background: var(--color-card, #fff);
-  border: 1px solid var(--color-border, #e2e8f0); border-radius: var(--radius-md, 8px); overflow: hidden;
+  border: 1px solid var(--color-border, #E5E7EB);
+  border-radius: var(--radius-xl, 16px);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
 }
 .data-table table { width: 100%; border-collapse: collapse; }
 .data-table th { text-align: left; padding: 10px 16px; font-size: 12px; font-weight: 600; color: var(--color-text-placeholder, #94a3b8); text-transform: uppercase; letter-spacing: 0.03em; background: #f8fafc; border-bottom: 1px solid var(--color-border, #e2e8f0); }
@@ -258,10 +281,15 @@ onMounted(() => { initPage() })
 .mono-sm { font-family: var(--font-mono); font-size: 12px; }
 .mono-score { font-family: var(--font-mono); font-weight: 600; }
 .email { color: var(--color-text-placeholder, #94a3b8); font-size: 12px; }
+.empty {
+  text-align: center;
+  padding: 28px 0;
+  color: var(--color-text-placeholder);
+}
 
-.clr-good { color: var(--color-success, #10b981); }
-.clr-warn { color: var(--color-warning, #f59e0b); }
-.clr-danger { color: var(--color-danger, #ef4444); }
+.clr-good { color: var(--color-success, #00B96B); }
+.clr-warn { color: var(--color-warning, #FAAD14); }
+.clr-danger { color: var(--color-danger, #FF4D4F); }
 
 .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-size: 13px; }
 .dl { color: var(--color-text-placeholder, #94a3b8); }

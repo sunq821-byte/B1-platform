@@ -21,9 +21,9 @@ defineEmits<{ retry: [] }>()
 
 const scoreColor = computed(() => {
   const score = props.aiResult?.overallScore ?? 0
-  if (score >= 80) return "#10B981"
-  if (score >= 60) return "#F59E0B"
-  return "#EF4444"
+  if (score >= 80) return "#00B96B"
+  if (score >= 60) return "#FAAD14"
+  return "#FF4D4F"
 })
 
 const remainingTime = computed(() => {
@@ -43,7 +43,7 @@ const remainingTime = computed(() => {
       <el-progress
         :percentage="pollingProgress"
         :stroke-width="8"
-        :color="pollingProgress >= 100 ? '#10B981' : '#3B82F6'"
+        :color="pollingProgress >= 100 ? '#00B96B' : '#1677FF'"
       />
       <div class="ai-score-panel__polling-info">
         <span v-if="currentDimension">正在分析：{{ currentDimension }}</span>
@@ -106,7 +106,7 @@ const remainingTime = computed(() => {
 
         <div class="ai-score-panel__summary-section">
           <div class="ai-score-panel__summary-title">
-            <CheckCircle :size="16" color="#10B981" />
+            <CheckCircle :size="16" color="#00B96B" />
             <span>优势亮点</span>
           </div>
           <ul class="ai-score-panel__list">
@@ -116,7 +116,7 @@ const remainingTime = computed(() => {
 
         <div class="ai-score-panel__summary-section">
           <div class="ai-score-panel__summary-title">
-            <XCircle :size="16" color="#EF4444" />
+            <XCircle :size="16" color="#FF4D4F" />
             <span>待改进</span>
           </div>
           <ul class="ai-score-panel__list">
@@ -158,7 +158,7 @@ const remainingTime = computed(() => {
   width: 20px;
   height: 20px;
   border: 2px solid var(--color-border, #e2e8f0);
-  border-top-color: var(--color-primary, #3b82f6);
+  border-top-color: var(--color-primary, #1677FF);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
@@ -233,7 +233,7 @@ const remainingTime = computed(() => {
 
 .ai-score-panel__dim-weight {
   padding: 2px 8px;
-  background: var(--color-primary, #3b82f6);
+  background: var(--color-primary, #1677FF);
   color: #fff;
   border-radius: var(--radius-sm, 4px);
   font-size: var(--font-size-xs, 12px);

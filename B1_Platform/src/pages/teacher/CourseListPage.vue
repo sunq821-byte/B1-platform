@@ -27,6 +27,25 @@ const form = ref<ICourseFormData>({
 
 const modalTitle = computed(() => (isEdit.value ? "编辑课程" : "新建课程"))
 
+const filterSemester = ref("all")
+const searchKeyword = ref("")
+
+const semesters = computed(() => {
+  const set = new Set(store.courses.map((c) => c.semester).filter(Boolean))
+  return Array.from(set).sort()
+})
+
+const filteredCourses = computed(() => {
+  const kw = searchKeyword.value.trim().toLowerCase()
+  return store.courses.filter((c) => {
+    if (filterSemester.value !== "all" && c.semester !== filterSemester.value) return false
+    if (!kw) return true
+    return c.courseName.toLowerCase().includes(kw)
+      || c.courseCode.toLowerCase().includes(kw)
+      || (c.className || "").toLowerCase().includes(kw)
+  })
+})
+
 function resetForm() {
   form.value = { courseCode: "", courseName: "", className: "", semester: "2025-2026-2", credits: 4 }
   isEdit.value = false
@@ -105,14 +124,23 @@ onMounted(() => { initPage() })
 
 <template>
   <div class="page">
-    <PageHeader title="课程管理" :subtitle="`共 ${store.courses.length} 门课程`" />
+    <PageHeader title="课程管理" :subtitle="`共 ${filteredCourses.length} 门课程`" />
 
     <LoadingState v-if="store.coursesLoading" />
     <ErrorState v-else-if="loadError" :message="loadError" @retry="initPage" />
 
     <template v-else>
-      <div class="toolbar">
-        <BaseButton type="primary" @click="openCreate">+ 新建课程</BaseButton>
+      <div class="filter-bar">
+        <select v-model="filterSemester" class="form-select w-sem">
+          <option value="all">全部学期</option>
+          <option v-for="s in semesters" :key="s" :value="s">{{ s }}</option>
+        </select>
+        <input
+          v-model="searchKeyword"
+          class="form-input w-search"
+          placeholder="搜索课程名 / 编号..."
+        />
+        <button type="button" class="btn btn-primary ml-auto" @click="openCreate">+ 新建课程</button>
       </div>
 
       <div class="data-table">
@@ -129,10 +157,10 @@ onMounted(() => { initPage() })
             </tr>
           </thead>
           <tbody>
-            <tr v-for="c in store.courses" :key="c.courseId">
+            <tr v-for="c in filteredCourses" :key="c.courseId">
               <td><span class="mono">{{ c.courseCode }}</span></td>
               <td>{{ c.courseName }}</td>
-              <td>{{ c.className || c.courseName }}</td>
+              <td>{{ c.className || "-" }}</td>
               <td><span class="mono">{{ c.semester }}</span></td>
               <td>{{ c.studentCount }}</td>
               <td>{{ c.credits }}</td>
@@ -140,6 +168,9 @@ onMounted(() => { initPage() })
                 <BaseButton size="small" @click="openEdit(c)">编辑</BaseButton>
                 <BaseButton size="small" type="danger" @click="handleDelete(c.courseId)">删除</BaseButton>
               </td>
+            </tr>
+            <tr v-if="!filteredCourses.length">
+              <td colspan="7" class="empty">暂无课程，点击右上角新建</td>
             </tr>
           </tbody>
         </table>
@@ -172,22 +203,22 @@ onMounted(() => { initPage() })
 </template>
 
 <style scoped>
-.page {
-  /* width/centering handled by AppLayout */
-}
-
-.toolbar {
-  display: flex;
-  justify-content: flex-end;
-  margin-bottom: 16px;
+.w-sem { width: 160px; }
+.w-search { width: 220px; }
+.ml-auto { margin-left: auto; }
+.empty {
+  text-align: center;
+  padding: 28px 0;
+  color: var(--color-text-placeholder);
 }
 
 /* data-table (mirrors prototype global.css) */
 .data-table {
   width: 100%;
   background: var(--color-card, #fff);
-  border: 1px solid var(--color-border, #e2e8f0);
-  border-radius: var(--radius-md, 8px);
+  border: 1px solid var(--color-border, #E5E7EB);
+  border-radius: var(--radius-xl, 16px);
+  box-shadow: var(--shadow-card);
   overflow: hidden;
 }
 

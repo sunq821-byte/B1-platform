@@ -90,7 +90,7 @@ npm install       # 首次运行
 npm run dev
 ```
 
-开发服务器：`http://localhost:3000`，内置 Vite Proxy 将 `/api` 反代到后端。
+开发服务器：`http://127.0.0.1:5173`，内置 Vite Proxy 将 `/api` 反代到后端。
 
 ### 4.5 默认账号
 

@@ -1,28 +1,39 @@
 // ========== Dashboard ==========
-export interface IUpcomingDeadline {
+export interface IDashboardStats {
+  pendingTasks: number
+  completedTasks: number
+  averageScore: number | null
+  classAverageScore: number | null
+  analyzingCount: number
+  improvementCount: number
+  nearestDeadline: string | null
+  analyzingEtaMinutes: number
+}
+
+export interface IDashboardRecentTask {
   taskId: string
   taskName: string
   courseName: string
   deadline: string
-  remainingDays: number
-  myStatus: string
-}
-
-export interface IRecentActivity {
-  type: string
-  title: string
-  description: string
-  occurredAt: string
+  /** NOT_SUBMITTED | AI_EVALUATING | AI_COMPLETED | TEACHER_SCORING | COMPLETED | REJECTED */
+  status: string
+  score: number | null
 }
 
 export interface IDashboardData {
-  totalCourses: number
-  totalSubmissions: number
-  pendingReviewCount: number
-  unreadNotificationCount: number
-  averageScore: number | null
-  upcomingDeadlines: IUpcomingDeadline[]
-  recentActivities: IRecentActivity[]
+  stats: IDashboardStats
+  recentTasks: IDashboardRecentTask[]
+  scoreTrend: {
+    xAxis: string[]
+    myScores: (number | null)[]
+    classAvg: (number | null)[]
+  }
+  radarData: {
+    categories: string[]
+    myScores: number[]
+    classAvg: number[]
+  }
+  aiSuggestions: string[]
 }
 
 // ========== Notification ==========

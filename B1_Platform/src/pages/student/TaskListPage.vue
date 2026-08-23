@@ -61,6 +61,14 @@ function viewDetail(taskId: string) {
   router.push(`/student/tasks/${taskId}`)
 }
 
+function goSubmit(taskId: string) {
+  router.push(`/student/submit/${taskId}`)
+}
+
+function canSubmit(status: string): boolean {
+  return status === "NOT_SUBMITTED" || status === "REJECTED"
+}
+
 function formatDate(dateStr: string) {
   if (!dateStr) return "-"
   return dateStr.replace("T", " ").substring(0, 16)
@@ -83,27 +91,26 @@ onMounted(() => {
 
 <template>
   <div class="task-list-page">
-    <PageHeader title="实训任务">
-      <template #extra>
-        <div class="task-list-page__filters">
-          <BaseSelect
-            v-model="statusFilter"
-            :options="statusOptions"
-            placeholder="全部状态"
-            :style="{ width: '140px' }"
-          />
-          <BaseInput
-            v-model="keyword"
-            placeholder="搜索任务名称"
-            :style="{ width: '220px' }"
-            @keyup.enter="handleSearch"
-          />
-          <BaseButton @click="handleSearch">
-            <Search :size="16" />
-          </BaseButton>
-        </div>
-      </template>
-    </PageHeader>
+    <PageHeader title="实训任务" subtitle="按状态跟踪提交与反馈进度" />
+
+    <div class="filter-bar">
+      <BaseSelect
+        v-model="statusFilter"
+        :options="statusOptions"
+        placeholder="全部状态"
+        :style="{ width: '160px' }"
+      />
+      <BaseInput
+        v-model="keyword"
+        placeholder="搜索任务名称"
+        :style="{ width: '240px' }"
+        @keyup.enter="handleSearch"
+      />
+      <BaseButton type="primary" class="ml-auto" @click="handleSearch">
+        <Search :size="16" />
+        搜索
+      </BaseButton>
+    </div>
 
     <LoadingState v-if="store.tasksLoading" text="加载任务列表..." />
 
@@ -134,7 +141,7 @@ onMounted(() => {
         <el-table-column prop="teacherName" label="教师" width="100" align="center" />
         <el-table-column label="截止日期" width="160" align="center">
           <template #default="{ row }">
-            {{ formatDate(row.deadline as string) }}
+            <span class="mono">{{ formatDate(row.deadline as string) }}</span>
           </template>
         </el-table-column>
         <el-table-column prop="totalScore" label="总分" width="80" align="center" />
@@ -145,14 +152,20 @@ onMounted(() => {
         </el-table-column>
         <el-table-column label="成绩" width="80" align="center">
           <template #default="{ row }">
-            {{ formatScore(row.myScore) }}
+            <span class="mono">{{ formatScore(row.myScore) }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="120" align="center" fixed="right">
+        <el-table-column label="操作" width="200" align="center" fixed="right">
           <template #default="{ row }">
-            <BaseButton size="small" @click="viewDetail(row.taskId as string)">
-              查看详情
-            </BaseButton>
+            <div class="ops">
+              <BaseButton size="small" @click="viewDetail(row.taskId as string)">详情</BaseButton>
+              <BaseButton
+                v-if="canSubmit(row.mySubmissionStatus as string)"
+                size="small"
+                type="primary"
+                @click="goSubmit(row.taskId as string)"
+              >去提交</BaseButton>
+            </div>
           </template>
         </el-table-column>
       </BaseTable>
@@ -174,19 +187,21 @@ onMounted(() => {
   flex-direction: column;
 }
 
-.task-list-page__filters {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-sm, 8px);
-}
-
 .task-list-page__link {
-  color: var(--color-primary, #3b82f6);
+  color: var(--color-primary, #1677FF);
   cursor: pointer;
   font-weight: 500;
 }
+.ml-auto { margin-left: auto; }
+.ops { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; }
 
 .task-list-page__link:hover {
-  color: var(--color-primary-hover, #2563eb);
+  color: var(--color-primary-hover, #0958D9);
+}
+
+.mono {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--color-text-secondary);
 }
 </style>

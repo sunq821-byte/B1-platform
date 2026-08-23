@@ -11,7 +11,7 @@ const adminRoutes: RouteRecordRaw[] = [
         path: "dashboard",
         name: "AdminDashboard",
         component: () => import("@/pages/admin/DashboardPage.vue"),
-        meta: { title: "仪表盘", icon: "LayoutDashboard", sort: 1, keepAlive: true },
+        meta: { title: "系统总览", icon: "LayoutDashboard", sort: 1, keepAlive: true },
       },
       {
         path: "users",
@@ -20,16 +20,16 @@ const adminRoutes: RouteRecordRaw[] = [
         meta: { title: "用户管理", icon: "Users", sort: 2, keepAlive: true },
       },
       {
-        path: "system",
-        name: "AdminSystem",
-        component: () => import("@/pages/admin/SystemPage.vue"),
-        meta: { title: "系统配置", icon: "Settings", sort: 3, keepAlive: true },
-      },
-      {
         path: "classes",
         name: "AdminClasses",
         component: () => import("@/pages/admin/ClassesPage.vue"),
-        meta: { title: "班级管理", icon: "School", sort: 4, keepAlive: true },
+        meta: { title: "班级管理", icon: "School", sort: 3, keepAlive: true },
+      },
+      {
+        path: "monitor",
+        name: "AdminMonitor",
+        component: () => import("@/pages/admin/MonitorPage.vue"),
+        meta: { title: "运行监控", icon: "Activity", sort: 4, keepAlive: true },
       },
       {
         path: "logs",
@@ -38,10 +38,10 @@ const adminRoutes: RouteRecordRaw[] = [
         meta: { title: "操作日志", icon: "ScrollText", sort: 5, keepAlive: true },
       },
       {
-        path: "monitor",
-        name: "AdminMonitor",
-        component: () => import("@/pages/admin/MonitorPage.vue"),
-        meta: { title: "系统监控", icon: "Activity", sort: 6, keepAlive: true },
+        path: "system",
+        name: "AdminSystem",
+        component: () => import("@/pages/admin/SystemPage.vue"),
+        meta: { title: "系统配置", icon: "Settings", sort: 6, keepAlive: true },
       },
     ],
   },

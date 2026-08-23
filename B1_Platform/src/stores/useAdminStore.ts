@@ -73,8 +73,67 @@ export const useAdminStore = defineStore("admin", () => {
   // === Dashboard ===
   async function fetchDashboard(): Promise<void> {
     dashboardLoading.value = true
-    try { dashboardData.value = await adminApi.fetchDashboard() }
-    finally { dashboardLoading.value = false }
+    try {
+      const raw = await adminApi.fetchDashboard() as IAdminDashboardData & Record<string, unknown>
+      const s = (raw.stats ?? {}) as Partial<IAdminDashboardData["stats"]>
+      const runtime = (raw.runtimeSummary ?? {}) as Partial<IAdminDashboardData["runtimeSummary"]>
+      const trend = (raw.activityTrend ?? {}) as Partial<IAdminDashboardData["activityTrend"]>
+      const alert = raw.priorityAlert as IAdminDashboardData["priorityAlert"] | undefined
+
+      const storageUsed = Number(s.storageUsedGb ?? 0)
+      const storageQuota = Number(s.storageQuotaGb ?? 100) || 100
+      const healthyServices = Number(s.healthyServices ?? 0)
+      const totalServices = Number(s.totalServices ?? (Array.isArray(raw.health) ? raw.health.length : 0))
+
+      dashboardData.value = {
+        stats: {
+          totalUsers: Number(s.totalUsers ?? 0),
+          studentCount: Number(s.studentCount ?? 0),
+          teacherCount: Number(s.teacherCount ?? 0),
+          adminCount: Number(s.adminCount ?? 0),
+          todayActive: Number(s.todayActive ?? 0),
+          activeRate: Number(s.activeRate ?? 0),
+          activeCourses: Number(s.activeCourses ?? 0),
+          totalSubmissions: Number(s.totalSubmissions ?? 0),
+          completionRate: Number(s.completionRate ?? 0),
+          aiCallsToday: Number(s.aiCallsToday ?? 0),
+          storageUsedGb: storageUsed,
+          storageQuotaGb: storageQuota,
+          alertCount24h: Number(s.alertCount24h ?? 0),
+          accountEnableRate: Number(s.accountEnableRate ?? 0),
+          healthyServices,
+          totalServices,
+          aiQuotaRate: Number(s.aiQuotaRate ?? 0),
+          alertDeltaPct: Number(s.alertDeltaPct ?? 0),
+          aiCallsDeltaPct: Number(s.aiCallsDeltaPct ?? 0),
+          completionDeltaPct: Number(s.completionDeltaPct ?? 0),
+        },
+        runtimeSummary: {
+          healthy: Number(runtime.healthy ?? healthyServices),
+          degraded: Number(runtime.degraded ?? 0),
+          down: Number(runtime.down ?? 0),
+          aiQueue: Number(runtime.aiQueue ?? 0),
+        },
+        activityTrend: {
+          xAxis: Array.isArray(trend.xAxis) ? trend.xAxis : [],
+          activeUsers: Array.isArray(trend.activeUsers) ? trend.activeUsers.map(Number) : [],
+          aiCalls: Array.isArray(trend.aiCalls) ? trend.aiCalls.map(Number) : [],
+        },
+        priorityAlert: alert && typeof alert === "object"
+          ? {
+              title: String(alert.title ?? "优先处理"),
+              summary: String(alert.summary ?? ""),
+              priority: String(alert.priority ?? "中"),
+              source: String(alert.source ?? ""),
+              actionPath: String(alert.actionPath ?? "/admin/monitor"),
+            }
+          : null,
+        recentLogs: Array.isArray(raw.recentLogs) ? raw.recentLogs : [],
+        health: Array.isArray(raw.health) ? raw.health : [],
+      }
+    } finally {
+      dashboardLoading.value = false
+    }
   }
 
   // === Classes ===

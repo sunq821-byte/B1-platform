@@ -22,7 +22,7 @@ function handleMenuClick(path: string) {
 }
 
 function isActive(path: string): boolean {
-  return route.path === path
+  return route.path === path || route.path.startsWith(path + "/")
 }
 
 function getIcon(name?: string): Component | undefined {
@@ -105,7 +105,7 @@ function getIcon(name?: string): Component | undefined {
   width: 32px;
   height: 32px;
   border-radius: var(--radius-md, 8px);
-  background: var(--color-primary, #3b82f6);
+  background: var(--color-primary, #1677FF);
   color: #fff;
   display: flex;
   align-items: center;
@@ -151,8 +151,8 @@ function getIcon(name?: string): Component | undefined {
 }
 
 .sidebar__item--active {
-  background: var(--color-primary-light, #eff6ff);
-  color: var(--color-primary, #3b82f6);
+  background: var(--color-primary-light, #E6F4FF);
+  color: var(--color-primary, #1677FF);
 }
 
 .sidebar__item-icon {
@@ -192,6 +192,6 @@ function getIcon(name?: string): Component | undefined {
 }
 
 .sidebar__collapse-btn:hover {
-  color: var(--color-primary, #3b82f6);
+  color: var(--color-primary, #1677FF);
 }
 </style>

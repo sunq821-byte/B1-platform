@@ -34,7 +34,7 @@ defineEmits<{
 }
 
 .error-state__icon {
-  color: var(--color-danger, #EF4444);
+  color: var(--color-danger, #FF4D4F);
   margin-bottom: var(--spacing-md, 16px);
 }
 

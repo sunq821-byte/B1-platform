@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useRouter, useRoute } from "vue-router"
 import { useUserStore } from "@/stores/useUserStore"
-import { LogOut, User, ChevronDown } from "lucide-vue-next"
+import { LogOut, User, ChevronDown, Settings } from "lucide-vue-next"
 import type { MenuItem } from "@/stores/usePermissionStore"
 import NotificationBell from "@/components/layout/NotificationBell.vue"
 
@@ -43,36 +43,40 @@ function getAvatarChar(name: string): string {
 
 <template>
   <header class="navbar">
-    <div class="navbar__left">
-      <a class="navbar__brand" @click="navigate('/')">
-        <div class="navbar__logo">B1</div>
-        <span class="navbar__title">B1 Platform</span>
-      </a>
+    <a class="navbar__brand" @click="navigate('/')">
+      <div class="navbar__logo">B1</div>
+      <span class="navbar__title">B1 Platform</span>
+    </a>
 
-      <nav class="navbar__links">
-        <a
-          v-for="item in menus"
-          :key="item.path"
-          class="navbar__item"
-          :class="{ 'navbar__item--active': isParentActive(item) }"
-          @click="navigate(item.path)"
-        >
-          {{ item.title }}
-        </a>
-      </nav>
-    </div>
+    <nav class="navbar__pill" aria-label="主导航">
+      <a
+        v-for="item in menus"
+        :key="item.path"
+        class="navbar__item"
+        :class="{ 'navbar__item--active': isParentActive(item) }"
+        @click="navigate(item.path)"
+      >
+        {{ item.title }}
+      </a>
+    </nav>
 
     <div class="navbar__right">
+      <button
+        v-if="role === 'teacher' || role === 'admin'"
+        type="button"
+        class="icon-btn"
+        title="设置"
+        @click="navigate(role === 'admin' ? '/admin/system' : '/teacher/knowledge-base')"
+      >
+        <Settings :size="16" />
+      </button>
       <NotificationBell />
-
       <el-dropdown trigger="click">
-        <div class="navbar__user">
-          <div class="navbar__avatar">
-            {{ getAvatarChar(username || "用户") }}
-          </div>
+        <button type="button" class="navbar__user" :aria-label="username || '用户'">
+          <span class="navbar__avatar">{{ getAvatarChar(username || "用户") }}</span>
           <span class="navbar__username">{{ username || "用户" }}</span>
           <ChevronDown :size="14" class="navbar__chevron" />
-        </div>
+        </button>
         <template #dropdown>
           <el-dropdown-menu>
             <el-dropdown-item @click="navigate('/student/profile')">
@@ -92,142 +96,187 @@ function getAvatarChar(name: string): string {
 
 <style scoped>
 .navbar {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(140px, 1fr) auto minmax(140px, 1fr);
   align-items: center;
-  justify-content: space-between;
-  height: var(--header-height, 52px);
-  padding: 0 20px;
-  background: var(--color-card, #fff);
-  border-bottom: 1px solid var(--color-border, #e2e8f0);
+  gap: 16px;
+  min-height: var(--header-height, 64px);
+  padding: 12px 28px;
+  background: transparent;
   flex-shrink: 0;
   position: sticky;
   top: 0;
   z-index: 100;
 }
 
-.navbar__left {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  flex: 1;
-  min-width: 0;
-}
-
 .navbar__brand {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-right: 20px;
-  flex-shrink: 0;
+  gap: 10px;
+  justify-self: start;
   cursor: pointer;
   text-decoration: none;
 }
 
 .navbar__logo {
-  width: 28px;
-  height: 28px;
-  background: var(--color-primary, #3b82f6);
-  border-radius: 7px;
+  position: relative;
+  width: 30px;
+  height: 30px;
+  background: var(--color-primary, #1677FF);
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
   color: #fff;
-  font-weight: 700;
-  font-size: 13px;
+  font-weight: 800;
+  font-size: 11px;
   flex-shrink: 0;
+  box-shadow: 0 6px 14px rgba(22, 119, 255, 0.28);
+}
+
+.navbar__logo::after {
+  content: "";
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-brand-accent, #E03C31);
+  border: 2px solid #fff;
 }
 
 .navbar__title {
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--color-text-primary, #1e293b);
-  letter-spacing: -0.01em;
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--color-navy, #0B3A5C);
+  letter-spacing: -0.02em;
   white-space: nowrap;
 }
 
-.navbar__links {
+.navbar__pill {
   display: flex;
   align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
   gap: 2px;
+  padding: 4px;
+  background: #fff;
+  border: 1px solid var(--color-border, #E5E7EB);
+  border-radius: var(--radius-full);
+  box-shadow: var(--shadow-card);
+  max-width: min(920px, 100%);
 }
 
 .navbar__item {
-  position: relative;
-  padding: 8px 12px;
-  font-size: 13.5px;
-  color: var(--color-text-secondary, #64748b);
+  padding: 9px 13px;
+  font-size: 13px;
+  color: var(--color-text-secondary, #6B7280);
   cursor: pointer;
-  border-radius: var(--radius-sm, 6px);
-  transition: all var(--transition-fast, 150ms ease);
+  border-radius: var(--radius-full);
+  transition: all var(--transition-fast);
   text-decoration: none;
   white-space: nowrap;
-  font-weight: 450;
+  font-weight: 500;
 }
 
 .navbar__item:hover {
-  background: var(--color-bg, #f8fafc);
-  color: var(--color-text-primary, #1e293b);
+  background: var(--color-primary-light, #E6F4FF);
+  color: var(--color-primary, #1677FF);
 }
 
 .navbar__item--active {
-  color: var(--color-primary, #3b82f6);
-  background: transparent;
-}
-
-.navbar__item--active::after {
-  content: "";
-  position: absolute;
-  bottom: -1px;
-  left: 12px;
-  right: 12px;
-  height: 2px;
-  background: var(--color-primary, #3b82f6);
-  border-radius: 1px 1px 0 0;
+  color: var(--color-primary, #1677FF);
+  background: var(--color-primary-light, #E6F4FF);
+  font-weight: 700;
 }
 
 .navbar__right {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 8px;
-  flex-shrink: 0;
-  margin-left: auto;
+  justify-self: end;
+}
+
+.icon-btn,
+.navbar__user {
+  border: 1px solid var(--color-border, #E5E7EB);
+  background: #fff;
+  box-shadow: var(--shadow-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.icon-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: var(--color-text-secondary, #6B7280);
+}
+
+.icon-btn:hover {
+  color: var(--color-primary, #1677FF);
+  border-color: var(--color-primary-mid, #91CAFF);
+  background: var(--color-primary-light, #E6F4FF);
 }
 
 .navbar__user {
   display: flex;
   align-items: center;
-  gap: 6px;
-  cursor: pointer;
-  padding: 4px 8px;
-  border-radius: var(--radius-md, 8px);
-  transition: background var(--transition-fast, 150ms ease);
+  gap: 8px;
+  padding: 3px 10px 3px 3px;
+  border-radius: var(--radius-full);
+  font: inherit;
+  color: inherit;
 }
 
 .navbar__user:hover {
-  background: var(--color-bg, #f8fafc);
+  box-shadow: var(--shadow-md);
 }
 
 .navbar__avatar {
-  width: 28px;
-  height: 28px;
+  width: 30px;
+  height: 30px;
   border-radius: 50%;
-  background: var(--color-primary-light, #eff6ff);
-  color: var(--color-primary, #3b82f6);
+  background: linear-gradient(135deg, #91CAFF, #E6F7EF);
+  color: var(--color-navy, #0B3A5C);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 700;
   flex-shrink: 0;
 }
 
 .navbar__username {
-  font-size: var(--font-size-sm, 14px);
-  color: var(--color-text-primary, #1e293b);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-primary);
   white-space: nowrap;
 }
 
 .navbar__chevron {
-  color: var(--color-text-placeholder, #94a3b8);
+  color: var(--color-text-placeholder);
+}
+
+@media (max-width: 1100px) {
+  .navbar {
+    grid-template-columns: 1fr auto;
+    grid-template-areas:
+      "brand right"
+      "pill pill";
+    padding: 12px 16px;
+  }
+  .navbar__brand { grid-area: brand; }
+  .navbar__right { grid-area: right; }
+  .navbar__pill {
+    grid-area: pill;
+    max-width: none;
+    justify-content: flex-start;
+  }
+  .navbar__username { display: none; }
 }
 </style>

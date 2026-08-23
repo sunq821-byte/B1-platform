@@ -37,7 +37,7 @@ withDefaults(defineProps<{
   width: 10px;
   height: 10px;
   border-radius: var(--radius-full, 9999px);
-  background: var(--color-primary, #3B82F6);
+  background: var(--color-primary, #1677FF);
   animation: loading-bounce 1.4s ease-in-out infinite both;
 }
 

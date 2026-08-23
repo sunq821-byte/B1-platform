@@ -17,6 +17,14 @@ public class TeacherDashboardVO {
 
     private List<UpcomingTaskVO> upcomingTasks;
 
+    private ReviewStatusVO reviewStatus;
+
+    private AiConfidenceVO aiConfidence;
+
+    private Integer semesterTaskCount;
+
+    private Integer knowledgeEntryCount;
+
     @Data
     public static class DashboardStatsVO {
         private Integer totalStudents;
@@ -50,5 +58,21 @@ public class TeacherDashboardVO {
         private LocalDateTime deadline;
         private Integer unsubmittedCount;
         private Integer totalStudents;
+    }
+
+    @Data
+    public static class ReviewStatusVO {
+        private Integer pendingAi;
+        private Integer pendingTeacher;
+        private Integer approved;
+        private Integer returned;
+    }
+
+    @Data
+    public static class AiConfidenceVO {
+        private Integer high;
+        private Integer mid;
+        private Integer low;
+        private Integer total;
     }
 }

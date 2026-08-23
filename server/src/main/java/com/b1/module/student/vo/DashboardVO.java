@@ -9,45 +9,49 @@ import java.util.List;
 @Data
 public class DashboardVO {
 
-    private Integer totalCourses;
+    private StatsVO stats;
 
-    private Integer totalSubmissions;
+    private List<RecentTaskVO> recentTasks;
 
-    private Integer pendingReviewCount;
+    private ScoreTrendVO scoreTrend;
 
-    private Integer unreadNotificationCount;
+    private RadarDataVO radarData;
 
-    private List<TaskDeadlineVO> upcomingDeadlines;
-
-    private List<RecentActivityVO> recentActivities;
-
-    private BigDecimal averageScore;
+    private List<String> aiSuggestions;
 
     @Data
-    public static class TaskDeadlineVO {
-
-        private Long taskId;
-
-        private String taskName;
-
-        private String courseName;
-
-        private LocalDateTime deadline;
-
-        private Integer remainingDays;
-
-        private String myStatus;
+    public static class StatsVO {
+        private Integer pendingTasks;
+        private Integer completedTasks;
+        private BigDecimal averageScore;
+        private BigDecimal classAverageScore;
+        private Integer analyzingCount;
+        private Integer improvementCount;
+        private String nearestDeadline;
+        private Integer analyzingEtaMinutes;
     }
 
     @Data
-    public static class RecentActivityVO {
+    public static class RecentTaskVO {
+        private String taskId;
+        private String taskName;
+        private String courseName;
+        private LocalDateTime deadline;
+        private String status;
+        private BigDecimal score;
+    }
 
-        private String type;
+    @Data
+    public static class ScoreTrendVO {
+        private List<String> xAxis;
+        private List<BigDecimal> myScores;
+        private List<BigDecimal> classAvg;
+    }
 
-        private String title;
-
-        private String description;
-
-        private LocalDateTime occurredAt;
+    @Data
+    public static class RadarDataVO {
+        private List<String> categories;
+        private List<BigDecimal> myScores;
+        private List<BigDecimal> classAvg;
     }
 }

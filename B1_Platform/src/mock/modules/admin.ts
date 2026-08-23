@@ -92,30 +92,69 @@ export default function setupAdminMock(mock: typeof Mock): void {
   mock.mock("/api/v1/admin/dashboard", "get", () => {
     const { students, teachers, admins } = getUsers()
     const allUsers = [...students, ...teachers, ...admins]
-    const courses = ["软件工程实践", "数据库原理", "Web前端开发", "计算机网络", "移动应用开发", "人工智能导论"]
-    const totalSubs = allUsers.filter((u) => u.role === "student").length * Random.integer(2, 4)
+    const totalUsers = allUsers.length
+    const todayActive = Random.integer(8, Math.max(8, totalUsers - 1))
+    const storageUsedGb = Number(Random.float(12, 48, 1, 1))
+    const storageQuotaGb = 100
+    const aiCallsToday = Random.integer(40, 180)
+    const alertCount24h = 3
+    const healthyServices = 4
+    const totalServices = 5
 
     return ok({
       stats: {
-        totalUsers: allUsers.length,
-        activeCourses: courses.length,
-        totalSubmissions: totalSubs,
-        completionRate: Random.integer(55, 85),
+        totalUsers,
+        studentCount: students.length,
+        teacherCount: teachers.length,
+        adminCount: admins.length,
+        todayActive,
+        activeRate: Math.round((todayActive / totalUsers) * 1000) / 10,
+        activeCourses: 6,
+        totalSubmissions: students.length * Random.integer(2, 4),
+        completionRate: 72,
+        aiCallsToday,
+        storageUsedGb,
+        storageQuotaGb,
+        alertCount24h,
+        accountEnableRate: 92,
+        healthyServices,
+        totalServices,
+        aiQuotaRate: 63,
+        alertDeltaPct: 12,
+        aiCallsDeltaPct: -8,
+        completionDeltaPct: 0,
+      },
+      runtimeSummary: {
+        healthy: healthyServices,
+        degraded: 1,
+        down: 0,
+        aiQueue: 3,
+      },
+      activityTrend: {
+        xAxis: ["周一", "周二", "周三", "周四", "周五", "周六", "周日"],
+        activeUsers: [42, 48, 51, 55, 60, 38, todayActive],
+        aiCalls: [80, 95, 110, 102, 130, 70, aiCallsToday],
+      },
+      priorityAlert: {
+        title: "优先处理",
+        summary: "缓存服务命中率偏低，近 1 小时出现 3 条超时告警。建议先查看运行监控，确认 Redis 连接与内存水位。",
+        priority: "高",
+        source: "缓存",
+        actionPath: "/admin/monitor",
       },
       recentLogs: [
-        { type: "success", message: "教师 李四 发布新任务", detail: "实训任务: 实现用户管理系统", createdAt: new Date(Date.now() - 120000).toISOString() },
-        { type: "info", message: "学生 张三 提交作业", detail: "Git 仓库提交", createdAt: new Date(Date.now() - 300000).toISOString() },
-        { type: "warning", message: "AI 分析超时告警", detail: "提交 sub-005 分析超过 60s", createdAt: new Date(Date.now() - 600000).toISOString() },
-        { type: "info", message: "管理员修改系统配置", detail: "更新学期结束日期", createdAt: new Date(Date.now() - 900000).toISOString() },
-        { type: "error", message: "文件上传失败", detail: "学生 王五 上传文件超出大小限制", createdAt: new Date(Date.now() - 1800000).toISOString() },
-        { type: "success", message: "批量导入学生成功", detail: "成功导入 30 名学生到软件2401", createdAt: new Date(Date.now() - 3600000).toISOString() },
+        { type: "warning", message: "AI 分析超时告警", detail: "提交 sub-005 分析超过 60s", operator: "系统", ip: "127.0.0.1", result: "告警", createdAt: new Date(Date.now() - 720000).toISOString() },
+        { type: "success", message: "管理员修改系统配置", detail: "更新学期结束日期", operator: "管理员", ip: "10.0.0.8", result: "成功", createdAt: new Date(Date.now() - 2100000).toISOString() },
+        { type: "info", message: "批量导入学生成功", detail: "成功导入 30 名学生到软件2401", operator: "管理员", ip: "10.0.0.8", result: "成功", createdAt: new Date(Date.now() - 3600000).toISOString() },
+        { type: "error", message: "文件上传失败", detail: "学生 王五 上传文件超出大小限制", operator: "王五", ip: "10.0.2.41", result: "失败", createdAt: new Date(Date.now() - 5400000).toISOString() },
+        { type: "success", message: "教师 李四 发布新任务", detail: "实训任务: 实现用户管理系统", operator: "李四", ip: "10.0.1.12", result: "成功", createdAt: new Date(Date.now() - 7200000).toISOString() },
       ],
       health: [
-        { name: "AI 分析服务", status: "运行中", color: "var(--color-success, #10b981)" },
-        { name: "数据库服务", status: "运行中", color: "var(--color-success, #10b981)" },
-        { name: "文件存储", status: "运行中", color: "var(--color-success, #10b981)" },
-        { name: "消息队列", status: "运行中", color: "var(--color-success, #10b981)" },
-        { name: "缓存服务", status: "异常", color: "var(--color-warning, #f59e0b)" },
+        { name: "AI 分析服务", status: "运行中", color: "#00B96B", detail: "队列空闲", latencyMs: 320 },
+        { name: "数据库服务", status: "运行中", color: "#00B96B", detail: "主库可用", latencyMs: 12 },
+        { name: "对象存储", status: "运行中", color: "#00B96B", detail: `${storageUsedGb}/${storageQuotaGb} GB`, latencyMs: 45 },
+        { name: "消息队列", status: "运行中", color: "#00B96B", detail: "积压 0", latencyMs: 8 },
+        { name: "缓存服务", status: "降级", color: "#FAAD14", detail: "命中率偏低", latencyMs: 3 },
       ],
     })
   })
@@ -157,6 +196,8 @@ export default function setupAdminMock(mock: typeof Mock): void {
         message: Random.pick(["用户登录", "任务提交", "AI 分析完成", "配置更新", "文件上传", "批量导入", "成绩发布", "审核完成"]) + Random.cword(2, 4),
         detail: Random.csentence(5, 15),
         operator: Random.pick(["管理员", "李四", "张三", "系统"]),
+        ip: `10.0.${Random.integer(0, 3)}.${Random.integer(2, 250)}`,
+        result: t === "error" ? "失败" : (t === "warning" ? "告警" : "成功"),
         createdAt: Random.datetime("yyyy-MM-dd HH:mm:ss"),
       }
     })
@@ -169,12 +210,11 @@ export default function setupAdminMock(mock: typeof Mock): void {
   mock.mock("/api/v1/admin/monitor", "get", () => {
     return ok({
       services: [
-        { name: "AI 分析服务", status: "运行中", color: "var(--color-success, #10b981)" },
-        { name: "数据库服务", status: "运行中", color: "var(--color-success, #10b981)" },
-        { name: "文件存储", status: "运行中", color: "var(--color-success, #10b981)" },
-        { name: "消息队列", status: "运行中", color: "var(--color-success, #10b981)" },
-        { name: "缓存服务", status: "异常", color: "var(--color-warning, #f59e0b)" },
-        { name: "通知服务", status: "运行中", color: "var(--color-success, #10b981)" },
+        { name: "AI 分析服务", status: "运行中", color: "#00B96B", detail: "队列空闲", latencyMs: 320 },
+        { name: "数据库服务", status: "运行中", color: "#00B96B", detail: "主库可用", latencyMs: 12 },
+        { name: "对象存储", status: "运行中", color: "#00B96B", detail: "可用", latencyMs: 45 },
+        { name: "消息队列", status: "运行中", color: "#00B96B", detail: "积压 0", latencyMs: 8 },
+        { name: "缓存服务", status: "降级", color: "#FAAD14", detail: "命中率偏低", latencyMs: 3 },
       ],
       cpuUsage: Random.integer(20, 65),
       memoryUsage: Random.integer(40, 75),

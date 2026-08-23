@@ -1,8 +1,9 @@
-﻿# UI Design System v1.0
+﻿# UI Design System v1.1
 
 > 《基于大模型的软件实训教学检查评价与报表系统》
 >
-> 版本：v1.0 | 日期：2026-06-30 | 状态：正式发布
+> 版本：v1.1 | 日期：2026-08-03 | 状态：正式发布  
+> v1.1 变更：配色升级为 **Campus Blue × Canvas / 腾讯教育**（蓝=操作，绿=状态）
 
 ---
 
@@ -100,21 +101,33 @@ B端后台用户（教师、教研负责人、管理员）的操作目标是**�
 
 | Token | Value | Usage | Description |
 |---|---|---|---|
-| --color-primary | #3B82F6 | 主按钮、选中态、链接、焦点环 | 品牌主色，蓝色系传达专业与科技感 |
-| --color-primary-hover | #2563EB | 主按钮悬停 | 比主色深一级，提供明确交互反馈 |
-| --color-primary-light | #EFF6FF | 选中背景、标签底色 | 主色的 10% 透明度等效色 |
-| --color-primary-dark | #1D4ED8 | 主按钮按下 | 比主色深两级 |
-| --color-secondary | #64748B | 次要按钮、辅助图标 | 石板灰，中性且专业 |
-| --color-secondary-hover | #475569 | 次要按钮悬停 | 比次要色深一级 |
-| --color-success | #10B981 | 成功状态、通过标记、正向指标 | 翠绿，传达确认与通过感 |
-| --color-success-light | #ECFDF5 | 成功标签底色 | 成功色的 10% 透明度等效色 |
-| --color-warning | #F59E0B | 警告状态、待审核标记 | 琥珀，传达需要关注 |
-| --color-warning-light | #FFFBEB | 警告标签底色 | 警告色的 10% 透明度等效色 |
-| --color-danger | #EF4444 | 危险按钮、删除、错误状态、不通过标记 | 红色，传达停止与警示 |
-| --color-danger-hover | #DC2626 | 危险按钮悬停 | 比危险色深一级 |
-| --color-danger-light | #FEF2F2 | 错误标签底色 | 危险色的 10% 透明度等效色 |
-| --color-info | #06B6D4 | 信息提示、帮助文字 | 青色，中性信息传达 |
-| --color-info-light | #ECFEFF | 信息标签底色 | 信息色的 10% 透明度等效色 |
+| --color-primary | #1677FF | 主按钮、链接、选中态、焦点环、图表主色 | Campus Blue · 操作色 |
+| --color-primary-hover | #0958D9 | 主按钮悬停 | 比主色深一级 |
+| --color-primary-light | #E6F4FF | 选中背景、导航选中底、标签底色 | 主色浅底 |
+| --color-primary-dark | #003EB3 | 主按钮按下 | 比主色深两级 |
+| --color-navy | #0B3A5C | Logo 文字、机构标题、稳重强调 | Canvas 机构海军蓝 |
+| --color-navy-light | #E8F1F7 | 海军蓝浅底 | 机构信息底色 |
+| --color-brand-accent | #E03C31 | Logo 角标点缀（仅点缀） | Canvas Red · 禁止大面积使用 |
+| --color-success | #00B96B | 成功/进行中/正向状态、增长率 | 腾讯教育：绿=状态 |
+| --color-success-hover | #009A57 | 成功态加深 | 状态绿 Hover |
+| --color-success-light | #E6F7EF | 成功/进行中标签底色 | 状态浅绿底 |
+| --color-ai | #722ED1 | AI 建议、低置信、诊断标识 | AI 专属 · 禁止作品牌铺色 |
+| --color-ai-light | #F9F0FF | AI 标签底色 | AI 浅底 |
+| --color-secondary | #6B7280 | 次要按钮、辅助图标、次要文字 | 中性灰 |
+| --color-secondary-hover | #4B5563 | 次要按钮悬停 | 比次要色深一级 |
+| --color-warning | #FAAD14 | 警告、待审核标记 | 琥珀 |
+| --color-warning-light | #FFF7E6 | 警告标签底色 | 警告浅底 |
+| --color-danger | #FF4D4F | 危险按钮、删除、错误、不通过 | 语义红（≠品牌红） |
+| --color-danger-hover | #CF1322 | 危险按钮悬停 | 比危险色深一级 |
+| --color-danger-light | #FFF1F0 | 错误标签底色 | 危险浅底 |
+| --color-info | #1677FF | 信息提示（与主色同源，教务场景统一） | 可用 Primary |
+| --color-info-light | #E6F4FF | 信息提示底色 | 同 Primary Soft |
+| --color-bg | #F5F7FA | 页面背景 | 教务浅灰底 |
+| --color-card | #FFFFFF | 卡片背景 | 白卡片 |
+| --color-border | #E5E7EB | 默认边框 | 中性边框 |
+| --color-text-primary | #1F2937 | 主要文字、标题 | Ink Text |
+| --color-text-secondary | #6B7280 | 次要文字 | — |
+| --color-text-placeholder | #9CA3AF | 占位文字 | — |
 
 ### 2.2 Typography Token
 
@@ -188,8 +201,8 @@ B端后台用户（教师、教研负责人、管理员）的操作目标是**�
 | --border-width-lg | 2px | Focus 状态、选中态边框 |
 | --border-color | #E2E8F0 | 默认边框色 |
 | --border-color-hover | #CBD5E1 | 悬停边框色 |
-| --border-color-focus | #3B82F6 | 聚焦边框色（Primary） |
-| --border-color-error | #EF4444 | 错误边框色 |
+| --border-color-focus | #1677FF | 聚焦边框色（Primary） |
+| --border-color-error | #FF4D4F | 错误边框色 |
 
 ### 2.8 Animation Token
 
@@ -218,81 +231,118 @@ B端后台用户（教师、教研负责人、管理员）的操作目标是**�
 
 ## 3 颜色系统
 
-### 3.1 Primary 主色系
+> **v1.1 正式配色：Campus Blue × Canvas / 腾讯教育**  
+> 预览文件：[`docs/18-Color-Palette-Preview.html`](./18-Color-Palette-Preview.html)  
+> 定位：经典教务蓝（最稳、最像同类 LMS/教务产品），融合 Canvas 机构感与腾讯教育「蓝操绿态」用法。
 
-基于 #3B82F6（蓝色）构建，传达专业、可信、科技感。
+### 3.0 配色原则（必须遵守）
+
+| 角色 | 颜色 | 用法 |
+|---|---|---|
+| **操作色 Primary** | `#1677FF` | 主按钮、链接、导航选中、进度条、图表主线、可点击操作 |
+| **状态色 Success** | `#00B96B` | 进行中、已通过、正向增长率、完成态（**不作主按钮色**） |
+| **机构色 Navy** | `#0B3A5C` | Logo 文字、标题稳重强调、机构信息 |
+| **品牌点缀 Canvas Red** | `#E03C31` | **仅** Logo 角标等识别点缀，禁止大面积铺色 |
+| **危险色 Danger** | `#FF4D4F` | 删除、错误、不通过（语义红，≠ Canvas 品牌红） |
+| **AI 专属** | `#722ED1` | AI 建议/置信度/诊断标识，禁止作品牌主色 |
+
+**额外规则**：
+
+1. 页面背景 `#F5F7FA`，卡片 `#FFFFFF`，保持高校后台长时间使用的可读性。
+2. 导航选中优先使用 Primary Soft（`#E6F4FF`）+ Primary 文字，体现“可操作选中”。
+3. 禁止：紫色铺满白底、奶油底+赤陶强调、玻璃拟态炫光、用绿色替代主按钮。
+4. 旧版主色 `#3B82F6` / `#1890FF` 已废弃，新开发一律使用本色板。
+
+### 3.1 Primary 主色系（Campus Blue · 操作）
+
+基于 `#1677FF` 构建，对齐国内教务/中后台常见蓝，传达专业、可信、可操作。
 
 | 色阶 | HEX | 使用场景 |
 |---|---|---|
-| Primary-50 | #EFF6FF | 选中行背景、信息底色 |
-| Primary-100 | #DBEAFE | Tag 背景（信息类） |
-| Primary-200 | #BFDBFE | 次要强调区域背景 |
-| Primary-300 | #93C5FD | 图表辅助色 |
-| Primary-400 | #60A5FA | 禁用态的主色元素 |
-| **Primary-500** | **#3B82F6** | **主按钮、链接、选中态、品牌色** |
-| Primary-600 | #2563EB | 主按钮 Hover |
-| Primary-700 | #1D4ED8 | 主按钮 Active |
-| Primary-800 | #1E40AF | 深色背景上的主色元素 |
-| Primary-900 | #1E3A8A | 极少使用，图表暗色 |
+| Primary-50 | #E6F4FF | 选中行背景、导航选中底、信息底色 |
+| Primary-100 | #BAE0FF | Tag 背景（操作类） |
+| Primary-200 | #91CAFF | 次要强调区域、图表浅色 |
+| Primary-300 | #69B1FF | 图表辅助色 |
+| Primary-400 | #4096FF | 较弱强调 |
+| **Primary-500** | **#1677FF** | **主按钮、链接、选中态、品牌操作色** |
+| Primary-600 | #0958D9 | 主按钮 Hover |
+| Primary-700 | #003EB3 | 主按钮 Active |
+| Primary-800 | #002C8C | 深色背景上的主色元素 |
+| Primary-900 | #001D66 | 极少使用 |
+
+### 3.1b Navy 机构色系（Canvas 稳重感）
+
+| 色阶 | HEX | 使用场景 |
+|---|---|---|
+| Navy-50 | #E8F1F7 | 机构信息浅底 |
+| **Navy-700** | **#0B3A5C** | **Logo 文字、页面稳重标题** |
+| Navy-900 | #062538 | 极少使用 |
+
+### 3.1c Brand Accent（Canvas Red · 仅点缀）
+
+| 色阶 | HEX | 使用场景 |
+|---|---|---|
+| Brand-Red | #E03C31 | Logo 角标等品牌识别点缀 |
+| Brand-Red-Soft | #FDECEC | 点缀相关浅底（慎用） |
 
 ### 3.2 Secondary 次要色系
 
-基于 #64748B（石板灰），用于不重要的操作和辅助元素。
+基于 `#6B7280`（中性灰），用于不重要的操作和辅助元素。
 
 | 色阶 | HEX | 使用场景 |
 |---|---|---|
-| Secondary-50 | #F8FAFC | 页面背景 |
-| Secondary-100 | #F1F5F9 | 表格斑马纹 |
-| Secondary-200 | #E2E8F0 | 边框、分割线 |
-| Secondary-300 | #CBD5E1 | 禁用态边框 |
-| **Secondary-500** | **#64748B** | **次要按钮、占位文字、辅助图标** |
-| Secondary-700 | #475569 | 次要按钮 Hover |
-| Secondary-900 | #334155 | 次要按钮 Active |
+| Secondary-50 | #F5F7FA | 页面背景（与 --color-bg 一致） |
+| Secondary-100 | #F3F4F6 | 表格斑马纹、浅分区 |
+| Secondary-200 | #E5E7EB | 边框、分割线 |
+| Secondary-300 | #D1D5DB | 禁用态边框 |
+| **Secondary-500** | **#6B7280** | **次要按钮、占位文字、辅助图标** |
+| Secondary-700 | #4B5563 | 次要按钮 Hover |
+| Secondary-900 | #1F2937 | 次要按钮 Active / 深文字 |
 
-### 3.3 Success 成功色系
+### 3.3 Success 状态色系（腾讯教育：绿 = 状态）
 
-基于 #10B981（翠绿），传达通过、完成、正向结果。
+基于 `#00B96B`，传达进行中、通过、完成、正向结果。**不用于主操作按钮。**
 
 | 色阶 | HEX | 使用场景 |
 |---|---|---|
-| Success-50 | #ECFDF5 | 通过标签背景 |
-| Success-100 | #D1FAE5 | 进度条已完成段 |
-| **Success-500** | **#10B981** | **成功按钮、通过状态、正向指标** |
-| Success-600 | #059669 | 成功按钮 Hover |
-| Success-700 | #047857 | 成功按钮 Active |
+| Success-50 | #E6F7EF | 通过/进行中标签背景 |
+| Success-100 | #B7EB8F | 进度完成浅段（可选） |
+| **Success-500** | **#00B96B** | **状态标签、正向指标、完成率折线** |
+| Success-600 | #009A57 | 状态加深 / Hover |
+| Success-700 | #087443 | Active |
 
 ### 3.4 Warning 警告色系
 
-基于 #F59E0B（琥珀），传达需关注、待处理。
+基于 `#FAAD14`（琥珀），传达需关注、待处理。
 
 | 色阶 | HEX | 使用场景 |
 |---|---|---|
-| Warning-50 | #FFFBEB | 警告提示背景 |
-| Warning-100 | #FEF3C7 | 待审核标签背景 |
-| **Warning-500** | **#F59E0B** | **警告图标、待审核状态、黄色指标** |
-| Warning-600 | #D97706 | 警告按钮 Hover |
-| Warning-700 | #B45309 | 警告按钮 Active |
+| Warning-50 | #FFF7E6 | 警告提示背景 |
+| Warning-100 | #FFE7BA | 待审核标签背景 |
+| **Warning-500** | **#FAAD14** | **警告图标、待审核状态** |
+| Warning-600 | #D48806 | 警告 Hover |
+| Warning-700 | #AD6800 | 警告 Active |
 
 ### 3.5 Danger 危险色系
 
-基于 #EF4444（红色），传达错误、删除、不通过。
+基于 `#FF4D4F`（语义红），传达错误、删除、不通过。与 Canvas 品牌红区分使用。
 
 | 色阶 | HEX | 使用场景 |
 |---|---|---|
-| Danger-50 | #FEF2F2 | 错误提示背景、不通过标签背景 |
-| Danger-100 | #FEE2E2 | 删除确认区域背景 |
-| **Danger-500** | **#EF4444** | **危险按钮、删除、错误状态、不通过** |
-| Danger-600 | #DC2626 | 危险按钮 Hover |
-| Danger-700 | #B91C1C | 危险按钮 Active |
+| Danger-50 | #FFF1F0 | 错误提示背景、不通过标签背景 |
+| Danger-100 | #FFCCC7 | 删除确认区域背景 |
+| **Danger-500** | **#FF4D4F** | **危险按钮、删除、错误、不通过** |
+| Danger-600 | #CF1322 | 危险按钮 Hover |
+| Danger-700 | #A8071A | 危险按钮 Active |
 
-### 3.6 Info 信息色系
+### 3.6 AI 专属色系
 
-基于 #06B6D4（青色），传达中性信息。
+基于 `#722ED1`，仅用于 AI 相关标识。
 
 | 色阶 | HEX | 使用场景 |
 |---|---|---|
-| Info-50 | #ECFEFF | 信息提示背景 |
-| **Info-500** | **#06B6D4** | **信息图标、帮助提示** |
+| AI-50 | #F9F0FF | AI 标签底色 |
+| **AI-500** | **#722ED1** | **AI 建议、低置信、诊断中** |
 
 ### 3.7 Gray 灰度系统
 
@@ -317,16 +367,20 @@ B端后台用户（教师、教研负责人、管理员）的操作目标是**�
 | --text-secondary | #6B7280 (Gray-500) | 次要文字 |
 | --text-disabled | #9CA3AF (Gray-400) | 禁用文字 |
 | --text-placeholder | #9CA3AF (Gray-400) | 输入框占位文字 |
-| --text-link | #3B82F6 (Primary-500) | 链接文字 |
-| --bg-page | #F8FAFC (Secondary-50) | 页面背景 |
+| --text-link | #1677FF (Primary-500) | 链接文字 |
+| --bg-page | #F5F7FA | 页面背景 |
 | --bg-card | #FFFFFF | 卡片背景 |
 | --bg-card-hover | #F9FAFB (Gray-50) | 卡片悬浮背景 |
-| --bg-selected | #EFF6FF (Primary-50) | 选中态背景 |
+| --bg-selected | #E6F4FF (Primary-50) | 选中态背景 |
 | --bg-disabled | #F3F4F6 (Gray-100) | 禁用态背景 |
 | --bg-overlay | rgba(15, 23, 42, 0.5) | 遮罩层 |
-| --border-default | #E2E8F0 (Secondary-200) | 默认边框 |
-| --border-light | #F1F5F9 (Secondary-100) | 浅边框/分割 |
-| --divider | #E5E7EB (Gray-200) | 内容分割线 |
+| --border-default | #E5E7EB | 默认边框 |
+| --border-light | #F3F4F6 | 浅边框/分割 |
+| --divider | #E5E7EB | 内容分割线 |
+| --status-running | #00B96B | 进行中状态 |
+| --status-success | #00B96B | 已通过/完成 |
+| --action-primary | #1677FF | 可操作主色 |
+| --ai-accent | #722ED1 | AI 专属强调 |
 
 ---
 

@@ -32,7 +32,7 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
-  background: var(--color-bg, #f8fafc);
+  background: var(--color-bg, #F5F7FA);
 }
 
 .app-layout__main {
@@ -40,10 +40,16 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   min-width: 0;
-  max-width: 1280px;
+  max-width: var(--content-max, 1280px);
   width: 100%;
   margin: 0 auto;
-  padding: 24px;
+  padding: 8px 28px 40px;
   box-sizing: border-box;
+}
+
+@media (max-width: 768px) {
+  .app-layout__main {
+    padding: 8px 16px 32px;
+  }
 }
 </style>

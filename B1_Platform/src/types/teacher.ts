@@ -219,9 +219,27 @@ export interface IUpcomingTaskItem {
   totalStudents: number
 }
 
+export interface IReviewStatusBreakdown {
+  pendingAi: number
+  pendingTeacher: number
+  approved: number
+  returned: number
+}
+
+export interface IAiConfidenceBreakdown {
+  high: number
+  mid: number
+  low: number
+  total: number
+}
+
 export interface IDashboardData {
   stats: IDashboardStats
   pendingReviews: IDashboardPendingItem[]
   submitRateByClass: { classNames: string[]; values: number[]; avgScores: number[] }
   upcomingTasks: IUpcomingTaskItem[]
+  reviewStatus: IReviewStatusBreakdown
+  aiConfidence: IAiConfidenceBreakdown
+  semesterTaskCount: number
+  knowledgeEntryCount: number
 }

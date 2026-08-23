@@ -206,7 +206,7 @@ function removeFile() {
     <!-- Uploaded (success) -->
     <div v-if="uploadState === 'uploaded'" class="file-uploader__uploaded">
       <div class="file-uploader__file-info">
-        <CheckCircle2 :size="22" color="#10B981" />
+        <CheckCircle2 :size="22" color="#00B96B" />
         <div class="file-uploader__file-detail">
           <span class="file-uploader__file-name">{{ fileDisplay?.name }}</span>
           <span class="file-uploader__file-size">{{ fileDisplay?.size }}</span>
@@ -224,7 +224,7 @@ function removeFile() {
     <!-- Error with retry -->
     <div v-if="uploadState === 'error' && selectedFile" class="file-uploader__error-box">
       <div class="file-uploader__file-info">
-        <AlertCircle :size="22" color="#EF4444" />
+        <AlertCircle :size="22" color="#FF4D4F" />
         <div class="file-uploader__file-detail">
           <span class="file-uploader__file-name">{{ fileDisplay?.name }}</span>
           <span class="file-uploader__error-text">{{ errorMessage }}</span>
@@ -268,12 +268,12 @@ function removeFile() {
 }
 
 .file-uploader__zone:hover {
-  border-color: #3B82F6;
+  border-color: var(--color-primary, #1677FF);
   background: #f8fafc;
 }
 
 .file-uploader__zone--dragging {
-  border-color: #3B82F6;
+  border-color: var(--color-primary, #1677FF);
   background: rgba(59, 130, 246, 0.06);
 }
 
@@ -283,7 +283,7 @@ function removeFile() {
 }
 
 .file-uploader__zone--error {
-  border-color: #EF4444;
+  border-color: #FF4D4F;
 }
 
 .file-uploader__upload-icon {
@@ -321,7 +321,7 @@ function removeFile() {
 
 .file-uploader__progress-fill {
   height: 100%;
-  background: #3B82F6;
+  background: var(--color-primary, #1677FF);
   border-radius: 3px;
   transition: width 300ms ease;
 }
@@ -337,7 +337,7 @@ function removeFile() {
   align-items: center;
   justify-content: space-between;
   padding: 14px 18px;
-  border: 1px solid #10B981;
+  border: 1px solid var(--color-success, #00B96B);
   border-radius: 10px;
   background: #f0fdf4;
 }
@@ -355,7 +355,7 @@ function removeFile() {
 
 .file-uploader__error-text {
   font-size: 12px;
-  color: #EF4444;
+  color: #FF4D4F;
 }
 
 /* ---- Alert ---- */
@@ -368,7 +368,7 @@ function removeFile() {
   background: #FEF2F2;
   border: 1px solid #FECACA;
   border-radius: 8px;
-  color: #EF4444;
+  color: #FF4D4F;
   font-size: 13px;
 }
 
@@ -425,7 +425,7 @@ function removeFile() {
 }
 
 .file-uploader__remove-btn:hover {
-  color: #EF4444;
+  color: #FF4D4F;
   background: #fee2e2;
 }
 

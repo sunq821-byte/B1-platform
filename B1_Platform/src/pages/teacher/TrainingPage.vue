@@ -14,10 +14,19 @@ import GradingRuleForm from "@/components/business/GradingRuleForm.vue"
 const store = useTeacherStore()
 const loadError = ref("")
 const filterCourse = ref("all")
+const filterStatus = ref("all")
+const searchKeyword = ref("")
 
 const filteredTasks = computed(() => {
-  if (filterCourse.value === "all") return store.tasks
-  return store.tasks.filter((t) => t.courseName === filterCourse.value)
+  const kw = searchKeyword.value.trim().toLowerCase()
+  return store.tasks.filter((t) => {
+    if (filterCourse.value !== "all" && t.courseName !== filterCourse.value) return false
+    const published = t.status.toLowerCase() === "published"
+    if (filterStatus.value === "published" && !published) return false
+    if (filterStatus.value === "draft" && published) return false
+    if (!kw) return true
+    return t.taskName.toLowerCase().includes(kw) || t.taskId.toLowerCase().includes(kw)
+  })
 })
 
 const showModal = ref(false)
@@ -111,6 +120,14 @@ async function handlePublish() {
   } finally { saving.value = false }
 }
 
+async function handlePublishRow(task: ITeacherTaskItem) {
+  try {
+    await ElMessageBox.confirm(`确认发布任务「${task.taskName}」？`, "发布任务", { type: "warning" })
+    await store.publishTask(task.taskId)
+    ElMessage.success("任务已发布")
+  } catch { /* cancelled */ }
+}
+
 async function handleDelete(taskId: string) {
   try {
     await ElMessageBox.confirm("确定删除该任务吗？", "提示", { confirmButtonText: "确定", cancelButtonText: "取消", type: "warning" })
@@ -144,13 +161,17 @@ onMounted(() => { initPage() })
 
     <template v-else>
       <div class="filter-bar">
-        <select v-model="filterCourse" class="form-select">
+        <select v-model="filterCourse" class="form-select w-course">
           <option value="all">全部课程</option>
           <option v-for="c in store.courses" :key="c.courseId" :value="c.courseName">{{ c.courseName }}</option>
         </select>
-      </div>
-      <div class="toolbar">
-        <BaseButton type="primary" @click="openCreate">+ 新建任务</BaseButton>
+        <select v-model="filterStatus" class="form-select w-status">
+          <option value="all">全部状态</option>
+          <option value="published">已发布</option>
+          <option value="draft">草稿</option>
+        </select>
+        <input v-model="searchKeyword" class="form-input w-search" placeholder="搜索任务..." />
+        <button type="button" class="btn btn-primary ml-auto" @click="openCreate">+ 新建任务</button>
       </div>
 
       <div class="data-table">
@@ -170,8 +191,17 @@ onMounted(() => { initPage() })
               </td>
               <td class="actions-cell">
                 <BaseButton size="small" @click="openEdit(t)">编辑</BaseButton>
+                <BaseButton
+                  v-if="t.status.toLowerCase() !== 'published'"
+                  size="small"
+                  type="primary"
+                  @click="handlePublishRow(t)"
+                >发布</BaseButton>
                 <BaseButton size="small" type="danger" @click="handleDelete(t.taskId)">删除</BaseButton>
               </td>
+            </tr>
+            <tr v-if="!filteredTasks.length">
+              <td colspan="7" class="empty">暂无任务，点击右上角新建</td>
             </tr>
           </tbody>
         </table>
@@ -234,13 +264,37 @@ onMounted(() => { initPage() })
 <style scoped>
 .page { /* width/centering handled by AppLayout */ }
 
-.filter-bar { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+.filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  padding: 12px 14px;
+  background: var(--color-card, #fff);
+  border: 1px solid var(--color-border, #E5E7EB);
+  border-radius: var(--radius-xl, 16px);
+  box-shadow: var(--shadow-sm);
+}
 
 .toolbar { display: flex; justify-content: flex-end; margin-bottom: 16px; }
+.w-course { width: 180px; }
+.w-status { width: 140px; }
+.w-search { width: 200px; }
+.ml-auto { margin-left: auto; }
+.empty {
+  text-align: center;
+  padding: 28px 0;
+  color: var(--color-text-placeholder);
+}
 
 .data-table {
-  width: 100%; background: var(--color-card, #fff);
-  border: 1px solid var(--color-border, #e2e8f0); border-radius: var(--radius-md, 8px); overflow: hidden;
+  width: 100%;
+  background: var(--color-card, #fff);
+  border: 1px solid var(--color-border, #E5E7EB);
+  border-radius: var(--radius-xl, 16px);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
 }
 .data-table table { width: 100%; border-collapse: collapse; }
 .data-table th { text-align: left; padding: 10px 16px; font-size: 12px; font-weight: 600; color: var(--color-text-placeholder, #94a3b8); text-transform: uppercase; letter-spacing: 0.03em; background: #f8fafc; border-bottom: 1px solid var(--color-border, #e2e8f0); }
@@ -251,7 +305,7 @@ onMounted(() => { initPage() })
 .mono-sm { font-family: var(--font-mono); font-size: 12px; }
 
 .badge { display: inline-flex; align-items: center; font-size: 11px; padding: 2px 8px; border-radius: 4px; font-weight: 500; }
-.badge--pub { background: #d1fae5; color: #047857; }
+.badge--pub { background: #E6F7EF; color: #009A57; }
 .badge--draft { background: #fef3c7; color: #b45309; }
 
 .actions-cell { display: flex; gap: 4px; }
@@ -259,7 +313,7 @@ onMounted(() => { initPage() })
 .form-group { margin-bottom: 16px; }
 .form-label { display: block; font-size: 13px; font-weight: 500; color: var(--color-text-secondary, #64748b); margin-bottom: 5px; }
 .form-select { width: 100%; padding: 8px 12px; font-size: 14px; border: 1px solid var(--color-border, #e2e8f0); border-radius: var(--radius-sm, 4px); background: var(--color-card, #fff); color: var(--color-text-primary, #1e293b); outline: none; }
-.form-select:focus { border-color: var(--color-primary, #3b82f6); }
+.form-select:focus { border-color: var(--color-primary, #1677FF); }
 .form-textarea { width: 100%; padding: 8px 12px; font-size: 14px; border: 1px solid var(--color-border, #e2e8f0); border-radius: var(--radius-sm, 4px); background: var(--color-card, #fff); color: var(--color-text-primary, #1e293b); resize: vertical; outline: none; font-family: inherit; box-sizing: border-box; }
-.form-textarea:focus { border-color: var(--color-primary, #3b82f6); }
+.form-textarea:focus { border-color: var(--color-primary, #1677FF); }
 </style>

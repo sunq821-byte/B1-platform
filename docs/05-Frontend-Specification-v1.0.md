@@ -12,7 +12,7 @@
 
 **文档定位**：本项目前端开发最高规范文档，所有开发人员必须严格遵守
 
-**前置文档**：PRD v1.0、SDS v1.0、UI Design System v1.0、Component Library v1.0
+**前置文档**：PRD v1.0、SDS v1.0、UI Design System v1.1、Component Library v1.0
 
 **技术栈**：Vue 3 + TypeScript + Vite + Pinia + Vue Router + Axios + Element Plus + Mock.js + Lucide Icons + ECharts
 
@@ -449,7 +449,7 @@ page-name/
 
 **Scoped 强制**：所有组件样式必须使用 scoped 属性，禁止使用全局样式影响其他组件。
 
-**Design Tokens 引用**：所有颜色值、间距值、圆角值必须引用 Design System 中定义的 CSS 变量，禁止硬编码具体数值。例如：使用 var(--color-primary) 而非 #3B82F6。
+**Design Tokens 引用**：所有颜色值、间距值、圆角值必须引用 Design System 中定义的 CSS 变量，禁止硬编码具体数值。例如：使用 `var(--color-primary)` 而非 `#1677FF`。
 
 **深度选择器**：需要穿透子组件样式时，使用 :deep() 伪类选择器，禁止使用已废弃的 ::v-deep 或 /deep/。
 
@@ -1325,7 +1325,7 @@ Mock 文件统一放置在 src/mock/ 目录下，按业务域拆分文件，命�
 
 ## 16.4 图表样式规范
 
-**颜色方案**：图表使用 Design System 定义的颜色 Token。主色调对应 --color-primary（#3B82F6），辅助色依次使用 Design System 定义的颜色值。
+**颜色方案**：图表使用 Design System 定义的颜色 Token。主色调对应 `--color-primary`（`#1677FF`，操作蓝），状态/完成类数据使用 `--color-success`（`#00B96B`），辅助色依次使用 Design System 定义的颜色值。
 
 **Tooltip 样式**：统一使用浅色背景、圆角边框的 Tooltip。
 

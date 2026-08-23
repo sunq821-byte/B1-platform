@@ -5,29 +5,39 @@ import { useTeacherStore } from "@/stores/useTeacherStore"
 import { exportClassReport } from "@/api/modules/teacher"
 import PageHeader from "@/components/layout/PageHeader.vue"
 import BarChart from "@/components/chart/BarChart.vue"
+import LoadingState from "@/components/common/LoadingState.vue"
+import ErrorState from "@/components/common/ErrorState.vue"
 
 const store = useTeacherStore()
 const filterClass = ref("all")
 const exporting = ref(false)
+const loadError = ref("")
 
 const classes = computed(() => {
-  const set = new Set(store.students.map((s) => s.className))
+  const set = new Set(store.students.map((s) => s.className).filter(Boolean))
   return Array.from(set).sort()
 })
 
 async function loadReport() {
-  await store.fetchClassReport(filterClass.value === "all" ? undefined : filterClass.value)
+  loadError.value = ""
+  try {
+    await store.fetchClassReport(filterClass.value === "all" ? undefined : filterClass.value)
+  } catch (e: unknown) {
+    loadError.value = (e as Error)?.message || "加载班级报告失败"
+  }
 }
 
 async function initPage() {
-  await store.fetchStudents()
-  await loadReport()
+  loadError.value = ""
+  try {
+    await store.fetchStudents()
+    await loadReport()
+  } catch (e: unknown) {
+    loadError.value = (e as Error)?.message || "加载失败"
+  }
 }
 
-watch(filterClass, () => {
-  loadReport()
-})
-
+watch(filterClass, () => { loadReport() })
 onMounted(() => { initPage() })
 
 const scoreColor = (score: number) => {
@@ -45,7 +55,7 @@ async function handleExport(format: "xlsx" | "pdf") {
   try {
     await exportClassReport(filterClass.value === "all" ? undefined : filterClass.value, format)
     ElMessage.success("导出成功")
-  } catch { /* error already surfaced by download helper */ }
+  } catch { /* surfaced by helper */ }
   finally { exporting.value = false }
 }
 
@@ -60,17 +70,20 @@ const subtitle = computed(() => {
     <PageHeader title="班级报告" :subtitle="subtitle" />
 
     <div class="filter-bar">
-      <select v-model="filterClass" class="form-select" style="width: 180px;">
+      <select v-model="filterClass" class="form-select w-class">
         <option value="all">全部班级</option>
         <option v-for="c in classes" :key="c" :value="c">{{ c }}</option>
       </select>
-      <div class="export-actions" style="margin-left: auto;">
-        <button class="btn btn-outline btn-sm" :disabled="exporting" @click="handleExport('xlsx')">导出 Excel</button>
-        <button class="btn btn-outline btn-sm" :disabled="exporting" @click="handleExport('pdf')">导出 PDF</button>
+      <div class="export-actions ml-auto">
+        <button type="button" class="btn btn-outline btn-sm" :disabled="exporting" @click="handleExport('xlsx')">导出 Excel</button>
+        <button type="button" class="btn btn-outline btn-sm" :disabled="exporting" @click="handleExport('pdf')">导出 PDF</button>
       </div>
     </div>
 
-    <template v-if="store.classReport">
+    <LoadingState v-if="store.classReportLoading" text="加载班级报告..." />
+    <ErrorState v-else-if="loadError" :message="loadError" @retry="initPage" />
+
+    <template v-else-if="store.classReport">
       <div class="stats-row">
         <div class="stat-card">
           <div class="stat-label">班级人数</div>
@@ -128,7 +141,7 @@ const subtitle = computed(() => {
             </thead>
             <tbody>
               <tr v-for="row in store.classReport.rows" :key="row.studentId">
-                <td><span style="font-family: var(--font-mono); font-size: 11px;">{{ row.studentId }}</span></td>
+                <td><span class="mono">{{ row.studentId }}</span></td>
                 <td>{{ row.name }}</td>
                 <td>{{ row.className }}</td>
                 <td>{{ row.completedCount }}</td>
@@ -136,33 +149,36 @@ const subtitle = computed(() => {
                 <td><span class="item-score good">{{ row.maxScore.toFixed(1) }}</span></td>
                 <td><span class="item-score danger">{{ row.minScore.toFixed(1) }}</span></td>
               </tr>
+              <tr v-if="!store.classReport.rows.length">
+                <td colspan="7" class="empty">暂无成绩数据</td>
+              </tr>
             </tbody>
           </table>
         </div>
       </div>
     </template>
+    <div v-else class="empty-block">暂无班级报告数据</div>
   </div>
 </template>
 
 <style scoped>
-.filter-bar {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 16px;
-}
-
-.form-select {
-  padding: 8px 12px;
-  font-size: 14px;
-  border: 1px solid var(--color-border, #e2e8f0);
-  border-radius: var(--radius-sm, 4px);
-  background: var(--color-card, #fff);
-  color: var(--color-text-primary, #1e293b);
-  outline: none;
-  box-sizing: border-box;
-}
-.form-select:focus { border-color: var(--color-primary, #3b82f6); }
+.w-class { width: 180px; }
+.ml-auto { margin-left: auto; }
 .export-actions { display: flex; gap: 8px; }
-
+.mono {
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+.section-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--color-navy, #0B3A5C);
+}
+.mt-24 { margin-top: 24px; }
+.empty, .empty-block {
+  text-align: center;
+  padding: 28px 0;
+  color: var(--color-text-placeholder);
+}
 </style>

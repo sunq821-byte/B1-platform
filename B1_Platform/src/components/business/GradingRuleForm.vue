@@ -63,5 +63,5 @@ function update(key: keyof IGradingRuleModel, value: string) {
 .form-group { margin-bottom: 16px; }
 .form-label { display: block; font-size: 13px; font-weight: 500; color: var(--color-text-secondary, #64748b); margin-bottom: 5px; }
 .form-textarea { width: 100%; padding: 8px 12px; font-size: 14px; border: 1px solid var(--color-border, #e2e8f0); border-radius: var(--radius-sm, 4px); background: var(--color-card, #fff); color: var(--color-text-primary, #1e293b); resize: vertical; outline: none; font-family: inherit; box-sizing: border-box; }
-.form-textarea:focus { border-color: var(--color-primary, #3b82f6); }
+.form-textarea:focus { border-color: var(--color-primary, #1677FF); }
 </style>

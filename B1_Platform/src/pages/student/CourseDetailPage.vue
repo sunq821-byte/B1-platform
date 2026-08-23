@@ -2,11 +2,13 @@
 import { ref, computed, onMounted } from "vue"
 import { useRoute, useRouter } from "vue-router"
 import { useStudentStore } from "@/stores/useStudentStore"
+import { ArrowLeft } from "lucide-vue-next"
 import PageHeader from "@/components/layout/PageHeader.vue"
 import BaseTable from "@/components/base/BaseTable.vue"
 import BaseButton from "@/components/base/BaseButton.vue"
 import LoadingState from "@/components/common/LoadingState.vue"
 import ErrorState from "@/components/common/ErrorState.vue"
+import EmptyState from "@/components/common/EmptyState.vue"
 import TaskStatusBadge from "@/components/business/TaskStatusBadge.vue"
 
 const route = useRoute()
@@ -48,7 +50,11 @@ onMounted(() => { loadCourseDetail() })
 
 <template>
   <div class="course-detail-page">
-    <PageHeader :title="store.currentCourse?.courseName ?? '课程详情'" />
+    <button type="button" class="back-btn" @click="router.push('/student/courses')">
+      <ArrowLeft :size="16" />
+      返回课程列表
+    </button>
+    <PageHeader :title="store.currentCourse?.courseName ?? '课程详情'" subtitle="课程信息与关联实训任务" />
 
     <LoadingState v-if="loading" text="加载课程详情..." />
     <ErrorState v-else-if="loadError" :message="loadError" @retry="loadCourseDetail" />
@@ -116,7 +122,7 @@ onMounted(() => { loadCourseDetail() })
             </template>
           </el-table-column>
         </BaseTable>
-        <el-empty v-else description="暂无实训任务" />
+        <EmptyState v-else description="暂无实训任务" />
       </div>
     </template>
   </div>
@@ -124,13 +130,48 @@ onMounted(() => { loadCourseDetail() })
 
 <style scoped>
 .course-detail-page { height: 100%; display: flex; flex-direction: column; }
-.course-detail-page__card { background: var(--color-card, #fff); border-radius: 8px; padding: 24px; margin-bottom: 16px; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05); }
-.course-detail-page__card-title { font-size: 16px; font-weight: 600; color: var(--color-text-primary, #1e293b); margin-bottom: 16px; padding-bottom: 8px; border-bottom: 1px solid var(--color-border, #e2e8f0); }
+.back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 12px;
+  border: none;
+  background: transparent;
+  color: var(--color-text-secondary, #64748b);
+  font-size: 13px;
+  cursor: pointer;
+  padding: 0;
+  width: fit-content;
+}
+.back-btn:hover { color: var(--color-primary, #1677FF); }
+.course-detail-page__card {
+  background: var(--color-card, #fff);
+  border: 1px solid var(--color-border, #E5E7EB);
+  border-radius: var(--radius-xl, 16px);
+  padding: 24px;
+  margin-bottom: 16px;
+  box-shadow: var(--shadow-card, 0 1px 2px rgba(15,23,42,.04));
+}
+.course-detail-page__card-title {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--color-navy, #0B3A5C);
+  margin-bottom: 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--color-border, #e2e8f0);
+}
 .course-detail-page__info-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
 .course-detail-page__info-item { display: flex; flex-direction: column; gap: 4px; }
 .course-detail-page__label { font-size: 14px; color: var(--color-text-secondary, #64748b); }
 .course-detail-page__value { font-size: 16px; color: var(--color-text-primary, #1e293b); font-weight: 500; }
-.course-detail-page__description { margin-top: 24px; padding: 16px; background: var(--color-bg, #f8fafc); border-radius: 4px; font-size: 14px; line-height: 1.6; }
-.course-detail-page__task-link { color: var(--color-primary, #3b82f6); cursor: pointer; font-weight: 500; }
-.course-detail-page__task-link:hover { color: var(--color-primary-hover, #2563eb); }
+.course-detail-page__description {
+  margin-top: 24px;
+  padding: 16px;
+  background: var(--color-bg, #f8fafc);
+  border-radius: 12px;
+  font-size: 14px;
+  line-height: 1.6;
+}
+.course-detail-page__task-link { color: var(--color-primary, #1677FF); cursor: pointer; font-weight: 500; }
+.course-detail-page__task-link:hover { color: var(--color-primary-hover, #0958D9); }
 </style>

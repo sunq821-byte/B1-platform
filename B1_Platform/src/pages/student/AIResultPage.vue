@@ -10,12 +10,15 @@ import {
 import PageHeader from "@/components/layout/PageHeader.vue"
 import BaseButton from "@/components/base/BaseButton.vue"
 import LoadingState from "@/components/common/LoadingState.vue"
+import ErrorState from "@/components/common/ErrorState.vue"
 
 const route = useRoute()
 const router = useRouter()
 const store = useStudentStore()
 
 const sid = (route.query.sid as string) || ""
+const pageLoading = ref(false)
+const loadError = ref("")
 
 const streamCode = ref("")
 const streamDoc = ref("")
@@ -67,12 +70,20 @@ function cleanup() {
 
 onMounted(async () => {
   if (!sid) return
-  await Promise.all([
-    store.fetchAIResultDetail(sid),
-    store.fetchEvaluation(sid),
-  ])
-  await nextTick()
-  startAnimations()
+  pageLoading.value = true
+  loadError.value = ""
+  try {
+    await Promise.all([
+      store.fetchAIResultDetail(sid),
+      store.fetchEvaluation(sid),
+    ])
+    await nextTick()
+    startAnimations()
+  } catch (e: unknown) {
+    loadError.value = (e as Error)?.message || "加载 AI 诊断失败"
+  } finally {
+    pageLoading.value = false
+  }
 })
 
 onUnmounted(cleanup)
@@ -157,6 +168,14 @@ const learningResources = computed<LearningResource[]>(() => {
   return items
 })
 
+function agentLabel(t?: string): string {
+  const u = (t || "").toUpperCase()
+  if (u.includes("CODE")) return "代码"
+  if (u.includes("DOC")) return "文档"
+  if (u.includes("REQ")) return "需求"
+  return t || "分析"
+}
+
 function handleAskTeacher() {
   ElMessage.info("追问功能将在后续版本开放")
 }
@@ -164,13 +183,19 @@ function handleAskTeacher() {
 
 <template>
   <div class="ai-page">
-    <LoadingState v-if="!store.aiResultDetail && !sid" text="加载中..." />
+    <LoadingState v-if="pageLoading" text="加载 AI 诊断..." />
+
+    <ErrorState
+      v-else-if="loadError"
+      :message="loadError"
+      @retry="() => { location.reload() }"
+    />
 
     <template v-else-if="!sid">
       <div class="empty-state">
-        <div class="empty-state-text">缺少提交参数，请从任务详情进入</div>
+        <div class="empty-state-text">缺少提交参数，请从成绩页进入</div>
         <div class="mt-16">
-          <BaseButton type="primary" @click="router.push('/student/tasks')">返回任务中心</BaseButton>
+          <BaseButton type="primary" @click="router.push('/student/tasks')">返回实训任务</BaseButton>
         </div>
       </div>
     </template>
@@ -280,7 +305,7 @@ function handleAskTeacher() {
             >
               <div class="ded-top">
                 <div class="ded-top-left">
-                  <span :class="`ded-tag ded-tag--${(d.agentType || 'CODE').toLowerCase()}`">{{ d.agentType }}</span>
+                  <span :class="`ded-tag ded-tag--${(d.agentType || 'CODE').toLowerCase()}`">{{ agentLabel(d.agentType) }}</span>
                   <span class="ded-type">{{ d.issueType }}</span>
                 </div>
                 <div class="ded-top-right">
@@ -313,9 +338,10 @@ function handleAskTeacher() {
             <div class="teacher-comment-body">
               {{ teacherEval!.comment }}
             </div>
-            <button class="ask-teacher-btn" @click="handleAskTeacher">
+            <button type="button" class="ask-teacher-btn" disabled @click="handleAskTeacher">
               <MessageCircle :size="14" />
               向教师追问
+              <span class="ask-hint">后续版本</span>
             </button>
           </div>
 
@@ -366,10 +392,17 @@ function handleAskTeacher() {
           返回任务详情
         </BaseButton>
         <BaseButton type="primary" @click="router.push('/student/tasks')">
-          返回任务中心
+          返回实训任务
         </BaseButton>
       </div>
     </template>
+
+    <div v-else class="empty-state">
+      <div class="empty-state-text">暂无 AI 诊断数据</div>
+      <div class="mt-16">
+        <BaseButton type="primary" @click="router.push('/student/tasks')">返回实训任务</BaseButton>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -391,8 +424,8 @@ function handleAskTeacher() {
   border-radius: 20px;
   font-size: 13px;
   font-weight: 500;
-  background: #dcfce7;
-  color: #166534;
+  background: #E6F7EF;
+  color: #009A57;
   white-space: nowrap;
   margin-top: 4px;
 }
@@ -424,10 +457,11 @@ function handleAskTeacher() {
 .score-row { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 24px; }
 
 .final-score-card {
-  background: linear-gradient(135deg, #6366f1 0%, #3b82f6 100%);
-  border-radius: var(--radius-lg, 12px);
+  background: linear-gradient(135deg, #0B3A5C 0%, #1677FF 55%, #722ED1 100%);
+  border-radius: var(--radius-xl, 16px);
   padding: 24px;
   color: #fff;
+  box-shadow: var(--shadow-card);
 }
 .fs-label { font-size: 13px; opacity: 0.8; margin-bottom: 4px; }
 .fs-score {
@@ -487,24 +521,26 @@ function handleAskTeacher() {
 
 .card {
   background: var(--color-card, #fff);
-  border: 1px solid var(--color-border, #e2e8f0);
-  border-radius: var(--radius-lg, 12px);
+  border: 1px solid var(--color-border, #E5E7EB);
+  border-radius: var(--radius-xl, 16px);
+  box-shadow: var(--shadow-card);
   padding: 16px;
 }
 .card--muted { background: #f8fafc; }
 .card-title {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--color-text-primary, #1e293b);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--color-navy, #0B3A5C);
   margin-bottom: 8px;
   display: flex;
   align-items: center;
   gap: 6px;
 }
 .card-title-icon { flex-shrink: 0; }
-.code-icon { color: #3b82f6; }
-.doc-icon { color: #10b981; }
-.req-icon { color: #f59e0b; }
+.code-icon { color: #1677FF; }
+.doc-icon { color: #00B96B; }
+.req-icon { color: #FAAD14; }
 
 .card-header {
   display: flex;
@@ -517,9 +553,9 @@ function handleAskTeacher() {
   margin: -16px -16px 12px;
 }
 .card-header-title { font-size: 13px; font-weight: 600; color: var(--color-text-primary, #1e293b); }
-.text-primary { color: var(--color-primary, #3b82f6); }
+.text-primary { color: var(--color-primary, #1677FF); }
 .text-muted { color: var(--color-text-placeholder, #94a3b8); }
-.text-amber { color: #f59e0b; }
+.text-amber { color: #FAAD14; }
 
 /* Streaming text */
 .streaming-text {
@@ -531,7 +567,7 @@ function handleAskTeacher() {
 .streaming-text:empty::after {
   content: "▎";
   animation: blink 1s infinite;
-  color: var(--color-primary, #3b82f6);
+  color: var(--color-primary, #1677FF);
 }
 
 /* Two-column body */
@@ -557,12 +593,12 @@ function handleAskTeacher() {
   font-size: 10px; font-weight: 600;
   padding: 2px 6px; border-radius: 3px;
 }
-.ded-tag--code { background: #dbeafe; color: #3b82f6; }
-.ded-tag--doc { background: #d1fae5; color: #047857; }
+.ded-tag--code { background: #dbeafe; color: #1677FF; }
+.ded-tag--doc { background: #E6F7EF; color: #009A57; }
 .ded-tag--req { background: #fef3c7; color: #b45309; }
 
 .ded-type { font-size: 13px; font-weight: 500; color: var(--color-text-primary, #1e293b); }
-.ded-points { font-family: var(--font-mono); font-size: 13px; font-weight: 600; color: var(--color-danger, #ef4444); }
+.ded-points { font-family: var(--font-mono); font-size: 13px; font-weight: 600; color: var(--color-danger, #FF4D4F); }
 .mark-read-btn {
   font-size: 11px;
   padding: 2px 8px;
@@ -578,8 +614,8 @@ function handleAskTeacher() {
   font-size: 11px;
   padding: 2px 8px;
   border-radius: 4px;
-  background: #dcfce7;
-  color: #166534;
+  background: #E6F7EF;
+  color: #009A57;
 }
 
 .ded-reason { font-size: 12px; color: var(--color-text-secondary, #64748b); margin: 0 0 4px; line-height: 1.5; }
@@ -595,8 +631,8 @@ function handleAskTeacher() {
 .teacher-avatar {
   width: 32px; height: 32px;
   border-radius: 50%;
-  background: #eef2ff;
-  color: #4f46e5;
+  background: #F9F0FF;
+  color: #722ED1;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -615,13 +651,23 @@ function handleAskTeacher() {
   line-height: 1.6;
 }
 .ask-teacher-btn {
-  display: inline-flex; align-items: center; gap: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   margin-top: 8px;
   font-size: 12px;
-  color: var(--color-primary, #3b82f6);
-  background: none; border: none; cursor: pointer; padding: 0;
+  color: var(--color-text-secondary, #64748b);
+  background: #F8FAFC;
+  border: 1px solid var(--color-border, #E5E7EB);
+  border-radius: 10px;
+  cursor: not-allowed;
+  padding: 8px 12px;
+  opacity: 0.9;
 }
-.ask-teacher-btn:hover { text-decoration: underline; }
+.ask-hint {
+  font-size: 11px;
+  color: var(--color-text-placeholder, #94a3b8);
+}
 
 /* Muted text */
 .muted-text { font-size: 13px; color: var(--color-text-placeholder, #94a3b8); line-height: 1.6; }
@@ -633,7 +679,7 @@ function handleAskTeacher() {
   padding: 10px 12px;
   border-radius: 8px;
   border: 1px solid;
-  cursor: pointer;
+  cursor: default;
   transition: background 150ms;
   flex-shrink: 0;
 }
@@ -649,9 +695,9 @@ function handleAskTeacher() {
   border: 1px solid #bbf7d0;
   border-radius: var(--radius-md, 8px);
   font-size: 12px;
-  color: #166534;
+  color: #009A57;
 }
-.growth-link { color: var(--color-primary, #3b82f6); cursor: pointer; font-weight: 500; }
+.growth-link { color: var(--color-primary, #1677FF); cursor: pointer; font-weight: 500; }
 .growth-link:hover { text-decoration: underline; }
 
 /* Actions */

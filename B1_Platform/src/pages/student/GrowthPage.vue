@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, computed } from "vue"
+import { onMounted, computed, ref } from "vue"
 import { useStudentStore } from "@/stores/useStudentStore"
 import { useUserStore } from "@/stores/useUserStore"
 import PageHeader from "@/components/layout/PageHeader.vue"
@@ -7,13 +7,22 @@ import LineChart from "@/components/chart/LineChart.vue"
 import RadarChart from "@/components/chart/RadarChart.vue"
 import LoadingState from "@/components/common/LoadingState.vue"
 import EmptyState from "@/components/common/EmptyState.vue"
+import ErrorState from "@/components/common/ErrorState.vue"
 
 const store = useStudentStore()
 const userStore = useUserStore()
+const loadError = ref("")
 
-onMounted(async () => {
-  await store.fetchGrowth()
-})
+async function initPage() {
+  loadError.value = ""
+  try {
+    await store.fetchGrowth()
+  } catch (e: unknown) {
+    loadError.value = (e as Error)?.message || "加载成长数据失败"
+  }
+}
+
+onMounted(() => { initPage() })
 
 function fmtScore(s: number | null): string {
   if (s === null || s === undefined) return "-"
@@ -28,7 +37,7 @@ const radarCategories = computed(() => {
 const radarSeries = computed(() => {
   if (!store.growthData?.dimensionRadar) return []
   return [
-    { name: "我的平均", data: store.growthData.dimensionRadar.map(d => d.myAvg ?? 0), color: "#3B82F6" },
+    { name: "我的平均", data: store.growthData.dimensionRadar.map(d => d.myAvg ?? 0), color: "#1677FF" },
     { name: "班级平均", data: store.growthData.dimensionRadar.map(d => d.classAvg ?? 0), color: "#94A3B8" },
   ]
 })
@@ -41,15 +50,15 @@ const trendCategories = computed(() => {
 const trendSeries = computed(() => {
   if (!store.growthData?.monthlyTrends) return []
   return [
-    { name: "平均成绩", data: store.growthData.monthlyTrends.map(t => t.avgScore ?? 0), color: "#3B82F6" },
-    { name: "提交数", data: store.growthData.monthlyTrends.map(t => t.submissionCount), color: "#10B981" },
+    { name: "平均成绩", data: store.growthData.monthlyTrends.map(t => t.avgScore ?? 0), color: "#1677FF" },
+    { name: "提交数", data: store.growthData.monthlyTrends.map(t => t.submissionCount), color: "#00B96B" },
   ]
 })
 
 function scoreColor(score: number) {
-  if (score >= 80) return "var(--color-success, #10b981)"
-  if (score >= 60) return "var(--color-warning, #f59e0b)"
-  return "var(--color-danger, #ef4444)"
+  if (score >= 80) return "var(--color-success, #00B96B)"
+  if (score >= 60) return "var(--color-warning, #FAAD14)"
+  return "var(--color-danger, #FF4D4F)"
 }
 
 function formatDate(dateStr: string): string {
@@ -70,8 +79,9 @@ function formatDate(dateStr: string): string {
       v-if="store.growthLoading && !store.growthData"
       text="加载成长数据..."
     />
+    <ErrorState v-else-if="loadError" :message="loadError" @retry="initPage" />
 
-    <template v-if="store.growthData">
+    <template v-else-if="store.growthData">
       <!-- Stats -->
       <div class="stats-row">
         <div class="stat-card">
@@ -80,7 +90,7 @@ function formatDate(dateStr: string): string {
         </div>
         <div class="stat-card">
           <div class="stat-label">已完成</div>
-          <div class="stat-value" style="color: var(--color-success, #10B981);">{{ store.growthData.completedTasks }}</div>
+          <div class="stat-value" style="color: var(--color-success, #00B96B);">{{ store.growthData.completedTasks }}</div>
         </div>
         <div class="stat-card">
           <div class="stat-label">平均成绩</div>
@@ -89,9 +99,9 @@ function formatDate(dateStr: string): string {
         <div class="stat-card">
           <div class="stat-label">最高 / 最低</div>
           <div class="stat-value">
-            <span style="color: var(--color-success, #10B981);">{{ fmtScore(store.growthData.highestScore) }}</span>
+            <span style="color: var(--color-success, #00B96B);">{{ fmtScore(store.growthData.highestScore) }}</span>
             <span style="font-size:14px;color:var(--color-text-placeholder,#94a3b8);"> / </span>
-            <span style="color: var(--color-danger, #EF4444);">{{ fmtScore(store.growthData.lowestScore) }}</span>
+            <span style="color: var(--color-danger, #FF4D4F);">{{ fmtScore(store.growthData.lowestScore) }}</span>
           </div>
         </div>
       </div>
@@ -186,6 +196,7 @@ function formatDate(dateStr: string): string {
         </div>
       </div>
     </template>
+    <EmptyState v-else-if="!store.growthLoading" description="暂无成长数据" />
   </div>
 </template>
 
@@ -193,9 +204,10 @@ function formatDate(dateStr: string): string {
 .p-8 { padding: var(--spacing-2xl, 48px); }
 .mt-12 { margin-top: 12px; }
 .section-title {
-  font-size: var(--font-size-base, 16px);
-  font-weight: 600;
-  color: var(--color-text-primary, #1e293b);
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--color-navy, #0B3A5C);
   margin: 0;
 }
 </style>

@@ -72,6 +72,10 @@ public class TeacherServiceImpl implements TeacherService {
             submitRate.setValues(Collections.emptyList());
             submitRate.setAvgScores(Collections.emptyList());
             vo.setUpcomingTasks(Collections.emptyList());
+            vo.setReviewStatus(emptyReviewStatus());
+            vo.setAiConfidence(emptyAiConfidence());
+            vo.setSemesterTaskCount(0);
+            vo.setKnowledgeEntryCount(0);
             return vo;
         }
 
@@ -259,7 +263,61 @@ public class TeacherServiceImpl implements TeacherService {
         }
         vo.setUpcomingTasks(upcomingVOs);
 
+        int pendingAi = 0;
+        int returned = 0;
+        if (!taskIds.isEmpty()) {
+            pendingAi = Math.toIntExact(submissionMapper.selectCount(
+                    new LambdaQueryWrapper<Submission>()
+                            .in(Submission::getTrainingTaskId, taskIds)
+                            .in(Submission::getStatus, List.of("ANALYZING", "AI_ANALYZING", "reviewing"))
+                            .eq(Submission::getDeleted, 0)));
+            returned = Math.toIntExact(submissionMapper.selectCount(
+                    new LambdaQueryWrapper<Submission>()
+                            .in(Submission::getTrainingTaskId, taskIds)
+                            .in(Submission::getStatus, List.of("RETURNED", "REJECTED", "returned"))
+                            .eq(Submission::getDeleted, 0)));
+        }
+
+        TeacherDashboardVO.ReviewStatusVO reviewStatus = new TeacherDashboardVO.ReviewStatusVO();
+        reviewStatus.setPendingAi(pendingAi);
+        reviewStatus.setPendingTeacher(pendingReview);
+        reviewStatus.setApproved((int) reviewedCount);
+        reviewStatus.setReturned(returned);
+        vo.setReviewStatus(reviewStatus);
+
+        // AI 置信度：暂以已评阅 / 待审比例作展示分层，待 AI 明细聚合接口完善后再精确统计
+        int high = (int) reviewedCount;
+        int mid = Math.max(0, pendingReview / 2);
+        int low = Math.max(0, pendingReview - mid);
+        TeacherDashboardVO.AiConfidenceVO aiConfidence = new TeacherDashboardVO.AiConfidenceVO();
+        aiConfidence.setHigh(high);
+        aiConfidence.setMid(mid);
+        aiConfidence.setLow(low);
+        aiConfidence.setTotal(high + mid + low);
+        vo.setAiConfidence(aiConfidence);
+
+        vo.setSemesterTaskCount(allTasks.size());
+        vo.setKnowledgeEntryCount(0);
+
         return vo;
+    }
+
+    private static TeacherDashboardVO.ReviewStatusVO emptyReviewStatus() {
+        TeacherDashboardVO.ReviewStatusVO status = new TeacherDashboardVO.ReviewStatusVO();
+        status.setPendingAi(0);
+        status.setPendingTeacher(0);
+        status.setApproved(0);
+        status.setReturned(0);
+        return status;
+    }
+
+    private static TeacherDashboardVO.AiConfidenceVO emptyAiConfidence() {
+        TeacherDashboardVO.AiConfidenceVO confidence = new TeacherDashboardVO.AiConfidenceVO();
+        confidence.setHigh(0);
+        confidence.setMid(0);
+        confidence.setLow(0);
+        confidence.setTotal(0);
+        return confidence;
     }
 
     @Override

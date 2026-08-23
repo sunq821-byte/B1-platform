@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>B1 Student · 业务页线框</title>
+  <style>
+    :root{--bg:#F5F7FA;--card:#fff;--line:#E5E7EB;--ink:#1F2937;--muted:#6B7280;--navy:#0B3A5C;--blue:#1677FF;--mono:"JetBrains Mono",monospace;--sans:Inter,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif}
+    *{box-sizing:border-box}body{margin:0;font-family:var(--sans);background:var(--bg);color:var(--ink)}
+    .wrap{max-width:1080px;margin:0 auto;padding:28px 28px 72px}
+    .note{padding:14px 16px;border:1px dashed #91CAFF;background:#E6F4FF;border-radius:12px;font-size:13px;color:#0958D9;margin-bottom:22px}
+    .toc{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:28px}
+    .toc a{text-decoration:none;font-size:12px;font-weight:650;padding:8px 12px;border-radius:999px;border:1px solid var(--line);background:#fff;color:var(--navy)}
+    .block{margin-bottom:40px}.eyebrow{font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin:0 0 6px}
+    h1{margin:0 0 6px;font-size:22px;color:var(--navy)}.sub{margin:0 0 12px;font-size:13px;color:var(--muted)}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;box-shadow:0 1px 2px rgba(15,23,42,.04)}
+    .tb{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:12px 0}.sp{flex:1}
+    .c{height:34px;border:1px solid var(--line);border-radius:10px;padding:0 12px;display:inline-flex;align-items:center;font-size:13px;color:var(--muted);background:#fff}
+    .btn{height:34px;border:none;border-radius:10px;padding:0 14px;font-size:13px;font-weight:700;background:var(--blue);color:#fff}
+    .rules{margin:10px 0 0;padding:12px;background:#F8FAFC;border:1px solid var(--line);border-radius:12px;font-size:12px;color:var(--muted)}
+    .rules li{margin:4px 0}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="note"><b>Batch 3 · 学生端。</b>仪表盘见 <code>docs/17</code>。原则：界面即文档；无死链；Loading/Error/Empty；假按钮标注「后续版本」或移除。</div>
+  <div class="toc">
+    <a href="#list">列表</a><a href="#flow">提交流</a><a href="#report">报告成长</a><a href="#profile">个人</a>
+  </div>
+
+  <section class="block" id="list">
+    <p class="eyebrow">List</p>
+    <h1>课程 / 实训列表</h1>
+    <p class="sub">PageHeader + filter-bar（左筛右主操作）+ 表</p>
+    <div class="card">
+      <div class="tb"><span class="c" style="width:220px">搜索…</span><span class="sp"></span><span class="btn">搜索</span></div>
+      <ul class="rules">
+        <li>课程：搜索课程名；行点击进详情；有返回。</li>
+        <li>任务：状态筛选 + 搜索；未提交行「去提交」。</li>
+        <li>仪表盘分区标题全中文；去掉假 spark 数据。</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="block" id="flow">
+    <p class="eyebrow">Submit flow</p>
+    <h1>详情 → 提交 → 成绩 → AI 诊断</h1>
+    <ul class="rules">
+      <li>提交页按任务 <code>submissionType</code> 锁定模式，不可选未开放方式。</li>
+      <li>成绩页提供「查看完整 AI 诊断」→ <code>/student/ai-result?sid=</code>。</li>
+      <li>AI 诊断页：Loading/Error；无假「向教师追问」；资源列表不可假装可点。</li>
+      <li>任务详情状态中文；成绩路由必须带 submissionId。</li>
+    </ul>
+  </section>
+
+  <section class="block" id="report">
+    <p class="eyebrow">Reports</p>
+    <h1>个人报告 / 成长中心</h1>
+    <div class="card">
+      <div class="tb"><span class="c">当前学期</span><span class="sp"></span><span class="btn" style="background:#fff;color:var(--ink);border:1px solid var(--line)">导出 Excel</span><span class="btn" style="background:#fff;color:var(--ink);border:1px solid var(--line)">导出 PDF</span></div>
+      <ul class="rules">
+        <li>Loading / Error / Empty 必备；mock 路径与 API 一致。</li>
+        <li>KPI 来自真实报表字段，不硬编码学期文案（可用配置或接口）。</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="block" id="profile">
+    <p class="eyebrow">Profile</p>
+    <h1>个人中心</h1>
+    <ul class="rules"><li>卡片 Campus Blue（大圆角 / navy 标题）；只读展示学号班级（有则显示）。</li></ul>
+  </section>
+</div>
+</body>
+</html>

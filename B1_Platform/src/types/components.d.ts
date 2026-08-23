@@ -23,6 +23,7 @@ declare module 'vue' {
     BaseTable: typeof import('./../components/base/BaseTable.vue')['default']
     BaseUpload: typeof import('./../components/base/BaseUpload.vue')['default']
     CodeEditor: typeof import('./../components/business/CodeEditor.vue')['default']
+    DonutChart: typeof import('./../components/chart/DonutChart.vue')['default']
     ElAvatar: typeof import('element-plus/es')['ElAvatar']
     ElButton: typeof import('element-plus/es')['ElButton']
     ElCheckbox: typeof import('element-plus/es')['ElCheckbox']

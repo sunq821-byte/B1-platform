@@ -57,9 +57,44 @@ export const useStudentStore = defineStore("student", () => {
   async function fetchDashboard(): Promise<void> {
     dashboardLoading.value = true
     try {
-      dashboardData.value = await studentApi.fetchDashboard()
+      const raw = await studentApi.fetchDashboard() as IDashboardData & Record<string, unknown>
+      dashboardData.value = normalizeDashboard(raw)
     } finally {
       dashboardLoading.value = false
+    }
+  }
+
+  function normalizeDashboard(raw: IDashboardData & Record<string, unknown>): IDashboardData {
+    const stats = (raw.stats ?? {}) as Partial<IDashboardData["stats"]>
+    const legacyAvg = typeof raw.averageScore === "number" ? raw.averageScore : null
+    return {
+      stats: {
+        pendingTasks: Number(stats.pendingTasks ?? 0),
+        completedTasks: Number(stats.completedTasks ?? 0),
+        averageScore: stats.averageScore ?? legacyAvg,
+        classAverageScore: stats.classAverageScore ?? null,
+        analyzingCount: Number(stats.analyzingCount ?? 0),
+        improvementCount: Number(stats.improvementCount ?? 0),
+        nearestDeadline: stats.nearestDeadline ?? null,
+        analyzingEtaMinutes: Number(stats.analyzingEtaMinutes ?? 0),
+      },
+      recentTasks: Array.isArray(raw.recentTasks)
+        ? raw.recentTasks.map((t) => ({
+            ...t,
+            taskId: String(t.taskId),
+          }))
+        : [],
+      scoreTrend: {
+        xAxis: raw.scoreTrend?.xAxis ?? [],
+        myScores: (raw.scoreTrend?.myScores ?? []).map((v) => (v == null || v === "" ? null : Number(v))),
+        classAvg: (raw.scoreTrend?.classAvg ?? []).map((v) => (v == null || v === "" ? null : Number(v))),
+      },
+      radarData: {
+        categories: raw.radarData?.categories ?? [],
+        myScores: (raw.radarData?.myScores ?? []).map((v) => Number(v) || 0),
+        classAvg: (raw.radarData?.classAvg ?? []).map((v) => Number(v) || 0),
+      },
+      aiSuggestions: Array.isArray(raw.aiSuggestions) ? raw.aiSuggestions : [],
     }
   }
 

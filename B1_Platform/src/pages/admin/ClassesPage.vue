@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from "vue"
+import { ref, computed, onMounted } from "vue"
 import { ElMessage, ElMessageBox } from "element-plus"
 import { useAdminStore } from "@/stores/useAdminStore"
 import type { IClassItem } from "@/types/admin"
@@ -9,11 +9,22 @@ import ErrorState from "@/components/common/ErrorState.vue"
 
 const store = useAdminStore()
 const loadError = ref("")
+const searchKeyword = ref("")
 
 const modalVisible = ref(false)
 const modalTitle = ref("新建班级")
 const editingId = ref<string | null>(null)
 const form = ref({ name: "", teacherName: "" })
+
+const filteredClasses = computed(() => {
+  const kw = searchKeyword.value.trim().toLowerCase()
+  if (!kw) return store.classes
+  return store.classes.filter((c) =>
+    c.name.toLowerCase().includes(kw)
+    || (c.teacherName || "").toLowerCase().includes(kw)
+    || (c.id || "").toLowerCase().includes(kw),
+  )
+})
 
 function openCreate() {
   editingId.value = null
@@ -21,14 +32,19 @@ function openCreate() {
   form.value = { name: "", teacherName: "" }
   modalVisible.value = true
 }
+
 function openEdit(c: IClassItem) {
   editingId.value = c.id
   modalTitle.value = "编辑班级"
   form.value = { name: c.name, teacherName: c.teacherName }
   modalVisible.value = true
 }
+
 async function handleSave() {
-  if (!form.value.name.trim()) { ElMessage.warning("请输入班级名称"); return }
+  if (!form.value.name.trim()) {
+    ElMessage.warning("请输入班级名称")
+    return
+  }
   if (editingId.value) {
     await store.updateClass(editingId.value, { ...form.value })
     ElMessage.success("班级已更新")
@@ -38,6 +54,7 @@ async function handleSave() {
   }
   modalVisible.value = false
 }
+
 async function handleDelete(c: IClassItem) {
   await ElMessageBox.confirm(`确定要删除班级 ${c.name} 吗？`, "确认删除", { type: "warning" })
   await store.deleteClass(c.id)
@@ -58,49 +75,102 @@ onMounted(() => { loadClasses() })
 
 <template>
   <div>
-    <PageHeader title="班级管理" :subtitle="`共 ${store.classes.length} 个班级`" />
+    <PageHeader
+      title="班级管理"
+      :subtitle="`共 ${store.classes.length} 个班级 · 组织教学单元`"
+    />
 
     <LoadingState v-if="store.classesLoading" text="加载班级列表..." />
     <ErrorState v-else-if="loadError" :message="loadError" @retry="loadClasses" />
 
     <template v-else>
-    <div class="filter-bar">
-      <button class="btn btn-primary" style="margin-left:auto;" @click="openCreate">+ 新建班级</button>
-    </div>
+      <div class="filter-bar">
+        <input
+          v-model="searchKeyword"
+          class="form-input w-search"
+          placeholder="搜索班级 / 班主任..."
+        />
+        <button type="button" class="btn btn-primary ml-auto" @click="openCreate">
+          + 新建班级
+        </button>
+      </div>
 
-    <div class="data-table">
-      <table>
-        <thead><tr><th>班级编号</th><th>班级名称</th><th>学生人数</th><th>班主任</th><th>创建时间</th><th>操作</th></tr></thead>
-        <tbody>
-          <tr v-for="c in store.classes" :key="c.id">
-            <td><span style="font-family:var(--font-mono);font-size:11px;">{{ c.id }}</span></td>
-            <td>{{ c.name }}</td>
-            <td>{{ c.studentCount }}</td>
-            <td>{{ c.teacherName }}</td>
-            <td><span style="font-family:var(--font-mono);font-size:11px;">{{ c.createdAt }}</span></td>
-            <td>
-              <button class="btn btn-ghost btn-sm" @click="openEdit(c)">编辑</button>
-              <button class="btn btn-ghost btn-sm" style="color:var(--color-danger,#ef4444);" @click="handleDelete(c)">删除</button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+      <div class="data-table">
+        <table>
+          <thead>
+            <tr>
+              <th>班级编号</th>
+              <th>班级名称</th>
+              <th>学生人数</th>
+              <th>班主任</th>
+              <th>创建时间</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="c in filteredClasses" :key="c.id">
+              <td><span class="mono">{{ c.id }}</span></td>
+              <td>{{ c.name }}</td>
+              <td><span class="mono">{{ c.studentCount }}</span></td>
+              <td>{{ c.teacherName }}</td>
+              <td><span class="mono">{{ c.createdAt }}</span></td>
+              <td class="ops">
+                <button type="button" class="btn btn-ghost btn-sm" @click="openEdit(c)">编辑</button>
+                <button type="button" class="btn btn-ghost btn-sm is-danger" @click="handleDelete(c)">删除</button>
+              </td>
+            </tr>
+            <tr v-if="!filteredClasses.length">
+              <td colspan="6" class="empty">暂无班级</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
 
-    <div v-if="modalVisible" class="modal-overlay" @click.self="modalVisible = false">
-      <div class="modal">
-        <div class="modal-header">
-          <h3 class="modal-title">{{ modalTitle }}</h3>
-          <span class="modal-close" style="cursor:pointer;font-size:18px;" @click="modalVisible = false">&times;</span>
-        </div>
-        <div class="form-group"><label class="form-label">班级名称</label><input v-model="form.name" class="form-input" placeholder="如 软件2401" /></div>
-        <div class="form-group"><label class="form-label">班主任</label><input v-model="form.teacherName" class="form-input" placeholder="教师姓名" /></div>
-        <div class="modal-footer">
-          <button class="btn btn-outline" @click="modalVisible = false">取消</button>
-          <button class="btn btn-primary" @click="handleSave">保存</button>
+      <div v-if="modalVisible" class="modal-overlay" @click.self="modalVisible = false">
+        <div class="modal">
+          <div class="modal-header">
+            <h3 class="modal-title">{{ modalTitle }}</h3>
+            <button type="button" class="modal-close" @click="modalVisible = false">&times;</button>
+          </div>
+          <div class="form-group">
+            <label class="form-label">班级名称 *</label>
+            <input v-model="form.name" class="form-input" placeholder="如 软件2401" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">班主任</label>
+            <input v-model="form.teacherName" class="form-input" placeholder="教师姓名" />
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-outline" @click="modalVisible = false">取消</button>
+            <button type="button" class="btn btn-primary" @click="handleSave">保存</button>
+          </div>
         </div>
       </div>
-    </div>
     </template>
   </div>
 </template>
+
+<style scoped>
+.w-search { width: 240px; }
+.ml-auto { margin-left: auto; }
+.mono {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-text-secondary);
+}
+.ops { display: flex; gap: 4px; }
+.is-danger { color: var(--color-danger, #FF4D4F) !important; }
+.empty {
+  text-align: center;
+  padding: 28px 0;
+  color: var(--color-text-placeholder);
+}
+.modal-close {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+  color: var(--color-text-secondary);
+}
+</style>

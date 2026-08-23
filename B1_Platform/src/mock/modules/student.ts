@@ -1,7 +1,23 @@
 import Mock from "mockjs"
+import {
+  cloneSubmissions,
+  cloneTasks,
+  DEMO_STUDENT_USER_ID,
+  DEMO_TEACHER_EMAIL,
+  DEMO_TEACHER_NAME,
+  EVAL_DIMENSIONS,
+  SEED_COURSES,
+  SEED_STUDENTS,
+  SEED_SUBMISSIONS,
+  SEED_TASKS,
+  studentStatusForTask,
+  type SeedSubmission,
+  type SeedTask,
+} from "../seed/teaching"
 
 const aiPollCounters: Map<string, number> = new Map()
-const taskCache: Map<string, Record<string, unknown>> = new Map()
+const submissions = cloneSubmissions()
+const tasks = cloneTasks()
 
 function ok(data: unknown, message = "操作成功") {
   const { Random } = Mock
@@ -27,27 +43,20 @@ function err(code: number, message: string) {
   }
 }
 
-function makeDimensions() {
-  return [
-    { dimensionName: "代码规范", weight: 25, maxScore: 100 },
-    { dimensionName: "功能完成度", weight: 30, maxScore: 100 },
-    { dimensionName: "创新性", weight: 20, maxScore: 100 },
-    { dimensionName: "文档完整性", weight: 15, maxScore: 100 },
-    { dimensionName: "Git规范", weight: 10, maxScore: 100 },
-  ]
+function courseOf(task: SeedTask) {
+  return SEED_COURSES.find((c) => c.courseId === task.courseId)
 }
 
-function makeAIScoreResult() {
-  const { Random } = Mock
+function makeAIScoreResult(aiScore?: number | null) {
   const dims = [
-    { name: "代码规范", score: Random.integer(60, 95) },
-    { name: "功能完成度", score: Random.integer(55, 92) },
-    { name: "创新性", score: Random.integer(50, 90) },
-    { name: "文档完整性", score: Random.integer(55, 88) },
-    { name: "Git规范", score: Random.integer(60, 95) },
+    { name: "代码规范", score: 82 },
+    { name: "功能完成度", score: 88 },
+    { name: "创新性", score: 75 },
+    { name: "文档完整性", score: 80 },
+    { name: "Git规范", score: 85 },
   ]
   const weights = [25, 30, 20, 15, 10]
-  const overall = Math.round(dims.reduce((a, d, i) => a + (d.score * weights[i]) / 100, 0))
+  const overall = aiScore ?? Math.round(dims.reduce((a, d, i) => a + (d.score * weights[i]) / 100, 0))
 
   return {
     overallScore: overall,
@@ -56,50 +65,125 @@ function makeAIScoreResult() {
       score: d.score,
       maxScore: 100,
       weight: weights[i],
-      comment: `${d.name}方面表现${d.score >= 80 ? "优秀" : d.score >= 60 ? "良好" : "一般"}。`,
-      suggestions: [`建议优化${d.name}相关规范`, `${d.name}可以进一步提高`],
-      codeReferences: [
-        `src/modules/${d.name.toLowerCase().replace(/\s/g, "-")}/index.ts:12-45`,
-        `src/utils/helper.ts:88-120`,
-      ],
+      comment: `${d.name}方面表现${d.score >= 80 ? "优秀" : "良好"}。`,
+      suggestions: [`建议优化${d.name}相关规范`],
+      codeReferences: [`src/modules/demo/index.ts:12-45`],
     })),
     summary: "整体代码质量良好，功能实现完整，但在部分维度还有提升空间。",
     strengths: ["代码结构清晰", "功能实现完整", "注释规范"],
     weaknesses: ["部分变量命名不够语义化", "测试覆盖率偏低", "缺少错误边界处理"],
-    improvementPlan: "建议在后续版本中加强单元测试覆盖，完善错误处理机制，统一代码风格。",
+    improvementPlan: "建议加强单元测试覆盖，完善错误处理机制，统一代码风格。",
+  }
+}
+
+function demoStudent() {
+  return SEED_STUDENTS.find((s) => s.userId === DEMO_STUDENT_USER_ID)!
+}
+
+function publishedTasksForStudent(): SeedTask[] {
+  // 演示学生：软件2401 课程 + 已有提交的选修课任务
+  const myClass = demoStudent().className
+  const classCourseIds = new Set(
+    SEED_COURSES.filter((c) => c.className === myClass).map((c) => c.courseId),
+  )
+  const submittedTaskIds = new Set(
+    submissions.filter((s) => s.studentUserId === DEMO_STUDENT_USER_ID).map((s) => s.taskId),
+  )
+  return tasks.filter(
+    (t) =>
+      t.status !== "DRAFT" &&
+      (classCourseIds.has(t.courseId) || submittedTaskIds.has(t.taskId)),
+  )
+}
+
+function toStudentTaskItem(t: SeedTask) {
+  const course = courseOf(t)
+  const mine = studentStatusForTask(t.taskId, DEMO_STUDENT_USER_ID, submissions)
+  return {
+    taskId: t.taskId,
+    taskName: t.taskName,
+    courseName: course?.courseName ?? "",
+    teacherName: course?.teacherName ?? DEMO_TEACHER_NAME,
+    deadline: t.deadline.replace("T", " "),
+    totalScore: t.totalScore,
+    submissionType: t.submissionType,
+    status: t.status,
+    mySubmissionStatus: mine.status,
+    myScore: mine.score,
+    createdAt: t.createdAt.replace("T", " "),
   }
 }
 
 export default function setupStudentMock(mock: typeof Mock): void {
-  const { Random } = mock
-
   // GET /api/v1/student/dashboard
   mock.mock("/api/v1/student/dashboard", "get", () => {
+    const myTasks = publishedTasksForStudent()
+    const recent = myTasks.map(toStudentTaskItem)
+    const pending = recent.filter((t) => t.mySubmissionStatus === "NOT_SUBMITTED" || t.mySubmissionStatus === "REJECTED")
+    const completed = recent.filter((t) => t.mySubmissionStatus === "COMPLETED")
+    const analyzing = recent.filter((t) => t.mySubmissionStatus === "AI_EVALUATING" || t.mySubmissionStatus === "TEACHER_SCORING")
+    const scores = completed.map((t) => t.myScore!).filter((n) => n != null)
+    const avg = scores.length ? +(scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1) : 85.6
+    const deadlines = pending
+      .map((t) => t.deadline)
+      .sort()
+
+    // 成绩趋势：优先用已评分任务；不足时用演示序列补齐，避免空图/全 0
+    const scoredPoints = submissions
+      .filter((s) => s.studentUserId === DEMO_STUDENT_USER_ID && s.finalScore != null)
+      .sort((a, b) => a.submittedAt.localeCompare(b.submittedAt))
+      .map((s) => {
+        const task = tasks.find((t) => t.taskId === s.taskId)
+        return {
+          label: (task?.taskName ?? s.taskId).slice(0, 10),
+          score: s.finalScore as number,
+        }
+      })
+    const demoTrend = [
+      { label: "阶段一", score: 76 },
+      { label: "阶段二", score: 82 },
+      { label: "数据库设计", score: 88.5 },
+      { label: "Web作业", score: 85 },
+      { label: "模型训练", score: 92 },
+    ]
+    const trendPoints = scoredPoints.length >= 2
+      ? scoredPoints
+      : [...scoredPoints, ...demoTrend.slice(scoredPoints.length)].slice(0, 5)
+
     return ok({
       stats: {
-        pendingTasks: Random.integer(0, 5),
-        completedTasks: Random.integer(0, 8),
-        averageScore: Random.float(60, 95, 1, 1),
-        analyzingCount: Random.integer(0, 2),
+        pendingTasks: pending.length,
+        completedTasks: completed.length,
+        averageScore: avg,
+        classAverageScore: 78.3,
+        analyzingCount: analyzing.length,
+        improvementCount: 3,
+        nearestDeadline: deadlines[0]?.slice(0, 10) ?? null,
+        analyzingEtaMinutes: analyzing.length ? 5 : 0,
       },
-      recentTasks: Array.from({ length: Random.integer(1, 5) }, () => ({
-        taskId: `task-${Random.guid()}`,
-        taskName: Random.ctitle(5, 15),
-        courseName: Random.pick(["软件工程实践", "数据库原理", "Web前端开发"]),
-        deadline: Random.datetime("yyyy-MM-dd HH:mm:ss"),
-        status: "PUBLISHED",
-        score: Random.boolean() ? Random.integer(60, 95) : null,
+      recentTasks: recent.slice(0, 5).map((t) => ({
+        taskId: t.taskId,
+        taskName: t.taskName,
+        courseName: t.courseName,
+        deadline: t.deadline,
+        status: t.mySubmissionStatus,
+        score: t.myScore,
       })),
       scoreTrend: {
-        xAxis: ["2026-03", "2026-04", "2026-05", "2026-06"],
-        myScores: [Random.integer(65, 78), Random.integer(70, 82), Random.integer(72, 85), Random.integer(75, 88)],
-        classAvg: [Random.integer(68, 75), Random.integer(70, 76), Random.integer(70, 78), Random.integer(72, 80)],
+        xAxis: trendPoints.map((p) => p.label),
+        myScores: trendPoints.map((p) => p.score),
+        classAvg: trendPoints.map((_, i) => +(72 + i * 1.5).toFixed(1)),
       },
       radarData: {
-        categories: ["代码规范", "功能完成度", "创新性", "文档完整性", "Git规范"],
-        myScores: [Random.integer(60, 90), Random.integer(60, 90), Random.integer(50, 85), Random.integer(55, 88), Random.integer(60, 92)],
-        classAvg: [Random.integer(65, 80), Random.integer(65, 80), Random.integer(60, 78), Random.integer(60, 78), Random.integer(65, 80)],
+        categories: ["代码", "需求", "项目", "协作", "文档", "创新"],
+        myScores: [86, 78, 82, 74, 80, 70],
+        classAvg: [78, 76, 75, 72, 74, 68],
       },
+      aiSuggestions: [
+        "异常处理规范：关键路径缺少统一错误码与日志",
+        "单元测试编写：核心服务层覆盖率偏低，建议补齐边界用例",
+        "接口文档完整性：缺少请求示例与错误响应说明",
+      ],
     })
   })
 
@@ -107,20 +191,30 @@ export default function setupStudentMock(mock: typeof Mock): void {
   mock.mock(/\/api\/v1\/student\/courses(\?.*)?$/, "get", (options: { url: string }) => {
     const url = new URL(`http://localhost${options.url}`)
     const keyword = (url.searchParams.get("keyword") || "").toLowerCase()
+    const myClass = demoStudent().className
+    const enrolledIds = new Set(
+      SEED_COURSES.filter((c) => c.className === myClass).map((c) => c.courseId),
+    )
+    submissions
+      .filter((s) => s.studentUserId === DEMO_STUDENT_USER_ID)
+      .forEach((s) => {
+        const t = tasks.find((x) => x.taskId === s.taskId)
+        if (t) enrolledIds.add(t.courseId)
+      })
 
-    const allCourses = [
-      { courseName: "软件工程实践", courseCode: "CS301", teacherName: "李四", teacherEmail: "lisi@example.com", semester: "2025-2026-2", credits: 3, taskCount: 4, description: "本课程旨在通过实际项目训练学生的软件开发能力。" },
-      { courseName: "数据库原理", courseCode: "CS201", teacherName: "赵六", teacherEmail: "zhaoliu@example.com", semester: "2025-2026-2", credits: 3, taskCount: 3, description: "学习关系数据库的设计与优化。" },
-      { courseName: "Web前端开发", courseCode: "CS310", teacherName: "钱七", teacherEmail: "qianqi@example.com", semester: "2025-2026-2", credits: 2, taskCount: 2, description: "掌握现代前端框架开发技能。" },
-      { courseName: "移动应用开发", courseCode: "CS320", teacherName: "李四", teacherEmail: "lisi@example.com", semester: "2026-2027-1", credits: 3, taskCount: 1, description: "学习移动端应用开发技术。" },
-      { courseName: "人工智能导论", courseCode: "CS401", teacherName: "赵六", teacherEmail: "zhaoliu@example.com", semester: "2026-2027-1", credits: 4, taskCount: 5, description: "人工智能基础知识与实践。" },
-      { courseName: "计算机网络", courseCode: "CS210", teacherName: "钱七", teacherEmail: "qianqi@example.com", semester: "2025-2026-2", credits: 3, taskCount: 3, description: "计算机网络协议与架构。" },
-    ]
-
-    let courses = allCourses.map((c) => ({
-      ...c,
-      courseId: `course-${Random.guid()}`,
-    }))
+    let courses = SEED_COURSES
+      .filter((c) => enrolledIds.has(c.courseId))
+      .map((c) => ({
+        courseId: c.courseId,
+        courseName: c.courseName,
+        courseCode: c.courseCode,
+        teacherName: c.teacherName,
+        teacherEmail: c.teacherEmail,
+        semester: c.semester,
+        credits: c.credits,
+        taskCount: tasks.filter((t) => t.courseId === c.courseId && t.status !== "DRAFT").length,
+        description: c.description,
+      }))
 
     if (keyword) {
       courses = courses.filter((c) => c.courseName.toLowerCase().includes(keyword))
@@ -136,28 +230,37 @@ export default function setupStudentMock(mock: typeof Mock): void {
   })
 
   // GET /api/v1/student/courses/:courseId
-  mock.mock(/\/api\/v1\/student\/courses\/(?!\?).+/, "get", (options: { url: string }) => {
+  mock.mock(/\/api\/v1\/student\/courses\/(?!\?).+$/, "get", (options: { url: string }) => {
     const path = options.url.split("?")[0]
     const courseId = path.split("/").pop()!
+    const course = SEED_COURSES.find((c) => c.courseId === courseId)
+    if (!course) return err(4001, "课程不存在")
+
+    const courseTasks = tasks
+      .filter((t) => t.courseId === courseId && t.status !== "DRAFT")
+      .map((t) => {
+        const mine = studentStatusForTask(t.taskId, DEMO_STUDENT_USER_ID, submissions)
+        return {
+          taskId: t.taskId,
+          taskName: t.taskName,
+          deadline: t.deadline.replace("T", " "),
+          totalScore: t.totalScore,
+          mySubmissionStatus: mine.status,
+          myScore: mine.score,
+        }
+      })
 
     return ok({
-      courseId,
-      courseName: "软件工程实践",
-      courseCode: "CS301",
-      teacherName: "李四",
-      teacherEmail: "lisi@example.com",
-      semester: "2025-2026-2",
-      credits: 3,
-      taskCount: 3,
-      description: "本课程旨在通过实际项目训练学生的软件开发能力，涵盖需求分析、设计、编码、测试全流程。",
-      tasks: Array.from({ length: Random.integer(1, 4) }, () => ({
-        taskId: `task-${Random.guid()}`,
-        taskName: Random.ctitle(5, 15),
-        deadline: Random.datetime("yyyy-MM-dd HH:mm:ss"),
-        totalScore: Random.integer(60, 100),
-        mySubmissionStatus: Random.pick(["NOT_SUBMITTED", "SUBMITTED", "AI_COMPLETED", "COMPLETED"]),
-        myScore: Random.boolean() ? Random.integer(60, 95) : null,
-      })),
+      courseId: course.courseId,
+      courseName: course.courseName,
+      courseCode: course.courseCode,
+      teacherName: course.teacherName,
+      teacherEmail: course.teacherEmail,
+      semester: course.semester,
+      credits: course.credits,
+      taskCount: courseTasks.length,
+      description: course.description,
+      tasks: courseTasks,
     })
   })
 
@@ -166,43 +269,16 @@ export default function setupStudentMock(mock: typeof Mock): void {
     const url = new URL(`http://localhost${options.url}`)
     const status = url.searchParams.get("status") || ""
     const keyword = (url.searchParams.get("keyword") || "").toLowerCase()
-    const statuses = ["NOT_SUBMITTED", "SUBMITTED", "AI_EVALUATING", "AI_COMPLETED", "TEACHER_SCORING", "COMPLETED", "REJECTED"]
-    const courses = ["软件工程实践", "数据库原理", "Web前端开发", "移动应用开发", "人工智能导论", "计算机网络"]
-    const teachers = ["李四", "赵六", "钱七"]
 
-    let tasks = Array.from({ length: Random.integer(8, 12) }, (_, i) => {
-      const submissionStatus = statuses[Math.floor(Math.random() * 7)]
-      const completed = ["AI_COMPLETED", "COMPLETED", "TEACHER_SCORING"].includes(submissionStatus)
-      const taskId = `task-${Random.guid()}`
-      const item = {
-        taskId,
-        taskName: `实训任务${i + 1}: ${Random.ctitle(5, 15)}`,
-        courseName: courses[Math.floor(Math.random() * courses.length)],
-        teacherName: teachers[Math.floor(Math.random() * teachers.length)],
-        deadline: Random.datetime("yyyy-MM-dd HH:mm:ss"),
-        totalScore: Random.integer(60, 100),
-        submissionType: Random.pick(["GIT_URL", "ZIP_UPLOAD"]),
-        status: Random.pick(["PUBLISHED", "PUBLISHED", "PUBLISHED", "CLOSED"]),
-        mySubmissionStatus: submissionStatus,
-        myScore: completed ? Random.integer(60, 100) : null,
-        createdAt: Random.datetime("yyyy-MM-dd HH:mm:ss"),
-      }
-      taskCache.set(taskId, item as Record<string, unknown>)
-      return item
-    })
-
-    if (status) {
-      tasks = tasks.filter((t) => t.mySubmissionStatus === status)
-    }
-    if (keyword) {
-      tasks = tasks.filter((t) => t.taskName.toLowerCase().includes(keyword))
-    }
+    let list = publishedTasksForStudent().map(toStudentTaskItem)
+    if (status) list = list.filter((t) => t.mySubmissionStatus === status)
+    if (keyword) list = list.filter((t) => t.taskName.toLowerCase().includes(keyword))
 
     return ok({
-      list: tasks,
+      list,
       page: 1,
       pageSize: 20,
-      total: tasks.length,
+      total: list.length,
       totalPages: 1,
     })
   })
@@ -211,104 +287,131 @@ export default function setupStudentMock(mock: typeof Mock): void {
   mock.mock(/\/api\/v1\/student\/tasks\/[^/]+$/, "get", (options: { url: string }) => {
     const path = options.url.split("?")[0]
     const taskId = path.split("/").pop()!
-
-    // Use cached task data if available (from list endpoint)
-    const cached = taskCache.get(taskId) as Record<string, unknown> | undefined
-    const submissionStatus = (cached?.mySubmissionStatus as string) ||
-      Random.pick(["NOT_SUBMITTED", "SUBMITTED", "AI_EVALUATING", "AI_COMPLETED", "COMPLETED", "REJECTED"])
+    const task = tasks.find((t) => t.taskId === taskId)
+    if (!task) return err(4001, "任务不存在")
+    const course = courseOf(task)
+    const mine = studentStatusForTask(taskId, DEMO_STUDENT_USER_ID, submissions)
 
     return ok({
-      taskId,
-      taskName: cached?.taskName || "实现用户管理系统",
-      courseName: cached?.courseName || "软件工程实践",
-      teacherName: cached?.teacherName || "李四",
-      teacherEmail: cached?.teacherEmail as string || "lisi@example.com",
-      description: "实现一个完整的用户管理系统，包括用户注册、登录、权限管理等功能。",
-      requirements: "1. 使用 Spring Boot 3 框架\n2. 集成 MySQL 数据库\n3. 实现 JWT 认证\n4. 单元测试覆盖率 ≥ 60%\n5. 提交源码及设计文档",
-      deadline: (cached?.deadline as string) || Random.datetime("yyyy-MM-dd HH:mm:ss"),
-      totalScore: cached?.totalScore || 100,
-      submissionType: cached?.submissionType || Random.pick(["GIT_URL", "ZIP_UPLOAD"]),
-      submitLimit: 3,
-      evaluationDimensions: makeDimensions(),
-      attachments: Array.from({ length: Random.integer(0, 2) }, () => ({
-        fileId: `file-${Random.guid()}`,
-        fileName: `${Random.word(5, 10)}.${Random.pick(["pdf", "docx", "zip"])}`,
-        fileSize: Random.integer(1024, 10485760),
-        fileType: Random.pick(["application/pdf", "application/zip", "application/msword"]),
-      })),
-      mySubmissionStatus: submissionStatus,
-      mySubmissionId: submissionStatus === "NOT_SUBMITTED" ? null : `sub-${Random.guid()}`,
-      myScore: cached?.myScore as number | null ?? (Random.boolean() ? Random.integer(60, 100) : null),
-      mySubmitCount: Random.integer(0, 2),
-      maxSubmitCount: 3,
-      createdAt: (cached?.createdAt as string) || Random.datetime("yyyy-MM-dd HH:mm:ss"),
-      updatedAt: Random.datetime("yyyy-MM-dd HH:mm:ss"),
+      taskId: task.taskId,
+      taskName: task.taskName,
+      courseName: course?.courseName ?? "",
+      teacherName: course?.teacherName ?? DEMO_TEACHER_NAME,
+      teacherEmail: course?.teacherEmail ?? DEMO_TEACHER_EMAIL,
+      description: task.description,
+      requirements: task.requirements,
+      deadline: task.deadline.replace("T", " "),
+      totalScore: task.totalScore,
+      submissionType: task.submissionType,
+      submitLimit: task.maxSubmitCount,
+      evaluationDimensions: EVAL_DIMENSIONS,
+      attachments: [
+        {
+          fileId: `file-${task.taskId}-spec`,
+          fileName: `${task.taskName}-说明.pdf`,
+          fileSize: 245760,
+          fileType: "application/pdf",
+        },
+      ],
+      mySubmissionStatus: mine.status,
+      mySubmissionId: mine.submissionId,
+      myScore: mine.score,
+      mySubmitCount: mine.submitCount,
+      maxSubmitCount: task.maxSubmitCount,
+      createdAt: task.createdAt.replace("T", " "),
+      updatedAt: task.publishTime?.replace("T", " ") ?? task.createdAt.replace("T", " "),
     })
   })
 
-  // GET /api/v1/student/tasks/:taskId/submissions — submission history
+  // GET /api/v1/student/tasks/:taskId/submissions
   mock.mock(/\/api\/v1\/student\/tasks\/.+\/submissions$/, "get", (options: { url: string }) => {
     const taskId = options.url.split("/")[5]
-    const count = Random.integer(0, 3)
-    const items = Array.from({ length: count }, () => ({
-      submissionId: `sub-${Random.guid()}`,
-      taskId,
-      taskName: "实现用户管理系统",
-      submissionType: Random.pick(["GIT_URL", "ZIP_UPLOAD"]),
-      status: Random.pick(["AI_COMPLETED", "COMPLETED", "TEACHER_SCORING", "REJECTED"]),
-      aiScore: Random.boolean() ? Random.integer(60, 95) : null,
-      submittedAt: Random.datetime("yyyy-MM-dd HH:mm:ss"),
-      remark: Random.boolean() ? Random.csentence(8, 20) : null,
-    }))
+    const task = tasks.find((t) => t.taskId === taskId)
+    const items = submissions
+      .filter((s) => s.taskId === taskId && s.studentUserId === DEMO_STUDENT_USER_ID)
+      .map((s) => ({
+        submissionId: s.submissionId,
+        taskId: s.taskId,
+        taskName: task?.taskName ?? "",
+        submissionType: s.submitType,
+        status: s.status === "APPROVED" ? "COMPLETED" : s.status,
+        aiScore: s.aiScore,
+        submittedAt: s.submittedAt.replace("T", " "),
+        remark: s.reviewComment,
+      }))
     return ok(items)
   })
 
   // POST /api/v1/student/tasks/:taskId/submissions
-  mock.mock(/\/api\/v1\/student\/tasks\/.+\/submissions$/, "post", (options: { url: string }) => {
+  mock.mock(/\/api\/v1\/student\/tasks\/.+\/submissions$/, "post", (options: { url: string; body: string }) => {
     const taskId = options.url.split("/")[5]
+    const task = tasks.find((t) => t.taskId === taskId)
+    if (!task) return err(4001, "任务不存在")
 
-    // Simulate submit limit (20% chance)
-    if (Math.random() < 0.2) {
-      return err(1005, "已达到提交次数上限（3次），无法再次提交")
+    const mine = studentStatusForTask(taskId, DEMO_STUDENT_USER_ID, submissions)
+    if (mine.submitCount >= task.maxSubmitCount) {
+      return err(1005, `已达到提交次数上限（${task.maxSubmitCount}次），无法再次提交`)
     }
-
-    // Simulate deadline passed (10% chance)
-    if (Math.random() < 0.1) {
+    if (new Date(task.deadline).getTime() < Date.now() && task.status === "CLOSED") {
       return err(1006, "提交失败：该实训任务已截止")
     }
 
-    return ok({
-      submissionId: `sub-${Random.guid()}`,
+    let body: { submissionType?: string; gitUrl?: string; fileName?: string; fileSize?: number } = {}
+    try {
+      body = JSON.parse(options.body || "{}")
+    } catch {
+      body = {}
+    }
+
+    const submissionId = `SUB${String(submissions.length + 1).padStart(3, "0")}`
+    const newSub: SeedSubmission = {
+      submissionId,
+      studentUserId: DEMO_STUDENT_USER_ID,
       taskId,
-      submissionType: Random.pick(["GIT_URL", "ZIP_UPLOAD"]),
+      submittedAt: new Date().toISOString().slice(0, 19),
       status: "SUBMITTED",
-      submitCount: 1,
-      maxSubmitCount: 3,
-      submittedAt: Random.datetime("yyyy-MM-dd HH:mm:ss"),
+      submitType: (body.submissionType as "GIT_URL" | "ZIP_UPLOAD") || task.submissionType,
+      submitCount: mine.submitCount + 1,
+      isLate: new Date(task.deadline).getTime() < Date.now() ? 1 : 0,
+      finalScore: null,
+      aiScore: null,
+      reviewedAt: null,
+      reviewComment: null,
+      rejectReason: null,
+      gitUrl: body.gitUrl,
+      fileName: body.fileName,
+      fileSize: body.fileSize,
+    }
+    submissions.push(newSub)
+
+    return ok({
+      submissionId,
+      taskId,
+      submissionType: newSub.submitType,
+      status: "SUBMITTED",
+      submitCount: newSub.submitCount,
+      maxSubmitCount: task.maxSubmitCount,
+      submittedAt: newSub.submittedAt.replace("T", " "),
     }, "提交成功")
   })
 
   // POST /api/v1/student/tasks/:taskId/git-verify
   mock.mock(/\/api\/v1\/student\/tasks\/.+\/git-verify$/, "post", (options: { body: string }) => {
     const { gitUrl } = JSON.parse(options.body)
-
-    if (gitUrl.includes("private")) {
-      return err(8002, "无权限访问该仓库")
-    }
-    if (gitUrl.includes("invalid") || !gitUrl.includes("github")) {
+    if (gitUrl.includes("private")) return err(8002, "无权限访问该仓库")
+    if (gitUrl.includes("invalid") || (!gitUrl.includes("github") && !gitUrl.includes("gitee"))) {
       return err(8001, "仓库不存在或无法访问")
     }
-
     return ok({
       valid: true,
-      repoName: Random.pick(["user-management-system", "spring-boot-demo", "vue-admin-template"]),
+      repoName: gitUrl.split("/").pop() || "demo-repo",
       defaultBranch: "main",
-      branches: ["main", "develop", "feature/auth"],
+      branches: ["main", "develop"],
       latestCommit: {
-        commitId: Random.guid().substring(0, 7),
-        message: Random.pick(["feat: 添加用户管理模块", "fix: 修复登录bug", "docs: 更新README"]),
-        author: "张三",
-        committedAt: Random.datetime("yyyy-MM-dd HH:mm:ss"),
+        commitId: "a1b2c3d",
+        message: "feat: 提交实训作业",
+        author: demoStudent().realName,
+        committedAt: "2026-06-20 09:30:00",
       },
     })
   })
@@ -316,33 +419,39 @@ export default function setupStudentMock(mock: typeof Mock): void {
   // POST /api/v1/student/submissions/:submissionId/ai-evaluate
   mock.mock(/\/api\/v1\/student\/submissions\/.+\/ai-evaluate$/, "post", (options: { url: string }) => {
     const submissionId = options.url.split("/")[5]
+    const sub = submissions.find((s) => s.submissionId === submissionId)
+    if (sub) sub.status = "AI_EVALUATING"
     aiPollCounters.set(submissionId, 0)
-
     return ok({
-      analyzeId: `analyze-${Random.guid()}`,
+      analyzeId: `analyze-${submissionId}`,
       submissionId,
       status: "PENDING",
       estimatedSeconds: 30,
     })
   })
 
-  // GET /api/v1/student/submissions/:submissionId/ai-result (polling)
+  // GET /api/v1/student/submissions/:submissionId/ai-result
   mock.mock(/\/api\/v1\/student\/submissions\/.+\/ai-result$/, "get", (options: { url: string }) => {
     const submissionId = options.url.split("/")[5]
+    const sub = submissions.find((s) => s.submissionId === submissionId)
     const count = (aiPollCounters.get(submissionId) || 0) + 1
     aiPollCounters.set(submissionId, count)
 
     if (count <= 3) {
-      const progress = count * 30
       const dims = ["代码规范", "功能完成度", "创新性", "文档完整性", "Git规范"]
       return ok({
         analyzeId: `analyze-${submissionId}`,
         status: "PROCESSING",
-        progress,
+        progress: count * 30,
         currentDimension: dims[count - 1],
         result: null,
         startedAt: new Date(Date.now() - 30000).toISOString(),
       })
+    }
+
+    if (sub) {
+      sub.status = "AI_COMPLETED"
+      sub.aiScore = sub.aiScore ?? 82
     }
 
     return ok({
@@ -350,7 +459,7 @@ export default function setupStudentMock(mock: typeof Mock): void {
       status: "COMPLETED",
       progress: 100,
       currentDimension: null,
-      result: makeAIScoreResult(),
+      result: makeAIScoreResult(sub?.aiScore),
       startedAt: new Date(Date.now() - 90000).toISOString(),
       completedAt: new Date().toISOString(),
     })
@@ -359,28 +468,29 @@ export default function setupStudentMock(mock: typeof Mock): void {
   // GET /api/v1/student/submissions/:submissionId/ai-result-detail
   mock.mock(/\/api\/v1\/student\/submissions\/.+\/ai-result-detail$/, "get", (options: { url: string }) => {
     const submissionId = options.url.split("/")[5]
-    const score = Random.integer(55, 98)
-    const deductScore = Random.integer(2, 15)
+    const sub = submissions.find((s) => s.submissionId === submissionId) || SEED_SUBMISSIONS.find((s) => s.submissionId === submissionId)
+    const task = tasks.find((t) => t.taskId === sub?.taskId)
+    const score = sub?.aiScore ?? 82
 
     return ok({
       submissionId,
-      taskId: "task-001",
-      taskName: "实现用户管理系统",
+      taskId: sub?.taskId ?? "C001_T1",
+      taskName: task?.taskName ?? "用户管理系统 API 开发",
       aiScore: score,
-      totalDeductions: Random.integer(2, 5),
-      totalDeductScore: deductScore,
+      totalDeductions: 4,
+      totalDeductScore: 14,
       modelVersion: "DeepSeek-Coder-V2",
-      analyzedAt: Random.datetime("yyyy-MM-dd HH:mm:ss"),
-      codeSummary: "代码结构整体清晰，模块划分合理。主要问题集中在异常处理不够完善，部分函数圈复杂度过高。命名规范基本符合要求，但仍有少量变量使用拼音命名。单元测试覆盖率约45%，建议提升至60%以上。",
-      docSummary: "接口文档基本完整，但缺少部分参数的详细说明。README文件结构清晰，包含了项目介绍、技术栈和快速开始指南。API文档中部分返回值示例不完整。建议补充错误码说明和更多的使用示例。",
-      reqSummary: "核心功能需求均已实现，包括用户注册、登录、权限管理和基本CRUD操作。但部分非功能性需求（如日志审计、操作记录）尚未覆盖。建议在下个迭代中完善安全相关的需求实现。",
+      analyzedAt: "2026-06-20 10:15:00",
+      codeSummary: "代码结构整体清晰，模块划分合理。主要问题集中在异常处理不够完善。",
+      docSummary: "接口文档基本完整，但缺少部分参数的详细说明。",
+      reqSummary: "核心功能需求均已实现，部分非功能性需求尚未覆盖。",
       deductions: [
         {
           agentType: "Code",
           severity: "major",
           issueType: "异常处理不完善",
           suggestDeduct: 5,
-          reason: "UserService.createUser 方法中未处理数据库唯一约束冲突异常，可能导致500错误直接暴露给前端",
+          reason: "UserService.createUser 未处理唯一约束冲突",
           filePath: "src/services/UserService.java",
           lineNumber: 45,
           confidence: 0.92,
@@ -390,7 +500,7 @@ export default function setupStudentMock(mock: typeof Mock): void {
           severity: "minor",
           issueType: "命名规范",
           suggestDeduct: 2,
-          reason: "变量 shuJu 使用拼音命名，应改为 data 或更语义化的英文名称",
+          reason: "变量命名不够语义化",
           filePath: "src/utils/DataHelper.java",
           lineNumber: 128,
           confidence: 0.88,
@@ -400,7 +510,7 @@ export default function setupStudentMock(mock: typeof Mock): void {
           severity: "major",
           issueType: "接口文档不完整",
           suggestDeduct: 4,
-          reason: "/api/users/{id}/permissions 接口的返回值结构未在文档中说明",
+          reason: "权限接口返回值结构未说明",
           filePath: "docs/api.md",
           lineNumber: 88,
           confidence: 0.85,
@@ -410,7 +520,7 @@ export default function setupStudentMock(mock: typeof Mock): void {
           severity: "minor",
           issueType: "日志审计缺失",
           suggestDeduct: 3,
-          reason: "需求规格说明书要求所有敏感操作需记录审计日志，但代码中未找到相关实现",
+          reason: "敏感操作未记录审计日志",
           filePath: "docs/requirements.md",
           lineNumber: 42,
           confidence: 0.78,
@@ -419,156 +529,195 @@ export default function setupStudentMock(mock: typeof Mock): void {
     })
   })
 
-  // GET /api/v1/student/reports
-  mock.mock("/api/v1/student/reports", "get", () => {
-    const scores = Array.from({ length: Random.integer(3, 6) }, () => ({
-      taskName: Random.ctitle(5, 15),
-      courseName: Random.pick(["软件工程实践", "数据库原理", "Web前端开发", "计算机网络"]),
-      aiScore: Random.float(60, 95, 1, 1),
-      finalScore: Random.integer(60, 95),
-      reviewedAt: Random.datetime("yyyy-MM-dd HH:mm:ss"),
-      status: Random.pick(["approved", "approved", "approved", "rejected"]),
-    }))
+  // GET /api/v1/student/student-report
+  mock.mock("/api/v1/student/student-report", "get", () => {
+    const myTasks = publishedTasksForStudent()
+    const mySubs = submissions.filter((s) => s.studentUserId === DEMO_STUDENT_USER_ID)
+    const scored = mySubs
+      .filter((s) => s.finalScore != null)
+      .map((s) => {
+        const task = tasks.find((t) => t.taskId === s.taskId)
+        const course = task ? courseOf(task) : undefined
+        return {
+          taskName: task?.taskName ?? s.taskId,
+          courseName: course?.courseName ?? "",
+          aiScore: s.aiScore ?? s.finalScore!,
+          finalScore: s.finalScore!,
+          reviewedAt: (s.reviewedAt || s.submittedAt).replace("T", " "),
+          status: s.status === "REJECTED" ? "REJECTED" : "REVIEWED",
+          reviewComment: s.reviewComment,
+        }
+      })
+      .sort((a, b) => a.reviewedAt.localeCompare(b.reviewedAt))
 
-    scores.sort((a, b) => new Date(a.reviewedAt).getTime() - new Date(b.reviewedAt).getTime())
-
-    const finalScores = scores.map((s) => s.finalScore)
-    const avg = finalScores.length > 0 ? (finalScores.reduce((a, b) => a + b, 0) / finalScores.length).toFixed(1) : "-"
-    const maxS = finalScores.length > 0 ? Math.max(...finalScores).toFixed(1) : "-"
-    const minS = finalScores.length > 0 ? Math.min(...finalScores).toFixed(1) : "-"
+    const finals = scored.map((s) => s.finalScore)
+    const avg = finals.length ? +(finals.reduce((a, b) => a + b, 0) / finals.length).toFixed(1) : null
 
     return ok({
       stats: {
-        completedTasks: scores.length,
+        totalTasks: myTasks.length,
+        completedTasks: scored.length,
+        totalSubmissions: mySubs.length,
         averageScore: avg,
-        maxScore: maxS,
-        minScore: minS,
       },
       scoreTrend: {
-        categories: scores.map((s) => s.taskName.substring(0, 6)),
-        values: scores.map((s) => s.finalScore),
+        categories: scored.map((s) => s.taskName.slice(0, 8)),
+        values: scored.map((s) => s.finalScore),
       },
       radarData: {
         indicators: ["功能实现", "代码质量", "文档质量", "创新能力", "答辩表现"],
-        values: [Random.integer(65, 90), Random.integer(60, 88), Random.integer(55, 85), Random.integer(50, 80), Random.integer(60, 85)],
+        values: [86, 82, 78, 70, 80],
       },
-      rows: scores,
+      rows: scored.map((s) => ({
+        taskName: s.taskName,
+        courseName: s.courseName,
+        score: s.finalScore,
+        reviewComment: s.reviewComment,
+        status: s.status,
+      })),
     })
   })
 
-  // GET /api/v1/student/growth
-  mock.mock("/api/v1/student/growth", "get", () => {
-    const categories = ["代码能力", "文档能力", "工程规范", "创新能力", "团队协作"]
-    const entries: Array<{ date: string; category: string; description: string; score: number }> = []
+  // GET /api/v1/student/growth-profile  — 对齐 IGrowthData
+  mock.mock("/api/v1/student/growth-profile", "get", () => {
+    const myTasks = publishedTasksForStudent()
+    const mySubs = submissions.filter((s) => s.studentUserId === DEMO_STUDENT_USER_ID)
+    const scored = mySubs.filter((s) => s.finalScore != null)
+    const scores = scored.map((s) => s.finalScore!)
+    const avg = scores.length ? +(scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1) : null
 
-    const baseDates = ["2026-03-15", "2026-04-10", "2026-05-08", "2026-05-28", "2026-06-15"]
-    const descs: Record<string, string[]> = {
-      "代码能力": ["首次代码评审通过，代码规范良好", "代码重构后圈复杂度降低30%"],
-      "文档能力": ["完成接口文档初版编写", "文档补充了错误码和使用示例"],
-      "工程规范": ["开始使用Git Flow分支管理", "单元测试覆盖率达到65%"],
-      "创新能力": ["提出UI交互优化方案被采纳", "引入自动化部署流程"],
-      "团队协作": ["首次Code Review参与", "主导技术分享会"],
-    }
-
-    categories.forEach((cat) => {
-      const baseScore = Random.integer(45, 65)
-      entries.push({
-        date: baseDates[0],
-        category: cat,
-        description: descs[cat][0],
-        score: baseScore,
-      })
-      entries.push({
-        date: baseDates[Random.integer(2, 4)],
-        category: cat,
-        description: descs[cat][1],
-        score: Math.min(baseScore + Random.integer(8, 20), 95),
-      })
+    const courseMap = new Map<string, { courseId: string; courseName: string; scores: number[]; taskIds: Set<string> }>()
+    mySubs.forEach((s) => {
+      const task = tasks.find((t) => t.taskId === s.taskId)
+      if (!task) return
+      const course = courseOf(task)
+      if (!course) return
+      if (!courseMap.has(course.courseId)) {
+        courseMap.set(course.courseId, {
+          courseId: course.courseId,
+          courseName: course.courseName,
+          scores: [],
+          taskIds: new Set(),
+        })
+      }
+      const entry = courseMap.get(course.courseId)!
+      entry.taskIds.add(task.taskId)
+      if (s.finalScore != null) entry.scores.push(s.finalScore)
     })
 
-    entries.sort((a, b) => a.date.localeCompare(b.date))
+    const courseScores = Array.from(courseMap.values()).map((c) => ({
+      courseId: c.courseId,
+      courseName: c.courseName,
+      avgScore: c.scores.length ? +(c.scores.reduce((a, b) => a + b, 0) / c.scores.length).toFixed(1) : null,
+      taskCount: c.taskIds.size,
+    }))
 
-    const allDates = [...new Set(entries.map((e) => e.date))].sort()
-    const latestScore = entries[entries.length - 1]?.score || 0
-    const firstScore = entries[0]?.score || 0
+    const monthMap = new Map<string, { scores: number[]; count: number }>()
+    mySubs.forEach((s) => {
+      const month = s.submittedAt.slice(0, 7)
+      if (!monthMap.has(month)) monthMap.set(month, { scores: [], count: 0 })
+      const m = monthMap.get(month)!
+      m.count += 1
+      if (s.finalScore != null) m.scores.push(s.finalScore)
+    })
+    const monthlyTrends = Array.from(monthMap.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([month, m]) => ({
+        month,
+        avgScore: m.scores.length ? +(m.scores.reduce((a, b) => a + b, 0) / m.scores.length).toFixed(1) : null,
+        submissionCount: m.count,
+      }))
 
     return ok({
-      stats: {
-        totalEntries: entries.length,
-        latestScore,
-        firstScore,
-        improvement: latestScore - firstScore,
-      },
-      entries,
-      evolutionData: {
-        categories,
-        allDates,
-        series: categories.map((cat) => {
-          const catEntries = entries.filter((e) => e.category === cat).sort((a, b) => a.date.localeCompare(b.date))
+      totalTasks: myTasks.length,
+      completedTasks: scored.length,
+      totalSubmissions: mySubs.length,
+      averageScore: avg,
+      highestScore: scores.length ? Math.max(...scores) : null,
+      lowestScore: scores.length ? Math.min(...scores) : null,
+      courseScores,
+      monthlyTrends,
+      dimensionRadar: [
+        { dimensionName: "代码规范", myAvg: 82, classAvg: 76 },
+        { dimensionName: "功能完成度", myAvg: 88, classAvg: 78 },
+        { dimensionName: "创新性", myAvg: 75, classAvg: 70 },
+        { dimensionName: "文档完整性", myAvg: 80, classAvg: 74 },
+        { dimensionName: "Git规范", myAvg: 85, classAvg: 72 },
+      ],
+      submissionHistory: mySubs
+        .slice()
+        .sort((a, b) => b.submittedAt.localeCompare(a.submittedAt))
+        .map((s) => {
+          const task = tasks.find((t) => t.taskId === s.taskId)
+          const course = task ? courseOf(task) : undefined
           return {
-            name: cat,
-            data: allDates.map((d) => {
-              const entry = catEntries.find((e) => e.date === d)
-              return entry ? entry.score : null
-            }),
+            submissionId: s.submissionId,
+            taskId: s.taskId,
+            taskName: task?.taskName ?? s.taskId,
+            courseName: course?.courseName ?? "",
+            score: s.finalScore,
+            result: s.status === "APPROVED" ? "通过" : s.status === "REJECTED" ? "退回" : "进行中",
+            submittedAt: s.submittedAt.replace("T", " "),
           }
         }),
-      },
     })
   })
 
   // GET /api/v1/student/submissions/:submissionId/evaluation
   mock.mock(/\/api\/v1\/student\/submissions\/.+\/evaluation$/, "get", (options: { url: string }) => {
     const submissionId = options.url.split("/")[5]
-    const hasTeacher = Random.boolean()
-    const rejected = Math.random() < 0.1
+    const sub = submissions.find((s) => s.submissionId === submissionId)
+    if (!sub) return err(4001, "提交不存在")
+    const task = tasks.find((t) => t.taskId === sub.taskId)
+    const course = task ? courseOf(task) : undefined
 
-    if (rejected) {
+    if (sub.status === "REJECTED") {
       return ok({
         submissionId,
-        taskName: "实现用户管理系统",
-        courseName: "软件工程实践",
-        submittedAt: Random.datetime("yyyy-MM-dd HH:mm:ss"),
+        taskId: sub.taskId,
+        taskName: task?.taskName ?? "",
+        courseName: course?.courseName ?? "",
+        submittedAt: sub.submittedAt.replace("T", " "),
         aiEvaluation: {
-          overallScore: Random.integer(60, 85),
-          summary: "代码质量良好，功能基本完成。",
-          completedAt: Random.datetime("yyyy-MM-dd HH:mm:ss"),
+          overallScore: sub.aiScore ?? 68,
+          summary: "代码质量一般，功能基本完成，但仍有明显问题需修正。",
+          completedAt: (sub.reviewedAt || sub.submittedAt).replace("T", " "),
         },
         teacherEvaluation: null,
         status: "REJECTED",
         finalScore: null,
-        rejectReason: "代码中存在部分逻辑缺陷，请修复后重新提交。具体问题包括：用户登录验证逻辑不完善，权限控制模块缺少边界条件判断。",
+        rejectReason: sub.rejectReason || "请修改后重新提交。",
       })
     }
 
-    const aiScores = [Random.integer(60, 90), Random.integer(60, 90), Random.integer(50, 85), Random.integer(55, 88), Random.integer(60, 92)]
-
+    const hasTeacher = sub.status === "APPROVED" && sub.finalScore != null
     return ok({
       submissionId,
-      taskName: "实现用户管理系统",
-      courseName: "软件工程实践",
-      submittedAt: Random.datetime("yyyy-MM-dd HH:mm:ss"),
+      taskId: sub.taskId,
+      taskName: task?.taskName ?? "",
+      courseName: course?.courseName ?? "",
+      submittedAt: sub.submittedAt.replace("T", " "),
       aiEvaluation: {
-        overallScore: Math.round(aiScores.reduce((a, s, i) => a + s * [25, 30, 20, 15, 10][i] / 100, 0)),
+        overallScore: sub.aiScore ?? 80,
         summary: "代码结构清晰，功能实现完整。",
-        completedAt: Random.datetime("yyyy-MM-dd HH:mm:ss"),
+        completedAt: (sub.reviewedAt || sub.submittedAt).replace("T", " "),
       },
-      teacherEvaluation: hasTeacher ? {
-        overallScore: Random.integer(70, 95),
-        comment: "该同学项目完成度较高，代码规范良好，创新性较强。建议继续保持并加强文档编写能力。",
-        dimensions: [
-          { dimensionName: "代码规范", score: Random.integer(70, 92), maxScore: 100 },
-          { dimensionName: "功能完成度", score: Random.integer(75, 95), maxScore: 100 },
-          { dimensionName: "创新性", score: Random.integer(65, 88), maxScore: 100 },
-          { dimensionName: "文档完整性", score: Random.integer(60, 85), maxScore: 100 },
-          { dimensionName: "Git规范", score: Random.integer(70, 90), maxScore: 100 },
-        ],
-        scoredBy: "李四",
-        scoredAt: Random.datetime("yyyy-MM-dd HH:mm:ss"),
-        publishedAt: Random.datetime("yyyy-MM-dd HH:mm:ss"),
-      } : null,
-      status: hasTeacher ? "COMPLETED" : "AI_COMPLETED",
-      finalScore: hasTeacher ? Random.integer(70, 95) : null,
+      teacherEvaluation: hasTeacher
+        ? {
+            overallScore: sub.finalScore!,
+            comment: sub.reviewComment || "完成度较高，建议继续保持。",
+            dimensions: EVAL_DIMENSIONS.map((d, i) => ({
+              dimensionName: d.dimensionName,
+              score: Math.min(100, Math.round((sub.finalScore || 80) - 2 + i)),
+              maxScore: d.maxScore,
+            })),
+            scoredBy: DEMO_TEACHER_NAME,
+            scoredAt: (sub.reviewedAt || "").replace("T", " "),
+            publishedAt: (sub.reviewedAt || "").replace("T", " "),
+          }
+        : null,
+      status: hasTeacher ? "COMPLETED" : sub.status,
+      finalScore: sub.finalScore,
     })
   })
 }

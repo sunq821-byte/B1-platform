@@ -7,10 +7,10 @@ const STATUS_MAP: Record<string, { bg: string; color: string; label: string }> =
   NOT_SUBMITTED: { bg: "#FEF3C7", color: "#92400E", label: "待提交" },
   SUBMITTED: { bg: "#DBEAFE", color: "#1E40AF", label: "已提交" },
   AI_EVALUATING: { bg: "#EDE9FE", color: "#6D28D9", label: "AI分析中" },
-  AI_COMPLETED: { bg: "#D1FAE5", color: "#065F46", label: "待评分" },
+  AI_COMPLETED: { bg: "#E6F7EF", color: "#009A57", label: "待评分" },
   TEACHER_SCORING: { bg: "#FFF7ED", color: "#9A3412", label: "评分中" },
-  COMPLETED: { bg: "#D1FAE5", color: "#065F46", label: "已完成" },
-  REVIEWED: { bg: "#D1FAE5", color: "#065F46", label: "已完成" },
+  COMPLETED: { bg: "#E6F7EF", color: "#009A57", label: "已完成" },
+  REVIEWED: { bg: "#E6F7EF", color: "#009A57", label: "已完成" },
   REJECTED: { bg: "#FEE2E2", color: "#991B1B", label: "已退回" },
 }
 

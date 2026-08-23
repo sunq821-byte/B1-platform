@@ -1,0 +1,802 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>B1 Platform · Campus Blue × Canvas/腾讯教育 配色预览</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --font: Inter, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      --mono: "JetBrains Mono", Consolas, monospace;
+
+      /*
+        Campus Blue × Canvas / 腾讯教育
+        - Blue = 操作（按钮、链接、选中、图表主色）
+        - Green = 状态（进行中、成功、正向指标）
+        - Navy = 文字/品牌稳重
+        - Canvas Red = 仅 Logo 点缀，不作大面积主色
+      */
+      --primary: #1677FF;          /* 教务蓝 · Ant/国内中后台同源 */
+      --primary-hover: #0958D9;
+      --primary-active: #003EB3;
+      --primary-soft: #E6F4FF;
+      --primary-mid: #91CAFF;
+
+      --navy: #0B3A5C;             /* Canvas 机构海军蓝感 */
+      --navy-soft: #E8F1F7;
+      --ink: #1F2937;
+      --text: #1F2937;
+      --muted: #6B7280;
+      --ghost: #9CA3AF;
+
+      --status: #00B96B;           /* 腾讯教育：绿=状态 */
+      --status-deep: #009A57;
+      --status-soft: #E6F7EF;
+      --status-mid: #7AD9A8;
+
+      --canvas-red: #E03C31;       /* Canvas 品牌红 · 仅点缀 */
+      --canvas-red-soft: #FDECEC;
+
+      --warning: #FAAD14;
+      --warning-soft: #FFF7E6;
+      --danger: #FF4D4F;
+      --danger-soft: #FFF1F0;
+      --purple: #722ED1;            /* AI 专属，面积小 */
+      --purple-soft: #F9F0FF;
+
+      --bg: #F5F7FA;
+      --card: #FFFFFF;
+      --border: #E5E7EB;
+      --nav-active: #E6F4FF;
+
+      --shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 24px rgba(15, 23, 42, 0.05);
+      --radius: 14px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: var(--font);
+      background: #e8eef5;
+      color: var(--text);
+      min-height: 100vh;
+      padding: 28px 18px 48px;
+    }
+    .page { max-width: 1280px; margin: 0 auto; }
+
+    .intro {
+      display: flex;
+      justify-content: space-between;
+      gap: 14px;
+      flex-wrap: wrap;
+      align-items: flex-end;
+      margin-bottom: 16px;
+    }
+    .intro h1 {
+      font-size: 20px;
+      font-weight: 800;
+      color: var(--navy);
+      letter-spacing: -0.02em;
+    }
+    .intro p {
+      margin-top: 6px;
+      font-size: 13px;
+      color: #334155;
+      max-width: 680px;
+      line-height: 1.65;
+    }
+    .intro code {
+      font-family: var(--mono);
+      font-size: 11px;
+      background: rgba(255,255,255,.8);
+      border: 1px solid #bfdbfe;
+      color: #1d4ed8;
+      border-radius: 10px;
+      padding: 8px 10px;
+    }
+
+    .rules {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    .rule {
+      background: rgba(255,255,255,.85);
+      border: 1px solid #dbe5f0;
+      border-radius: 12px;
+      padding: 12px 14px;
+    }
+    .rule b {
+      display: block;
+      font-size: 12px;
+      margin-bottom: 4px;
+      color: var(--ink);
+    }
+    .rule span {
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .stage {
+      background: var(--bg);
+      border-radius: 24px;
+      overflow: hidden;
+      box-shadow: 0 24px 60px rgba(11, 58, 92, 0.14);
+      border: 1px solid rgba(255,255,255,.85);
+      padding: 16px 22px 26px;
+    }
+
+    .topnav {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 16px;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 18px;
+      font-weight: 800;
+      color: var(--navy);
+    }
+    .brand i {
+      width: 30px;
+      height: 30px;
+      border-radius: 8px;
+      background: var(--primary);
+      color: #fff;
+      display: grid;
+      place-items: center;
+      font-size: 11px;
+      font-weight: 800;
+      position: relative;
+      box-shadow: 0 6px 14px rgba(22, 119, 255, 0.28);
+    }
+    .brand i::after {
+      content: "";
+      position: absolute;
+      right: -2px;
+      top: -2px;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--canvas-red);
+      border: 2px solid #fff;
+    }
+    .pill {
+      display: flex;
+      gap: 2px;
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 4px;
+      box-shadow: var(--shadow);
+    }
+    .pill span {
+      padding: 9px 13px;
+      border-radius: 999px;
+      font-size: 13px;
+      color: var(--muted);
+      font-weight: 500;
+      white-space: nowrap;
+    }
+    .pill span.on {
+      background: var(--nav-active);
+      color: var(--primary);
+      font-weight: 700;
+    }
+    .actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      align-items: center;
+    }
+    .round {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      border: 1px solid var(--border);
+      background: #fff;
+      display: grid;
+      place-items: center;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #91CAFF, #E6F7EF);
+      display: grid;
+      place-items: center;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--navy);
+    }
+
+    .hero {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 14px;
+      margin: 6px 0 20px;
+    }
+    .hero h2 {
+      font-size: 30px;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      color: var(--ink);
+    }
+    .hero p {
+      margin-top: 6px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+    .hero-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .btn-primary {
+      border: none;
+      background: var(--primary);
+      color: #fff;
+      border-radius: 10px;
+      padding: 11px 16px;
+      font-size: 13px;
+      font-weight: 700;
+      box-shadow: 0 8px 18px rgba(22, 119, 255, 0.25);
+      cursor: pointer;
+    }
+    .btn-primary:hover { background: var(--primary-hover); }
+    .btn-ghost {
+      border: 1px solid var(--border);
+      background: #fff;
+      color: var(--text);
+      border-radius: 10px;
+      padding: 11px 14px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .label {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--ghost);
+      margin-bottom: 10px;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 16px;
+    }
+    .stat-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 12px;
+    }
+    .ic {
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      display: grid;
+      place-items: center;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .ic.blue { background: var(--primary-soft); color: var(--primary); }
+    .ic.green { background: var(--status-soft); color: var(--status-deep); }
+    .ic.navy { background: var(--navy-soft); color: var(--navy); }
+    .ic.warn { background: var(--warning-soft); color: #D48806; }
+    .ic.ai { background: var(--purple-soft); color: var(--purple); }
+    .ic.red { background: var(--canvas-red-soft); color: var(--canvas-red); }
+
+    .growth {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--status-deep);
+      background: var(--status-soft);
+      border-radius: 999px;
+      padding: 3px 8px;
+    }
+    .stat-k { font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+    .stat-v {
+      font-size: 28px;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      font-family: var(--mono);
+      color: var(--ink);
+    }
+
+    .mid {
+      display: grid;
+      grid-template-columns: 1.6fr 1fr;
+      gap: 14px;
+      margin-bottom: 14px;
+    }
+    .panel-h {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .panel-h h3 {
+      font-size: 16px;
+      font-weight: 750;
+      color: var(--ink);
+    }
+    .chip {
+      font-size: 11px;
+      color: var(--muted);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 5px 10px;
+      background: #fff;
+    }
+    .legend {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+      margin-right: 6px;
+      vertical-align: middle;
+    }
+
+    .chart {
+      height: 210px;
+      position: relative;
+      border-radius: 10px;
+      background:
+        linear-gradient(180deg, transparent 95%, var(--border) 95%),
+        repeating-linear-gradient(to right, transparent, transparent 12.4%, rgba(229,231,235,.8) 12.4%, rgba(229,231,235,.8) 12.5%);
+    }
+    .chart svg { width: 100%; height: 100%; display: block; }
+    .tip {
+      position: absolute;
+      left: 62%;
+      top: 26%;
+      transform: translateX(-50%);
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 8px 10px;
+      box-shadow: var(--shadow);
+      font-size: 11px;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+    .tip b { color: var(--ink); }
+
+    .list-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 0;
+      border-bottom: 1px solid #f1f5f9;
+    }
+    .list-row:last-child { border-bottom: none; }
+    .bar {
+      flex: 1;
+      height: 7px;
+      border-radius: 999px;
+      background: #F0F5FF;
+      overflow: hidden;
+    }
+    .bar i {
+      display: block;
+      height: 100%;
+      background: var(--primary);
+      border-radius: inherit;
+    }
+    .meta { flex: 1; min-width: 0; }
+    .meta .t { font-size: 13px; font-weight: 650; color: var(--ink); margin-bottom: 6px; }
+    .pct {
+      width: 40px;
+      text-align: right;
+      font-family: var(--mono);
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--primary);
+    }
+
+    .bottom {
+      display: grid;
+      grid-template-columns: 1.15fr 1fr 1fr;
+      gap: 14px;
+    }
+    .pill-tag {
+      margin-left: auto;
+      font-size: 11px;
+      font-weight: 700;
+      border-radius: 999px;
+      padding: 4px 8px;
+    }
+    .pill-tag.blue { background: var(--primary-soft); color: var(--primary); }
+    .pill-tag.green { background: var(--status-soft); color: var(--status-deep); }
+    .pill-tag.red { background: var(--danger-soft); color: var(--danger); }
+    .pill-tag.ai { background: var(--purple-soft); color: var(--purple); }
+
+    .split {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 4px;
+    }
+    .mini {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+      background: #Fafbfc;
+    }
+    .mini .k { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+    .mini .v {
+      font-family: var(--mono);
+      font-size: 20px;
+      font-weight: 800;
+      color: var(--ink);
+    }
+
+    .principle {
+      margin-top: 14px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    .principle .box {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 14px;
+      box-shadow: var(--shadow);
+    }
+    .principle h4 {
+      font-size: 13px;
+      margin-bottom: 8px;
+      color: var(--navy);
+    }
+    .principle ul {
+      margin-left: 16px;
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.7;
+    }
+
+    .tokens {
+      margin-top: 16px;
+      background: rgba(255,255,255,.88);
+      border: 1px solid #dbe5f0;
+      border-radius: 18px;
+      padding: 16px;
+    }
+    .tokens h3 {
+      font-size: 14px;
+      font-weight: 800;
+      color: var(--navy);
+      margin-bottom: 12px;
+    }
+    .swatches {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+      gap: 10px;
+    }
+    .swatch {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    .swatch .tone { height: 46px; }
+    .swatch .info { padding: 9px 11px; }
+    .swatch .info b { display: block; font-size: 12px; margin-bottom: 2px; }
+    .swatch .info span { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+
+    .note {
+      margin-top: 12px;
+      font-size: 12px;
+      color: #334155;
+      line-height: 1.7;
+      border: 1px dashed #93c5fd;
+      border-radius: 12px;
+      padding: 11px 13px;
+      background: #f0f7ff;
+    }
+
+    @media (max-width: 980px) {
+      .rules, .stats, .mid, .bottom, .principle { grid-template-columns: 1fr; }
+      .topnav { grid-template-columns: 1fr auto; }
+      .pill { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="intro">
+      <div>
+        <h1>Campus Blue × Canvas / 腾讯教育</h1>
+        <p>
+          经典教务蓝作主操作色；海军蓝稳文字与品牌；绿色只表达状态（进行中/成功）；
+          Canvas 红仅作 Logo 点缀。整体贴近高校采购常见的教务/LMS 审美。
+        </p>
+      </div>
+      <code>Primary #1677FF · Status #00B96B · Navy #0B3A5C</code>
+    </div>
+
+    <div class="rules">
+      <div class="rule"><b>蓝 = 操作</b><span>主按钮、链接、导航选中、进度条、图表主线</span></div>
+      <div class="rule"><b>绿 = 状态</b><span>进行中、已通过、正向增长率、完成态</span></div>
+      <div class="rule"><b>海军蓝 = 稳重</b><span>标题/Logo 文字，偏 Canvas 机构感</span></div>
+      <div class="rule"><b>红 = 点缀</b><span>Canvas 红只用于品牌角标，不作大面积主色</span></div>
+    </div>
+
+    <div class="stage">
+      <header class="topnav">
+        <div class="brand"><i>B1</i> B1 Platform</div>
+        <nav class="pill">
+          <span class="on">仪表盘</span>
+          <span>课程管理</span>
+          <span>实训任务</span>
+          <span>审核工作台</span>
+          <span>班级报告</span>
+        </nav>
+        <div class="actions">
+          <div class="round">⚙</div>
+          <div class="round">🔔</div>
+          <div class="avatar">张</div>
+        </div>
+      </header>
+
+      <div class="hero">
+        <div>
+          <h2>欢迎回来，张教授</h2>
+          <p>Campus Blue 预览 · 蓝操绿态 · 适合高校实训后台产品化</p>
+        </div>
+        <div class="hero-actions">
+          <button class="btn-ghost" type="button">导出报表</button>
+          <button class="btn-primary" type="button">+ 新建实训任务</button>
+        </div>
+      </div>
+
+      <div class="stats">
+        <div class="card">
+          <div class="stat-top">
+            <div class="ic blue">学</div>
+            <span class="growth">↑ 12%</span>
+          </div>
+          <div class="stat-k">在教学生</div>
+          <div class="stat-v">1,248</div>
+        </div>
+        <div class="card">
+          <div class="stat-top">
+            <div class="ic navy">课</div>
+            <span class="growth">↑ 8%</span>
+          </div>
+          <div class="stat-k">进行中课程</div>
+          <div class="stat-v">24</div>
+        </div>
+        <div class="card">
+          <div class="stat-top">
+            <div class="ic green">交</div>
+            <span class="growth">↑ 15%</span>
+          </div>
+          <div class="stat-k">本周已提交</div>
+          <div class="stat-v">386</div>
+        </div>
+        <div class="card">
+          <div class="stat-top">
+            <div class="ic warn">审</div>
+            <span class="pill-tag red" style="margin:0">待处理</span>
+          </div>
+          <div class="stat-k">待教师复核</div>
+          <div class="stat-v">18</div>
+        </div>
+      </div>
+
+      <div class="mid">
+        <div class="card">
+          <div class="panel-h">
+            <h3>提交趋势</h3>
+            <div class="legend">
+              <span><i class="dot" style="background:var(--primary)"></i>提交量（操作/数据）</span>
+              <span><i class="dot" style="background:var(--status)"></i>完成率（状态）</span>
+            </div>
+          </div>
+          <div class="chart">
+            <svg viewBox="0 0 640 210" preserveAspectRatio="none">
+              <defs>
+                <linearGradient id="area" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stop-color="#1677FF" stop-opacity="0.22"/>
+                  <stop offset="100%" stop-color="#1677FF" stop-opacity="0.02"/>
+                </linearGradient>
+              </defs>
+              <path d="M20 150 C 90 140, 130 95, 190 115 S 290 165, 350 120 S 470 55, 530 80 S 600 130, 620 110 L 620 210 L 20 210 Z" fill="url(#area)"/>
+              <path d="M20 150 C 90 140, 130 95, 190 115 S 290 165, 350 120 S 470 55, 530 80 S 600 130, 620 110" fill="none" stroke="#1677FF" stroke-width="3.2" stroke-linecap="round"/>
+              <path d="M20 170 C 100 165, 160 150, 220 155 S 330 140, 400 130 S 520 120, 620 105" fill="none" stroke="#00B96B" stroke-width="2.4" stroke-linecap="round" stroke-dasharray="5 4"/>
+              <circle cx="470" cy="62" r="5" fill="#fff" stroke="#1677FF" stroke-width="3"/>
+            </svg>
+            <div class="tip"><b>128 提交</b> · 完成率 86%</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="panel-h">
+            <h3>班级提交进度</h3>
+            <span class="chip">本学期</span>
+          </div>
+          <div class="list-row">
+            <div class="meta">
+              <div class="t">软件 2401 · Java Web</div>
+              <div class="bar"><i style="width:86%"></i></div>
+            </div>
+            <div class="pct">86%</div>
+          </div>
+          <div class="list-row">
+            <div class="meta">
+              <div class="t">软件 2402 · 前端框架</div>
+              <div class="bar"><i style="width:72%"></i></div>
+            </div>
+            <div class="pct">72%</div>
+          </div>
+          <div class="list-row">
+            <div class="meta">
+              <div class="t">计科 2401 · 数据库</div>
+              <div class="bar"><i style="width:64%"></i></div>
+            </div>
+            <div class="pct">64%</div>
+          </div>
+          <div class="list-row">
+            <div class="meta">
+              <div class="t">软工实践 · 综合实训</div>
+              <div class="bar"><i style="width:91%"></i></div>
+            </div>
+            <div class="pct">91%</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="bottom">
+        <div class="card">
+          <div class="panel-h"><h3>最近提交</h3><span class="chip">今日</span></div>
+          <div class="list-row">
+            <div class="avatar">李</div>
+            <div class="meta">
+              <div class="t">李明 · Web 实训</div>
+              <div style="font-size:11px;color:var(--ghost)">10 分钟前</div>
+            </div>
+            <span class="pill-tag blue">去复核</span>
+          </div>
+          <div class="list-row">
+            <div class="avatar">王</div>
+            <div class="meta">
+              <div class="t">王芳 · 数据库</div>
+              <div style="font-size:11px;color:var(--ghost)">32 分钟前</div>
+            </div>
+            <span class="pill-tag ai">AI 低置信</span>
+          </div>
+          <div class="list-row">
+            <div class="avatar">陈</div>
+            <div class="meta">
+              <div class="t">陈浩 · 软工实践</div>
+              <div style="font-size:11px;color:var(--ghost)">1 小时前</div>
+            </div>
+            <span class="pill-tag green">已通过</span>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="panel-h"><h3>状态一览</h3><span class="chip">绿=状态</span></div>
+          <div class="split">
+            <div class="mini">
+              <div class="k">进行中</div>
+              <div class="v" style="color:var(--status-deep)">12</div>
+            </div>
+            <div class="mini">
+              <div class="k">已通过</div>
+              <div class="v" style="color:var(--status-deep)">98</div>
+            </div>
+            <div class="mini">
+              <div class="k">待操作复核</div>
+              <div class="v" style="color:var(--primary)">18</div>
+            </div>
+            <div class="mini">
+              <div class="k">AI 建议中</div>
+              <div class="v" style="color:var(--purple)">7</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="panel-h"><h3>临近截止</h3><span class="chip">7 天</span></div>
+          <div class="list-row">
+            <div class="meta">
+              <div class="t">阶段报告提交</div>
+              <div style="font-size:11px;color:var(--ghost)">软件工程实践</div>
+            </div>
+            <span class="pill-tag red">剩 1 天</span>
+          </div>
+          <div class="list-row">
+            <div class="meta">
+              <div class="t">代码终稿</div>
+              <div style="font-size:11px;color:var(--ghost)">Java Web</div>
+            </div>
+            <span class="pill-tag blue">剩 3 天</span>
+          </div>
+          <div class="list-row">
+            <div class="meta">
+              <div class="t">文档完善</div>
+              <div style="font-size:11px;color:var(--ghost)">数据库课设</div>
+            </div>
+            <span class="pill-tag green">进行中</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="principle">
+      <div class="box">
+        <h4>来自腾讯教育的用法</h4>
+        <ul>
+          <li>蓝色承担“可点击/可操作”</li>
+          <li>绿色承担“当前状态/结果态”</li>
+          <li>删除/危险仍用红，不与品牌红混用</li>
+        </ul>
+      </div>
+      <div class="box">
+        <h4>来自 Canvas 的用法</h4>
+        <ul>
+          <li>整体克制、浅底白卡、机构感海军蓝</li>
+          <li>品牌红只做识别点缀（Logo 角标）</li>
+          <li>大面积不用高饱和装饰色</li>
+        </ul>
+      </div>
+    </div>
+
+    <section class="tokens">
+      <h3>建议落地 Token</h3>
+      <div class="swatches">
+        <div class="swatch"><div class="tone" style="background:#1677FF"></div><div class="info"><b>Primary · 操作蓝</b><span>#1677FF</span></div></div>
+        <div class="swatch"><div class="tone" style="background:#0958D9"></div><div class="info"><b>Primary Hover</b><span>#0958D9</span></div></div>
+        <div class="swatch"><div class="tone" style="background:#E6F4FF"></div><div class="info"><b>Primary Soft</b><span>#E6F4FF</span></div></div>
+        <div class="swatch"><div class="tone" style="background:#00B96B"></div><div class="info"><b>Status · 状态绿</b><span>#00B96B</span></div></div>
+        <div class="swatch"><div class="tone" style="background:#E6F7EF"></div><div class="info"><b>Status Soft</b><span>#E6F7EF</span></div></div>
+        <div class="swatch"><div class="tone" style="background:#0B3A5C"></div><div class="info"><b>Navy · 机构蓝</b><span>#0B3A5C</span></div></div>
+        <div class="swatch"><div class="tone" style="background:#E03C31"></div><div class="info"><b>Canvas Red 点缀</b><span>#E03C31</span></div></div>
+        <div class="swatch"><div class="tone" style="background:#F5F7FA"></div><div class="info"><b>Page BG</b><span>#F5F7FA</span></div></div>
+        <div class="swatch"><div class="tone" style="background:#FFFFFF;border-bottom:1px solid #E5E7EB"></div><div class="info"><b>Card</b><span>#FFFFFF</span></div></div>
+        <div class="swatch"><div class="tone" style="background:#1F2937"></div><div class="info"><b>Ink Text</b><span>#1F2937</span></div></div>
+        <div class="swatch"><div class="tone" style="background:#FAAD14"></div><div class="info"><b>Warning</b><span>#FAAD14</span></div></div>
+        <div class="swatch"><div class="tone" style="background:#FF4D4F"></div><div class="info"><b>Danger</b><span>#FF4D4F</span></div></div>
+        <div class="swatch"><div class="tone" style="background:#722ED1"></div><div class="info"><b>AI Accent</b><span>#722ED1</span></div></div>
+      </div>
+      <div class="note">
+        <b>已写入正式文档（v1.1）</b>：本方案已收录至
+        <code>docs/03-UI-Design-System.md</code>§3、
+        <code>docs/02-产品需求说明书.md</code>§5.1、
+        <code>CLAUDE.md</code> UI 规范。
+        下一步可将 token 同步到前端 <code>src/styles/design-tokens.css</code>。
+      </div>
+    </section>
+  </div>
+</body>
+</html>

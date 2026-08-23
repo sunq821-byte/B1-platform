@@ -117,17 +117,20 @@ onMounted(load)
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 34px;
-  height: 34px;
-  border: none;
-  border-radius: var(--radius-sm, 6px);
-  background: transparent;
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--color-border, #e8edf3);
+  border-radius: 50%;
+  background: #fff;
   color: var(--color-text-secondary, #64748b);
   cursor: pointer;
-  transition: background var(--transition-fast, 150ms ease);
+  box-shadow: var(--shadow-sm);
+  transition: all var(--transition-fast, 150ms ease);
 }
 .notif-bell:hover {
-  background: var(--color-bg, #f8fafc);
+  color: var(--color-text-primary);
+  box-shadow: var(--shadow-md);
+  background: #fff;
 }
 .notif-badge {
   position: absolute;
@@ -138,7 +141,7 @@ onMounted(load)
   padding: 0 4px;
   box-sizing: border-box;
   border-radius: 100px;
-  background: var(--color-danger, #ef4444);
+  background: var(--color-danger, #FF4D4F);
   color: #fff;
   font-size: 10px;
   font-weight: 600;
@@ -168,7 +171,7 @@ onMounted(load)
 .notif-popover .notif-panel__mark {
   border: none;
   background: transparent;
-  color: var(--color-primary, #3b82f6);
+  color: var(--color-primary, #1677FF);
   font-size: 12px;
   cursor: pointer;
   padding: 0;
@@ -201,7 +204,7 @@ onMounted(load)
   background: transparent;
 }
 .notif-popover .notif-item--unread .notif-item__dot {
-  background: var(--color-danger, #ef4444);
+  background: var(--color-danger, #FF4D4F);
 }
 .notif-popover .notif-item__body {
   flex: 1;

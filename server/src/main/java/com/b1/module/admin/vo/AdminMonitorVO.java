@@ -27,5 +27,7 @@ public class AdminMonitorVO {
         private String name;
         private String status;
         private String color;
+        private String detail;
+        private Integer latencyMs;
     }
 }
