@@ -15,6 +15,8 @@ import com.b1.module.course.entity.CourseTeacher;
 import com.b1.module.course.mapper.CourseMapper;
 import com.b1.module.course.mapper.CourseStudentMapper;
 import com.b1.module.course.mapper.CourseTeacherMapper;
+import com.b1.module.score.entity.ScoreRecord;
+import com.b1.module.score.mapper.ScoreRecordMapper;
 import com.b1.module.standard.entity.StandardDimension;
 import com.b1.module.standard.mapper.StandardDimensionMapper;
 import com.b1.module.submission.entity.Submission;
@@ -30,8 +32,10 @@ import org.springframework.util.StringUtils;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -44,6 +48,7 @@ public class TaskServiceImpl implements TaskService {
     private final CourseTeacherMapper courseTeacherMapper;
     private final UserMapper userMapper;
     private final SubmissionMapper submissionMapper;
+    private final ScoreRecordMapper scoreRecordMapper;
     private final StandardDimensionMapper standardDimensionMapper;
 
     @Override
@@ -77,6 +82,10 @@ public class TaskServiceImpl implements TaskService {
         Map<Long, String> courseNameMap = buildCourseNameMap(courseIds);
         Map<Long, String> teacherNameMap = buildTeacherNameMap(courseIds);
 
+        List<Long> taskIds = tasks.stream().map(TrainingTask::getId).toList();
+        Map<Long, Submission> latestSubmissionByTask = loadLatestSubmissions(userId, taskIds);
+        Map<Long, ScoreRecord> scoreBySubmission = loadPublishedScores(latestSubmissionByTask.values());
+
         List<TaskVO> vos = new ArrayList<>();
         for (TrainingTask task : tasks) {
             String mySubmissionStatus = getMySubmissionStatus(userId, task.getId());
@@ -97,6 +106,17 @@ public class TaskServiceImpl implements TaskService {
             vo.setMySubmissionStatus(mySubmissionStatus);
             vo.setCreatedAt(task.getPublishTime());
 
+            Submission mySubmission = latestSubmissionByTask.get(task.getId());
+            if (mySubmission != null) {
+                vo.setMySubmissionId(mySubmission.getId());
+                if ("PUBLISHED".equals(mySubmission.getStatus())) {
+                    ScoreRecord score = scoreBySubmission.get(mySubmission.getId());
+                    if (score != null) {
+                        vo.setMyScore(score.getTotalScore());
+                    }
+                }
+            }
+
             vos.add(vo);
         }
 
@@ -107,20 +127,19 @@ public class TaskServiceImpl implements TaskService {
     public TaskDetailVO getTaskDetail(Long taskId) {
         Long userId = StpUtil.getLoginIdAsLong();
 
-        TrainingTask task = trainingTaskMapper.selectById(taskId);
-        if (task == null) {
-            throw new BusinessException(ErrorCode.NOT_FOUND, "任务不存在");
-        }
+        TrainingTask task = requireVisibleTask(taskId, userId);
 
         TaskDetailVO vo = new TaskDetailVO();
         vo.setTaskId(task.getId());
         vo.setTaskName(task.getTaskName());
         vo.setDescription(task.getDescription());
+        vo.setRequirements(task.getRequirement());
         vo.setDeadline(task.getEndTime());
         vo.setTotalScore(task.getMaxScore());
         vo.setSubmissionType(task.getSubmissionType());
-        vo.setSubmitLimit(task.getMaxSubmitCount());
-        vo.setMaxSubmitCount(task.getMaxSubmitCount());
+        vo.setSubmitLimit(task.getMaxAiAnalyzeCount());
+        vo.setMaxSubmitCount(task.getMaxAiAnalyzeCount());
+        vo.setMaxAiAnalyzeCount(task.getMaxAiAnalyzeCount());
         vo.setCreatedAt(task.getPublishTime());
         vo.setUpdatedAt(task.getUpdateTime());
 
@@ -164,12 +183,27 @@ public class TaskServiceImpl implements TaskService {
         String mySubmissionStatus = getMySubmissionStatus(userId, taskId);
         vo.setMySubmissionStatus(mySubmissionStatus);
 
-        Long submitCount = submissionMapper.selectCount(
+        Submission mySubmission = submissionMapper.selectOne(
                 new LambdaQueryWrapper<Submission>()
                         .eq(Submission::getUserId, userId)
                         .eq(Submission::getTrainingTaskId, taskId)
                         .eq(Submission::getDeleted, 0));
-        vo.setMySubmitCount(submitCount.intValue());
+        if (mySubmission != null) {
+            vo.setMySubmissionId(mySubmission.getId());
+            vo.setMySubmitCount(mySubmission.getAiAnalyzeUsedCount() != null
+                    ? mySubmission.getAiAnalyzeUsedCount() : 0);
+            if ("PUBLISHED".equals(mySubmission.getStatus())) {
+                ScoreRecord score = scoreRecordMapper.selectOne(
+                        new LambdaQueryWrapper<ScoreRecord>()
+                                .eq(ScoreRecord::getSubmissionId, mySubmission.getId())
+                                .last("LIMIT 1"));
+                if (score != null) {
+                    vo.setMyScore(score.getTotalScore());
+                }
+            }
+        } else {
+            vo.setMySubmitCount(0);
+        }
 
         return vo;
     }
@@ -186,6 +220,58 @@ public class TaskServiceImpl implements TaskService {
             return "NOT_SUBMITTED";
         }
         return submissions.get(0).getStatus();
+    }
+
+    private TrainingTask requireVisibleTask(Long taskId, Long userId) {
+        TrainingTask task = trainingTaskMapper.selectOne(
+                new LambdaQueryWrapper<TrainingTask>()
+                        .eq(TrainingTask::getId, taskId)
+                        .eq(TrainingTask::getDeleted, 0)
+                        .eq(TrainingTask::getStatus, "PUBLISHED"));
+        if (task == null) {
+            throw new BusinessException(ErrorCode.NOT_FOUND, "任务不存在或已下架");
+        }
+
+        Long enrolled = courseStudentMapper.selectCount(
+                new LambdaQueryWrapper<CourseStudent>()
+                        .eq(CourseStudent::getUserId, userId)
+                        .eq(CourseStudent::getCourseId, task.getCourseId()));
+        if (enrolled == 0) {
+            throw new BusinessException(ErrorCode.NOT_FOUND, "任务不存在或已下架");
+        }
+        return task;
+    }
+
+    private Map<Long, Submission> loadLatestSubmissions(Long userId, List<Long> taskIds) {
+        if (taskIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        List<Submission> submissions = submissionMapper.selectList(
+                new LambdaQueryWrapper<Submission>()
+                        .eq(Submission::getUserId, userId)
+                        .in(Submission::getTrainingTaskId, taskIds)
+                        .eq(Submission::getDeleted, 0)
+                        .orderByDesc(Submission::getSubmitCount));
+        Map<Long, Submission> latestByTask = new HashMap<>();
+        for (Submission submission : submissions) {
+            latestByTask.putIfAbsent(submission.getTrainingTaskId(), submission);
+        }
+        return latestByTask;
+    }
+
+    private Map<Long, ScoreRecord> loadPublishedScores(java.util.Collection<Submission> submissions) {
+        Set<Long> publishedSubmissionIds = submissions.stream()
+                .filter(s -> "PUBLISHED".equals(s.getStatus()))
+                .map(Submission::getId)
+                .collect(Collectors.toSet());
+        if (publishedSubmissionIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        return scoreRecordMapper.selectList(
+                        new LambdaQueryWrapper<ScoreRecord>()
+                                .in(ScoreRecord::getSubmissionId, publishedSubmissionIds))
+                .stream()
+                .collect(Collectors.toMap(ScoreRecord::getSubmissionId, sr -> sr, (a, b) -> a));
     }
 
     private Map<Long, String> buildCourseNameMap(List<Long> courseIds) {

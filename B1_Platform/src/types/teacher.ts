@@ -30,7 +30,7 @@ export interface ITeacherTaskItem {
   deadline: string
   totalScore: number
   priority: "high" | "medium" | "low"
-  status: string           // "PUBLISHED" | "DRAFT"
+  status: string           // "PUBLISHED" | "ENDED"
   maxScore: number
   createdAt: string
   submissionType: string
@@ -38,6 +38,27 @@ export interface ITeacherTaskItem {
   reviewedCount: number
   maxSubmitCount?: number
   gradingRule?: string
+}
+
+export interface ITaskStudentProgress {
+  userId: string
+  realName: string
+  email: string
+  submissionId?: string
+  submitCount: number
+  aiAnalyzeUsedCount: number
+  maxAiAnalyzeCount: number
+  latestStatus: string
+  latestSubmitTime?: string
+  hasReview: boolean
+}
+
+export interface ITaskDetail {
+  taskId: string
+  taskName: string
+  courseName: string
+  maxAiAnalyzeCount?: number
+  students: ITaskStudentProgress[]
 }
 
 export interface ITaskFormData {
@@ -96,6 +117,7 @@ export interface IAttachment {
   fileName: string
   fileSize: number
   fileType: string
+  previewUrl?: string
   downloadUrl: string
 }
 
@@ -106,9 +128,11 @@ export interface IPendingSubmission {
   studentEmail: string
   taskId: string
   taskName: string
+  courseId: string
+  courseName: string
   submittedAt: string
   status: string
-  submissionType: "code" | "file"  // derived from submitType
+  submissionType: "code" | "file" | "git"  // derived from submitType
   submitType: string
   submitCount: number
   isLate: number
@@ -158,14 +182,17 @@ export interface IPublishRequest {
 export interface IClassReportStats {
   totalStudents: number
   totalReviewed: number
+  totalTasks: number
   classAverage: number
   passRate: number
+  taskCompletionRate: number
 }
 
 export interface IClassReportRow {
   studentId: string
   name: string
   className: string
+  courseName?: string
   completedCount: number
   avgScore: number
   maxScore: number
@@ -176,10 +203,26 @@ export interface IClassReport {
   stats: IClassReportStats
   histogram: { categories: string[]; values: number[] }
   courseAvgs: { categories: string[]; values: number[] }
+  taskCompletion?: {
+    categories: string[]
+    completedCount: number[]
+    totalStudents: number[]
+  }
+  dimensionAvgs?: { categories: string[]; values: number[] }
   rows: IClassReportRow[]
 }
 
 // ========== College Reports ==========
+
+export interface ICollegeClassDetail {
+  className: string
+  courseName: string
+  semester: string
+  studentCount: number
+  avgScore: number
+  passRate: number
+  maxScore: number
+}
 
 export interface ICollegeReport {
   crossClass: {
@@ -188,8 +231,9 @@ export interface ICollegeReport {
   }
   semesterTrend: {
     semesters: string[]
-    series: Array<{ name: string; data: number[] }>
+    series: Array<{ name: string; data: (number | null)[] }>
   }
+  classDetails?: ICollegeClassDetail[]
 }
 
 // ========== Dashboard ==========
@@ -242,4 +286,43 @@ export interface IDashboardData {
   aiConfidence: IAiConfidenceBreakdown
   semesterTaskCount: number
   knowledgeEntryCount: number
+}
+
+// ========== Knowledge Base ==========
+
+export interface IKnowledgeDocument {
+  id: string
+  courseId: string
+  courseName: string
+  fileStorageId: string
+  title: string
+  fileName: string
+  fileType?: string
+  downloadUrl?: string
+  previewUrl?: string
+  tag: string
+  tagLabel: string
+  tagColor: string
+  visibilityScope: "COURSE" | "CLASS"
+  visibilityLabels: string[]
+  visibilityClassIds?: string[]
+  fileSize: number
+  fileSizeDisplay: string
+  downloadCount: number
+  uploadedAt: string
+}
+
+export interface IKnowledgeVisibilityOption {
+  value: string
+  label: string
+  type: "scope" | "class"
+}
+
+export interface IKnowledgeDocumentForm {
+  courseId: string
+  title: string
+  tag: string
+  visibilityScope: "COURSE" | "CLASS"
+  visibilityClassIds: string[] | number[]
+  fileStorageId?: string
 }

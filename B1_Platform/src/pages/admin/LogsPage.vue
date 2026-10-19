@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from "vue"
+import { ref, computed, onMounted, inject } from "vue"
 import { useAdminStore } from "@/stores/useAdminStore"
 import PageHeader from "@/components/layout/PageHeader.vue"
 import LoadingState from "@/components/common/LoadingState.vue"
 import ErrorState from "@/components/common/ErrorState.vue"
 
 const store = useAdminStore()
+const embedded = inject("tabHubEmbedded", false)
 const filterType = ref("")
 const searchKeyword = ref("")
 const loadError = ref("")
@@ -48,7 +49,7 @@ onMounted(() => { loadLogs() })
 
 <template>
   <div>
-    <PageHeader title="操作日志" subtitle="系统关键操作审计 · 可按类型筛选" />
+    <PageHeader v-if="!embedded" title="操作日志" subtitle="系统关键操作审计 · 可按类型筛选" />
 
     <LoadingState v-if="store.logsLoading" text="加载日志..." />
     <ErrorState v-else-if="loadError" :message="loadError" @retry="loadLogs" />

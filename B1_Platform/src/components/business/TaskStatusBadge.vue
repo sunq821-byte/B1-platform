@@ -4,14 +4,21 @@ defineProps<{
 }>()
 
 const STATUS_MAP: Record<string, { bg: string; color: string; label: string }> = {
-  NOT_SUBMITTED: { bg: "#FEF3C7", color: "#92400E", label: "待提交" },
+  NOT_SUBMITTED: { bg: "#FEF3C7", color: "#92400E", label: "未开始" },
+  DRAFT: { bg: "#FEF3C7", color: "#92400E", label: "试交中" },
+  ANALYZING: { bg: "#EDE9FE", color: "#6D28D9", label: "AI 分析中" },
+  AI_READY: { bg: "#E6F4FF", color: "#1677FF", label: "待确认提交" },
+  CONFIRMED: { bg: "#DBEAFE", color: "#1E40AF", label: "已递交教师" },
+  REVIEWING: { bg: "#FFF7ED", color: "#9A3412", label: "教师复核中" },
+  PUBLISHED: { bg: "#E6F7EF", color: "#009A57", label: "已发布成绩" },
+  INCOMPLETE: { bg: "#FEE2E2", color: "#991B1B", label: "未完成" },
+  REJECTED: { bg: "#FEE2E2", color: "#991B1B", label: "已驳回" },
   SUBMITTED: { bg: "#DBEAFE", color: "#1E40AF", label: "已提交" },
-  AI_EVALUATING: { bg: "#EDE9FE", color: "#6D28D9", label: "AI分析中" },
-  AI_COMPLETED: { bg: "#E6F7EF", color: "#009A57", label: "待评分" },
-  TEACHER_SCORING: { bg: "#FFF7ED", color: "#9A3412", label: "评分中" },
+  AI_EVALUATING: { bg: "#EDE9FE", color: "#6D28D9", label: "AI 分析中" },
+  AI_COMPLETED: { bg: "#E6F4FF", color: "#1677FF", label: "待确认提交" },
+  TEACHER_SCORING: { bg: "#FFF7ED", color: "#9A3412", label: "教师复核中" },
   COMPLETED: { bg: "#E6F7EF", color: "#009A57", label: "已完成" },
-  REVIEWED: { bg: "#E6F7EF", color: "#009A57", label: "已完成" },
-  REJECTED: { bg: "#FEE2E2", color: "#991B1B", label: "已退回" },
+  REVIEWED: { bg: "#E6F7EF", color: "#009A57", label: "已发布成绩" },
 }
 
 function getConfig(status: string) {

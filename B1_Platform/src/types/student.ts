@@ -17,6 +17,7 @@ export interface IDashboardRecentTask {
   deadline: string
   /** NOT_SUBMITTED | AI_EVALUATING | AI_COMPLETED | TEACHER_SCORING | COMPLETED | REJECTED */
   status: string
+  submissionId: string | null
   score: number | null
 }
 
@@ -84,6 +85,7 @@ export interface ITaskItem {
   submissionType: string
   status: string
   mySubmissionStatus: string
+  mySubmissionId: string | null
   myScore: number | null
   createdAt: string
 }
@@ -120,15 +122,14 @@ export interface ITaskDetail {
   myScore: number | null
   mySubmitCount: number
   maxSubmitCount: number
+  maxAiAnalyzeCount?: number
   createdAt: string
   updatedAt: string
 }
 
 // ========== Submission ==========
 export interface ISubmitRequest {
-  submissionType: "GIT_URL" | "ZIP_UPLOAD" | "ONLINE_CODE"
-  gitUrl?: string
-  gitBranch?: string
+  submissionType: "ZIP_UPLOAD" | "ONLINE_CODE" | "FILE_CODE"
   zipFileId?: string
   onlineCode?: string
   remark?: string
@@ -136,12 +137,25 @@ export interface ISubmitRequest {
 
 export interface ISubmitResponse {
   submissionId: string
+  trialId?: string
   taskId: string
   submissionType: string
   status: string
+  trialNo?: number
   submitCount: number
+  aiAnalyzeUsedCount?: number
+  maxAiAnalyzeCount?: number
   maxSubmitCount: number
   submittedAt: string
+  confirmedAt?: string
+}
+
+export interface ISubmissionDraft {
+  submissionId?: string
+  submitType?: string
+  status?: string
+  remark?: string
+  onlineCode?: string
 }
 
 export interface IGitVerifyRequest {
@@ -194,9 +208,23 @@ export interface IAIDimensionScore {
   confidence?: number
 }
 
+export interface IAIIssue {
+  agentType?: string
+  issueType?: string
+  severity?: string
+  reason?: string
+  suggestion?: string
+  suggestDeduct?: number
+  confidence?: number
+  filePath?: string
+  lineNumber?: number
+  dimensionName?: string
+}
+
 export interface IAIScoreResult {
   overallScore: number
   dimensions: IAIDimensionScore[]
+  issues?: IAIIssue[]
   summary: string
   strengths: string[]
   weaknesses: string[]
@@ -243,6 +271,8 @@ export interface IEvaluationDetail {
   status: string
   finalScore: number | null
   rejectReason?: string
+  submitType?: string
+  attachmentFileName?: string
 }
 
 // ========== AI Result Detail ==========
@@ -264,12 +294,17 @@ export interface IAIResultDetail {
   aiScore: number
   totalDeductions: number
   totalDeductScore: number
+  /** 较满分低的分数（如 95 分则 scoreGap=5） */
+  scoreGap: number
   modelVersion: string
   analyzedAt: string
   codeSummary: string
   docSummary: string
   reqSummary: string
+  /** 实际扣分明细 */
   deductions: IAIDeductionItem[]
+  /** 不扣分的改进建议 */
+  improvementNotes: IAIDeductionItem[]
 }
 
 // ========== Student Report ==========
@@ -329,15 +364,32 @@ export interface ISubmissionHistoryItem {
   submittedAt: string
 }
 
+export interface IDimensionInsight {
+  strongest: string
+  weakest: string
+  summary: string
+}
+
+export interface IGrowthTimelineItem {
+  date: string
+  title: string
+  description: string
+  type: "submit" | "score" | "reject"
+  score?: number | null
+}
+
 export interface IGrowthData {
   totalTasks: number
   completedTasks: number
   totalSubmissions: number
+  completionRate?: number | null
   averageScore: number | null
   highestScore: number | null
   lowestScore: number | null
   courseScores: ICourseScore[]
   monthlyTrends: IMonthlyTrend[]
   dimensionRadar: IDimensionRadar[]
+  dimensionInsight?: IDimensionInsight | null
+  growthTimeline?: IGrowthTimelineItem[]
   submissionHistory: ISubmissionHistoryItem[]
 }

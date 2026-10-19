@@ -20,12 +20,10 @@ export function changePassword(data: {
   return request.put("/api/v1/user/password", data) as Promise<void>
 }
 
-export function uploadAvatar(
-  file: File,
-): Promise<{ avatar: string; fileId: string }> {
+export function uploadAvatar(file: File): Promise<string> {
   const formData = new FormData()
   formData.append("file", file)
   return request.post("/api/v1/user/avatar", formData, {
     headers: { "Content-Type": "multipart/form-data" },
-  }) as Promise<{ avatar: string; fileId: string }>
+  }) as Promise<string>
 }

@@ -53,6 +53,8 @@ public class SubmissionDetailVO {
         private String fileType;
 
         private String downloadUrl;
+
+        private String previewUrl;
     }
 
     @Data

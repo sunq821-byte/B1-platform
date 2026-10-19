@@ -1,5 +1,6 @@
-﻿import request from "./request"
+import request from "./request"
 import type { ILoginRequest, ILoginResponse, IRefreshTokenResponse, IUserInfo } from "@/types/user"
+import { normalizeUserInfo, type UserProfilePayload } from "@/utils/userInfo"
 
 /** 用户登录 */
 export function login(data: ILoginRequest): Promise<ILoginResponse> {
@@ -17,6 +18,7 @@ export function logout(): Promise<void> {
 }
 
 /** 获取当前用户信息 */
-export function fetchUserInfo(): Promise<IUserInfo> {
-  return request.get("/api/v1/auth/me")
+export async function fetchUserInfo(): Promise<IUserInfo> {
+  const data = (await request.get("/api/v1/user/profile")) as unknown as UserProfilePayload
+  return normalizeUserInfo(data)
 }

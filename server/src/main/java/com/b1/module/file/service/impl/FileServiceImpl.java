@@ -113,8 +113,44 @@ public class FileServiceImpl implements FileService {
 
     @Override
     public String getAccessUrl(Long fileId) {
-        FileStorage storage = getById(fileId);
+        getById(fileId);
         return "/api/v1/files/" + fileId + "/download";
+    }
+
+    @Override
+    public String getPreviewUrl(Long fileId) {
+        getById(fileId);
+        return "/api/v1/files/" + fileId + "/preview";
+    }
+
+    @Override
+    public String resolveContentType(Long fileId) {
+        FileStorage storage = getById(fileId);
+        if (storage.getContentType() != null && !storage.getContentType().isBlank()) {
+            return storage.getContentType();
+        }
+        return inferContentType(storage.getOriginalName());
+    }
+
+    private String inferContentType(String originalName) {
+        if (originalName == null || originalName.isBlank()) {
+            return "application/octet-stream";
+        }
+        String ext = FileUtil.extName(originalName).toLowerCase();
+        return switch (ext) {
+            case "pdf" -> "application/pdf";
+            case "md", "markdown" -> "text/markdown; charset=UTF-8";
+            case "txt" -> "text/plain; charset=UTF-8";
+            case "png" -> "image/png";
+            case "jpg", "jpeg" -> "image/jpeg";
+            case "gif" -> "image/gif";
+            case "webp" -> "image/webp";
+            case "svg" -> "image/svg+xml";
+            case "doc" -> "application/msword";
+            case "docx" -> "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+            case "zip" -> "application/zip";
+            default -> "application/octet-stream";
+        };
     }
 
     @Override

@@ -8,17 +8,19 @@ import type {
   ITaskDetail,
   ISubmitRequest,
   ISubmitResponse,
+  ISubmissionDraft,
   IGitVerifyRequest,
   IGitVerifyResponse,
   IAIResult,
   IAIDimensionScore,
+  IAIIssue,
   IAIResultDetail,
-  IAIDeductionItem,
   IEvaluationDetail,
   IStudentReportData,
   IGrowthData,
   INotificationItem,
 } from "@/types/student"
+import { buildAIDeductionView } from "@/utils/aiDeductions"
 
 export function fetchDashboard(): Promise<IDashboardData> {
   return request.get("/api/v1/student/dashboard") as Promise<IDashboardData>
@@ -61,11 +63,30 @@ export function fetchTaskDetail(taskId: string): Promise<ITaskDetail> {
   return request.get(`/api/v1/student/tasks/${taskId}`) as Promise<ITaskDetail>
 }
 
+export function fetchSubmissionDraft(taskId: string): Promise<ISubmissionDraft | null> {
+  return request.get(`/api/v1/student/tasks/${taskId}/draft`) as Promise<ISubmissionDraft | null>
+}
+
+export function trialSubmit(
+  taskId: string,
+  data: ISubmitRequest,
+): Promise<ISubmitResponse> {
+  return request.post(`/api/v1/student/tasks/${taskId}/trials`, data) as Promise<ISubmitResponse>
+}
+
+export function confirmSubmit(
+  taskId: string,
+  trialId?: string,
+): Promise<ISubmitResponse> {
+  return request.post(`/api/v1/student/tasks/${taskId}/confirm`, trialId ? { trialId } : {}) as Promise<ISubmitResponse>
+}
+
+/** @deprecated 使用 trialSubmit */
 export function submitTask(
   taskId: string,
   data: ISubmitRequest,
 ): Promise<ISubmitResponse> {
-  return request.post(`/api/v1/student/tasks/${taskId}/submissions`, data) as Promise<ISubmitResponse>
+  return trialSubmit(taskId, data)
 }
 
 export function verifyGit(
@@ -94,56 +115,51 @@ export function fetchEvaluation(submissionId: string): Promise<IEvaluationDetail
   return request.get(`/api/v1/student/submissions/${submissionId}/evaluation`) as Promise<IEvaluationDetail>
 }
 
-function severityFromDeduct(deduct: number): IAIDeductionItem["severity"] {
-  if (deduct >= 10) return "critical"
-  if (deduct >= 5) return "major"
-  return "minor"
-}
-
 function summaryByAgent(dimensions: IAIDimensionScore[], agent: string, fallback: string): string {
   const matched = dimensions.filter((d) => (d.agentType ?? "").toUpperCase() === agent)
   const text = matched.map((d) => d.comment).filter(Boolean).join(" ")
   return text || fallback
 }
 
-function toDeductions(dimensions: IAIDimensionScore[]): IAIDeductionItem[] {
-  return dimensions
-    .filter((d) => !!d.issueType)
-    .map((d) => {
-      const deduct = d.suggestDeduct ?? 0
-      return {
-        agentType: d.agentType ?? "CODE",
-        severity: severityFromDeduct(deduct),
-        issueType: d.issueType ?? "",
-        suggestDeduct: deduct,
-        reason: d.comment ?? "",
-        filePath: d.filePath ?? "",
-        lineNumber: d.lineNumber ?? 0,
-        confidence: d.confidence ?? 0,
-      }
-    })
+function summaryByAgentFromIssues(
+  issues: IAIIssue[],
+  agent: string,
+): string {
+  const matched = issues.filter((i) => (i.agentType ?? "").toUpperCase() === agent)
+  return matched
+    .map((i) => i.reason)
+    .filter(Boolean)
+    .join(" ")
 }
 
 export async function fetchAIResultDetail(submissionId: string): Promise<IAIResultDetail> {
   const raw = await fetchAIResult(submissionId)
   const result = raw.result
   const dimensions = result?.dimensions ?? []
-  const deductions = toDeductions(dimensions)
-  const totalDeductScore = deductions.reduce((sum, d) => sum + d.suggestDeduct, 0)
+  const issues = result?.issues ?? []
+  const deductionView = buildAIDeductionView(result)
   const fallback = result?.summary ?? ""
   return {
     submissionId,
     taskId: "",
     taskName: "",
     aiScore: result?.overallScore ?? 0,
-    totalDeductions: deductions.length,
-    totalDeductScore,
+    totalDeductions: deductionView.deductions.length,
+    totalDeductScore: deductionView.totalDeductScore,
+    scoreGap: deductionView.scoreGap,
     modelVersion: "",
     analyzedAt: raw.completedAt ?? raw.startedAt ?? "",
-    codeSummary: summaryByAgent(dimensions, "CODE", fallback),
-    docSummary: summaryByAgent(dimensions, "DOC", fallback),
-    reqSummary: summaryByAgent(dimensions, "REQ", fallback),
-    deductions,
+    codeSummary: issues.length
+      ? summaryByAgentFromIssues(issues, "CODE")
+      : summaryByAgent(dimensions, "CODE", fallback),
+    docSummary: issues.length
+      ? summaryByAgentFromIssues(issues, "DOC")
+      : summaryByAgent(dimensions, "DOC", fallback),
+    reqSummary: issues.length
+      ? summaryByAgentFromIssues(issues, "REQ")
+      : summaryByAgent(dimensions, "REQ", fallback),
+    deductions: deductionView.deductions,
+    improvementNotes: deductionView.improvementNotes,
   }
 }
 

@@ -1,7 +1,7 @@
-﻿import type { RouteRecordRaw } from "vue-router"
+import type { RouteRecordRaw } from "vue-router"
 
 const teacherRoutes: RouteRecordRaw[] = [
-  // 审核工作台 — 全宽布局，不使用 AppLayout 的 content wrapper
+  // ????? ? ???????? AppLayout ? content wrapper
   {
     path: "/teacher/submissions",
     component: () => import("@/layouts/ReviewLayout.vue"),
@@ -11,11 +11,11 @@ const teacherRoutes: RouteRecordRaw[] = [
         path: "",
         name: "TeacherSubmissions",
         component: () => import("@/pages/teacher/SubmissionsPage.vue"),
-        meta: { title: "审核工作台", icon: "FileText", sort: 5 },
+        meta: { title: "?????", icon: "FileText", sort: 4 },
       },
     ],
   },
-  // 其他教师页面 — 标准 AppLayout
+  // ?????? ? ?? AppLayout
   {
     path: "/teacher",
     component: () => import("@/layouts/AppLayout.vue"),
@@ -26,43 +26,47 @@ const teacherRoutes: RouteRecordRaw[] = [
         path: "dashboard",
         name: "TeacherDashboard",
         component: () => import("@/pages/teacher/DashboardPage.vue"),
-        meta: { title: "仪表盘", icon: "LayoutDashboard", sort: 1, keepAlive: true },
+        meta: { title: "???", icon: "LayoutDashboard", sort: 1 },
+      },
+      {
+        path: "teaching",
+        name: "TeacherTeaching",
+        component: () => import("@/pages/teacher/TeacherTeachingHubPage.vue"),
+        meta: { title: "?????", icon: "BookOpen", sort: 2 },
       },
       {
         path: "courses",
-        name: "TeacherCourseList",
-        component: () => import("@/pages/teacher/CourseListPage.vue"),
-        meta: { title: "课程管理", icon: "BookOpen", sort: 2 },
+        redirect: (to) => ({ path: "/teacher/teaching", query: { ...to.query, tab: "courses" } }),
       },
       {
         path: "tasks",
-        name: "TeacherTaskList",
-        component: () => import("@/pages/teacher/TrainingPage.vue"),
-        meta: { title: "实训任务", icon: "ClipboardList", sort: 3 },
+        redirect: (to) => ({ path: "/teacher/teaching", query: { ...to.query, tab: "tasks" } }),
       },
       {
         path: "students",
-        name: "TeacherStudents",
-        component: () => import("@/pages/teacher/StudentsPage.vue"),
-        meta: { title: "学生管理", icon: "Users", sort: 4 },
+        redirect: (to) => ({ path: "/teacher/teaching", query: { ...to.query, tab: "progress" } }),
+      },
+      {
+        path: "reports",
+        name: "TeacherReports",
+        component: () => import("@/pages/teacher/TeacherReportsHubPage.vue"),
+        meta: { title: "????", icon: "BarChart3", sort: 5 },
+      },
+      {
+        path: "reports-college",
+        redirect: (to) => ({ path: "/teacher/reports", query: { ...to.query, tab: "college" } }),
       },
       {
         path: "knowledge-base",
         name: "TeacherKnowledgeBase",
         component: () => import("@/pages/teacher/KnowledgeBasePage.vue"),
-        meta: { title: "知识库", icon: "BookMarked", sort: 8 },
+        meta: { title: "???", icon: "BookMarked", sort: 3 },
       },
       {
-        path: "reports",
-        name: "TeacherReports",
-        component: () => import("@/pages/teacher/ReportsPage.vue"),
-        meta: { title: "班级报告", icon: "BarChart3", sort: 6 },
-      },
-      {
-        path: "reports-college",
-        name: "TeacherReportsCollege",
-        component: () => import("@/pages/teacher/ReportsCollegePage.vue"),
-        meta: { title: "学院报告", icon: "TrendingUp", sort: 7 },
+        path: "profile",
+        name: "TeacherProfile",
+        component: () => import("@/pages/student/ProfilePage.vue"),
+        meta: { title: "????", hidden: true },
       },
     ],
   },

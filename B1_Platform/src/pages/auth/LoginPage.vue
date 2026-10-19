@@ -4,19 +4,23 @@ import { useRouter, useRoute } from "vue-router"
 import { useUserStore } from "@/stores/useUserStore"
 import { ElMessage } from "element-plus"
 import {
-  GraduationCap, Zap, ShieldCheck, TrendingUp,
-  UserCheck, BookOpenCheck, Settings,
-  ChevronLeft, Lock,
-  LogIn, School, QrCode,
-  Smartphone, MessageSquare, CheckCircle, Check,
+  User,
+  Key,
+  Eye,
+  EyeOff,
+  ChevronLeft,
+  Smartphone,
+  MessageSquare,
+  CheckCircle,
+  Check,
+  Lock,
 } from "lucide-vue-next"
-import type { UserRole } from "@/constants/role"
-import BaseInput from "@/components/base/BaseInput.vue"
-import BaseButton from "@/components/base/BaseButton.vue"
+import { useBreakpoint } from "@/composables/useBreakpoint"
 
 const router = useRouter()
 const route = useRoute()
 const userStore = useUserStore()
+const { isMdDown } = useBreakpoint()
 
 const REMEMBER_KEY = "b1_remember_login"
 
@@ -26,23 +30,7 @@ interface RememberData {
   checked: boolean
 }
 
-// ---- Step state ----
-const currentStep = ref(1)
-const selectedRole = ref<string | null>(null)
-
-const roleNames: Record<string, string> = {
-  student: "实训学生",
-  teacher: "授课教师",
-  admin: "系统管理员",
-}
-
-const roleColors: Record<string, string> = {
-  student: "role--student",
-  teacher: "role--teacher",
-  admin: "role--admin",
-}
-
-// ---- Form state ----
+const currentStep = ref(2)
 const formRef = ref()
 const loading = ref(false)
 const isOffline = ref(!window.navigator.onLine)
@@ -57,15 +45,14 @@ const form = reactive({
 
 const rules = {
   username: [
-    { required: true, message: "请输入用户名", trigger: "blur" },
-    { min: 3, message: "用户名至少3个字符", trigger: "blur" },
+    { required: true, message: "请输入工号或学号", trigger: "blur" },
+    { min: 3, message: "账号至少3个字符", trigger: "blur" },
   ],
   password: [
     { required: true, message: "请输入密码", trigger: "blur" },
   ],
 }
 
-// ---- Forgot password state ----
 const phoneInput = ref("")
 const smsInput = ref("")
 const newPwdInput = ref("")
@@ -78,12 +65,6 @@ const ERROR_MESSAGES: Record<number, string> = {
   2006: "账号已被禁用，请联系管理员",
 }
 
-// ---- Computed ----
-const stepLabel = computed(() => {
-  const labels: Record<number, string> = { 1: "选择角色", 2: "账号登录", 3: "找回密码" }
-  return labels[currentStep.value]
-})
-
 const passwordStrength = computed(() => {
   const pwd = newPwdInput.value
   let strength = 0
@@ -95,8 +76,8 @@ const passwordStrength = computed(() => {
 })
 
 const strengthColor = computed(() => {
-  const colors = ["#FF4D4F", "#f97316", "#FAAD14", "#22c55e"]
-  return passwordStrength.value > 0 ? colors[passwordStrength.value - 1] : "#e2e8f0"
+  const colors = ["#FFB4AB", "#FFD591", "#FFF1B8", "#B7EB8F"]
+  return passwordStrength.value > 0 ? colors[passwordStrength.value - 1] : "rgba(255,255,255,0.25)"
 })
 
 const strengthLabel = computed(() => {
@@ -104,20 +85,13 @@ const strengthLabel = computed(() => {
   return passwordStrength.value > 0 ? `密码强度：${labels[passwordStrength.value - 1]}` : "密码强度"
 })
 
-// ---- Role selection ----
-function selectRole(role: string) {
-  selectedRole.value = role
-}
+function handleOnline() { isOffline.value = false }
+function handleOffline() { isOffline.value = true }
 
 function goStep(step: number) {
   currentStep.value = step
 }
 
-// ---- Network ----
-function handleOnline() { isOffline.value = false }
-function handleOffline() { isOffline.value = true }
-
-// ---- Remember ----
 function loadRemembered() {
   try {
     const raw = localStorage.getItem(REMEMBER_KEY)
@@ -150,7 +124,6 @@ onUnmounted(() => {
   if (smsTimer) clearInterval(smsTimer)
 })
 
-// ---- Login ----
 function getErrorMessage(err: unknown): string {
   if (err instanceof Error) {
     const msg = err.message
@@ -174,11 +147,6 @@ async function handleLogin() {
       username: form.username,
       password: form.password,
     })
-
-    // Set active role from login page selection
-    if (selectedRole.value) {
-      userStore.setActiveRole(selectedRole.value as UserRole)
-    }
 
     saveRemember()
     loginSuccess.value = true
@@ -208,7 +176,6 @@ function saveRemember() {
   }
 }
 
-// ---- SMS ----
 function sendSms() {
   const phone = phoneInput.value.trim()
   if (!phone || phone.length !== 11) {
@@ -218,14 +185,13 @@ function sendSms() {
   smsCountdown.value = 60
   smsTimer = setInterval(() => {
     smsCountdown.value--
-    if (smsCountdown.value <= 0) {
-      if (smsTimer) clearInterval(smsTimer)
+    if (smsCountdown.value <= 0 && smsTimer) {
+      clearInterval(smsTimer)
     }
   }, 1000)
   ElMessage.success("验证码已发送")
 }
 
-// ---- Reset password ----
 function resetPassword() {
   const sms = smsInput.value.trim()
   const pwd = newPwdInput.value.trim()
@@ -239,219 +205,122 @@ function resetPassword() {
 </script>
 
 <template>
-  <div class="login-bg">
-    <!-- Decorative circles -->
-    <div class="deco-circle deco-circle--1" />
-    <div class="deco-circle deco-circle--2" />
-    <div class="deco-circle deco-circle--3" />
-    <div class="deco-circle deco-circle--4" />
-
-    <!-- Offline banner -->
+  <div class="login-page">
     <transition name="fade">
       <div v-if="isOffline" class="offline-banner">
         网络连接已断开，请检查网络
       </div>
     </transition>
 
-    <div class="login-wrapper">
-      <!-- ====== Left brand area ====== -->
-      <div class="brand-area">
-        <div class="brand-header">
-          <div class="brand-logo">
-            <GraduationCap :size="24" />
-          </div>
-          <div>
-            <div class="brand-name">软件实训教学平台</div>
-            <div class="brand-sub">Training Management System</div>
-          </div>
-        </div>
-        <h1 class="brand-title">
-          智能化实训<br>教学全流程管理
-        </h1>
-        <p class="brand-desc">
-          AI 辅助评价 · 进度实时监控 · 能力成长跟踪<br>
-          覆盖课程管理、成果评价与教学分析的完整闭环
-        </p>
-        <div class="brand-features">
-          <div class="brand-feature">
-            <div class="feature-icon"><Zap :size="14" /></div>
-            <span>AI 智能分析，批改效率提升 60%</span>
-          </div>
-          <div class="brand-feature">
-            <div class="feature-icon"><ShieldCheck :size="14" /></div>
-            <span>标准化评价体系，消除评分偏差</span>
-          </div>
-          <div class="brand-feature">
-            <div class="feature-icon"><TrendingUp :size="14" /></div>
-            <span>能力成长可视化，跨学期数据追踪</span>
-          </div>
-        </div>
-        <div class="brand-stats">
-          <div class="brand-stat">
-            <div class="brand-stat-val">200+</div>
-            <div class="brand-stat-label">合作院校</div>
-          </div>
-          <div class="brand-stat">
-            <div class="brand-stat-val">50万+</div>
-            <div class="brand-stat-label">在校学生</div>
-          </div>
-          <div class="brand-stat">
-            <div class="brand-stat-val">98%</div>
-            <div class="brand-stat-label">教师满意度</div>
-          </div>
-        </div>
-      </div>
+    <main class="login-page__main" :class="{ 'login-page__main--compact': isMdDown }">
+      <div class="login-shell" :class="{ 'login-shell--form-only': isMdDown }">
+        <section v-if="!isMdDown" class="login-shell__visual" aria-hidden="true">
+          <img
+            class="login-shell__image"
+            src="/login-left.jpg"
+            alt=""
+          >
+        </section>
 
-      <!-- ====== Right card ====== -->
-      <div class="login-card-wrap">
-        <div class="login-card">
-          <!-- Step indicator -->
-          <div class="step-dots">
-            <div
-              v-for="dot in [1, 2, 3]"
-              :key="dot"
-              class="step-dot"
-              :class="{ 'step-dot--active': dot <= currentStep }"
-            />
-            <span class="step-label">{{ stepLabel }}</span>
-          </div>
-
-          <!-- ====== Step 1: Select role ====== -->
-          <div v-show="currentStep === 1" class="step-panel">
-            <h2 class="step-title">欢迎回来</h2>
-            <p class="step-desc">请选择您的身份继续登录</p>
-
-            <div class="role-grid">
-              <div
-                v-for="role in ['student', 'teacher', 'admin']"
-                :key="role"
-                :class="['role-card', roleColors[role], { 'role-card--selected': selectedRole === role }]"
-                @click="selectRole(role)"
-              >
-                <div class="role-icon-wrap">
-                  <UserCheck v-if="role === 'student'" :size="24" />
-                  <BookOpenCheck v-else-if="role === 'teacher'" :size="24" />
-                  <Settings v-else :size="24" />
-                </div>
-                <div class="role-name">{{ roleNames[role] }}</div>
-                <div class="role-desc">
-                  {{ role === 'student' ? '查看任务·提交成果' : role === 'teacher' ? '管理实训·审核评分' : '用户管理·系统运维' }}
-                </div>
-              </div>
+        <section class="login-shell__form">
+          <div class="login-card">
+            <div class="login-card__brand">
+              <img class="login-card__logo" src="/logo.svg" alt="衡迹" />
             </div>
 
-            <BaseButton
-              type="primary"
-              size="large"
-              block
-              :disabled="!selectedRole"
-              @click="goStep(2)"
-            >
-              下一步
-            </BaseButton>
-
-            <div class="contact-hint">
-              首次使用？<span class="contact-link">联系管理员开通账号</span>
-            </div>
-          </div>
-
-          <!-- ====== Step 2: Credentials ====== -->
-          <div v-show="currentStep === 2" class="step-panel">
-            <div class="step-back">
-              <button class="back-btn" @click="goStep(1)">
-                <ChevronLeft :size="16" />
-              </button>
-              <h2 class="step-title">账号登录</h2>
-            </div>
-
-            <div v-if="selectedRole" class="role-hint">
-              <span :class="['role-badge', roleColors[selectedRole]]">
-                {{ roleNames[selectedRole] }}
-              </span>
-              <span>身份已选择</span>
-            </div>
+            <div v-show="currentStep === 2" class="step-panel">
+              <h2 class="login-card__title">登录</h2>
+              <p class="login-card__desc">
+                输入工号或学号，系统将自动进入学生、教师或管理员工作台。
+              </p>
 
             <el-form
               ref="formRef"
               :model="form"
               :rules="rules"
+              class="login-form"
+              label-position="top"
               @keyup.enter="handleLogin"
             >
-              <el-form-item prop="username">
-                <BaseInput
-                  v-model="form.username"
-                  placeholder="请输入工号或学号"
-                  prefix-icon="User"
-                  size="large"
-                  :disabled="loading"
-                />
+              <el-form-item label="工号或学号" prop="username" class="login-field">
+                <div class="login-field__wrap">
+                  <User :size="18" class="login-field__icon" />
+                  <input
+                    v-model="form.username"
+                    class="login-field__input"
+                    type="text"
+                    placeholder="请输入工号或学号"
+                    autocomplete="username"
+                    :disabled="loading"
+                  >
+                </div>
               </el-form-item>
 
-              <el-form-item prop="password">
-                <BaseInput
-                  v-model="form.password"
-                  placeholder="请输入登录密码"
-                  prefix-icon="Lock"
-                  :type="showPassword ? 'text' : 'password'"
-                  :show-password="true"
-                  size="large"
-                  :disabled="loading"
-                />
+              <el-form-item label="密码" prop="password" class="login-field">
+                <div class="login-field__wrap">
+                  <Key :size="18" class="login-field__icon" />
+                  <input
+                    v-model="form.password"
+                    class="login-field__input login-field__input--password"
+                    :type="showPassword ? 'text' : 'password'"
+                    placeholder="请输入登录密码"
+                    autocomplete="current-password"
+                    :disabled="loading"
+                  >
+                  <button
+                    type="button"
+                    class="login-field__toggle"
+                    :aria-label="showPassword ? '隐藏密码' : '显示密码'"
+                    @click="showPassword = !showPassword"
+                  >
+                    <EyeOff v-if="showPassword" :size="18" />
+                    <Eye v-else :size="18" />
+                  </button>
+                </div>
               </el-form-item>
 
               <div class="form-options">
                 <el-checkbox v-model="form.remember" :disabled="loading">
                   7天内免登录
                 </el-checkbox>
-                <span class="forgot-link" @click="goStep(3)">忘记密码？</span>
+                <button type="button" class="link-btn" @click="goStep(3)">
+                  忘记密码？
+                </button>
               </div>
 
-              <BaseButton
-                type="primary"
-                size="large"
-                block
-                :loading="loading"
+              <button
+                type="button"
+                class="login-submit"
                 :disabled="loading"
                 @click="handleLogin"
               >
-                <LogIn :size="16" />
-                <span style="margin-left: 6px">{{ loading ? "登录中..." : "登录" }}</span>
-              </BaseButton>
+                {{ loading ? "登录中..." : "登录" }}
+              </button>
             </el-form>
 
-            <!-- Other login methods -->
-            <div class="divider">
-              <span class="divider-text">其他方式</span>
-            </div>
-            <div class="other-methods">
-              <button class="other-btn">
-                <School :size="16" />
-                <span>校园统一认证</span>
-              </button>
-              <button class="other-btn">
-                <QrCode :size="16" />
-                <span>扫码登录</span>
-              </button>
-            </div>
+            <p class="login-card__help">
+              需要帮助？请联系教学信息中心
+            </p>
           </div>
 
-          <!-- ====== Step 3: Forgot password ====== -->
           <div v-show="currentStep === 3" class="step-panel">
             <div class="step-back">
-              <button class="back-btn" @click="goStep(2)">
-                <ChevronLeft :size="16" />
+              <button type="button" class="back-btn" @click="goStep(2)">
+                <ChevronLeft :size="18" />
               </button>
-              <h2 class="step-title">找回密码</h2>
+              <h2 class="login-card__title login-card__title--inline">找回密码</h2>
             </div>
-            <p class="step-desc step-desc--indent">通过绑定手机号验证身份，重置登录密码</p>
+            <p class="login-card__desc">
+              通过绑定手机号验证身份，重置登录密码
+            </p>
 
             <div class="form-group">
-              <label class="form-label">绑定手机号</label>
-              <div class="input-wrap">
-                <Smartphone :size="16" class="input-icon" />
+              <label class="login-field__label">绑定手机号</label>
+              <div class="login-field__wrap">
+                <Smartphone :size="18" class="login-field__icon" />
                 <input
                   v-model="phoneInput"
-                  class="input-field"
+                  class="login-field__input"
                   type="tel"
                   placeholder="请输入绑定的手机号"
                   maxlength="11"
@@ -460,19 +329,20 @@ function resetPassword() {
             </div>
 
             <div class="form-group">
-              <label class="form-label">短信验证码</label>
+              <label class="login-field__label">短信验证码</label>
               <div class="sms-row">
-                <div class="input-wrap sms-input-wrap">
-                  <MessageSquare :size="16" class="input-icon" />
+                <div class="login-field__wrap sms-input-wrap">
+                  <MessageSquare :size="18" class="login-field__icon" />
                   <input
                     v-model="smsInput"
-                    class="input-field"
+                    class="login-field__input"
                     type="text"
                     placeholder="6位验证码"
                     maxlength="6"
                   >
                 </div>
                 <button
+                  type="button"
                   class="sms-btn"
                   :disabled="smsCountdown > 0"
                   @click="sendSms"
@@ -483,97 +353,75 @@ function resetPassword() {
             </div>
 
             <div class="form-group">
-              <label class="form-label">设置新密码</label>
-              <div class="input-wrap">
-                <Lock :size="16" class="input-icon" />
+              <label class="login-field__label">设置新密码</label>
+              <div class="login-field__wrap">
+                <Lock :size="18" class="login-field__icon" />
                 <input
                   v-model="newPwdInput"
-                  class="input-field"
+                  class="login-field__input"
                   type="password"
                   placeholder="8-20位，含字母和数字"
                 >
               </div>
             </div>
 
-            <!-- Password strength -->
             <div class="strength-bars">
-              <div v-for="i in 4" :key="i" class="strength-bar" :style="{
-                background: i <= passwordStrength ? strengthColor : '#e2e8f0'
-              }" />
+              <div
+                v-for="i in 4"
+                :key="i"
+                class="strength-bar"
+                :style="{ background: i <= passwordStrength ? strengthColor : 'rgba(255,255,255,0.25)' }"
+              />
             </div>
-            <div class="strength-label" :style="{ color: passwordStrength > 0 ? strengthColor : '#94a3b8' }">
+            <div
+              class="strength-label"
+              :style="{ color: passwordStrength > 0 ? strengthColor : 'rgba(255,255,255,0.65)' }"
+            >
               {{ strengthLabel }}
             </div>
 
-            <BaseButton
-              type="primary"
-              size="large"
-              block
-              @click="resetPassword"
-              style="margin-top: 16px"
-            >
-              <CheckCircle :size="16" />
-              <span style="margin-left: 6px">重置密码</span>
-            </BaseButton>
+            <button type="button" class="login-submit login-submit--spaced" @click="resetPassword">
+              <CheckCircle :size="18" />
+              <span>重置密码</span>
+            </button>
           </div>
-        </div>
 
-        <!-- Success overlay -->
-        <transition name="fade">
-          <div v-if="loginSuccess" class="success-overlay">
-            <div class="success-icon">
-              <Check :size="32" />
+          <transition name="fade">
+            <div v-if="loginSuccess" class="success-overlay">
+              <div class="success-icon">
+                <Check :size="32" />
+              </div>
+              <div class="success-title">登录成功</div>
+              <div class="success-msg">正在跳转至工作台...</div>
+              <div class="success-bar">
+                <div class="success-bar-fill" />
+              </div>
             </div>
-            <div class="success-title">登录成功</div>
-            <div class="success-msg">
-              正在跳转至{{ selectedRole ? roleNames[selectedRole] : '' }}工作台...
-            </div>
-            <div class="success-bar">
-              <div class="success-bar-fill" />
-            </div>
+          </transition>
           </div>
-        </transition>
-
-        <!-- Footer -->
-        <div class="login-footer">
-          © 2026 软件实训教学平台 · v2.0.0 · 技术支持：教学信息中心
-        </div>
+        </section>
       </div>
-    </div>
+    </main>
   </div>
 </template>
 
 <style scoped>
-/* ====== Background ====== */
-.login-bg {
+.login-page {
+  --login-blue: #2748c4;
+  --login-input-bg: rgba(255, 255, 255, 0.14);
+  --login-input-bg-focus: rgba(255, 255, 255, 0.2);
   min-height: 100vh;
+  background: #f5f7fa;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
+  flex-direction: column;
   position: relative;
-  overflow: hidden;
-  background:
-    radial-gradient(ellipse 80% 60% at 15% 20%, rgba(22, 119, 255, 0.35), transparent 55%),
-    radial-gradient(ellipse 70% 50% at 85% 75%, rgba(0, 185, 107, 0.18), transparent 50%),
-    linear-gradient(145deg, #0B3A5C 0%, #0A4A7A 42%, #0958D9 100%);
 }
-
-/* Decorative circles */
-.deco-circle {
-  position: absolute;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-}
-.deco-circle--1 { width: 384px; height: 384px; top: -96px; left: -96px; }
-.deco-circle--2 { width: 256px; height: 256px; top: 33%; right: -64px; }
-.deco-circle--3 { width: 192px; height: 192px; bottom: 64px; left: 25%; }
-.deco-circle--4 { width: 320px; height: 320px; bottom: -80px; right: -80px; }
 
 .offline-banner {
   position: fixed;
-  top: 0; left: 0; right: 0;
+  top: 0;
+  left: 0;
+  right: 0;
   z-index: 1000;
   padding: 8px 24px;
   background: var(--color-warning, #FAAD14);
@@ -582,180 +430,358 @@ function resetPassword() {
   text-align: center;
 }
 
-/* ====== Layout ====== */
-.login-wrapper {
-  display: flex;
+.login-page__main {
+  flex: 1;
   width: 100%;
-  max-width: 1050px;
-  gap: 48px;
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 24px 20px 40px;
+  display: flex;
   align-items: center;
-  position: relative;
-  z-index: 1;
+  justify-content: center;
 }
 
-/* ====== Brand area ====== */
-.brand-area {
-  flex: 1;
-  max-width: 520px;
-  color: #fff;
-  display: none;
+.login-page__main--compact {
+  max-width: 440px;
+  padding: 20px 16px 28px;
+  align-items: stretch;
+}
+
+.login-shell {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr;
+  border-radius: 28px;
+  overflow: hidden;
+  box-shadow: 0 24px 56px rgba(39, 72, 196, 0.14);
+  background: #ffffff;
+}
+
+.login-shell--form-only {
+  background: transparent;
+  box-shadow: none;
+  border-radius: 0;
+  overflow: visible;
 }
 
 @media (min-width: 1024px) {
-  .brand-area { display: block; }
+  .login-page__main {
+    padding: 48px 24px 64px;
+    max-width: 1040px;
+  }
+
+  .login-shell {
+    grid-template-columns: 1.08fr 440px;
+    min-height: 620px;
+  }
 }
 
-.brand-header {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 40px;
-}
-
-.brand-logo {
-  width: 48px;
-  height: 48px;
-  background: rgba(255, 255, 255, 0.15);
-  border-radius: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #fff;
-  position: relative;
-}
-.brand-logo::after {
-  content: "";
-  position: absolute;
-  top: 6px;
-  right: 6px;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--color-brand-accent, #E03C31);
-  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.25);
-}
-
-.brand-name {
-  font-weight: 700;
-  font-size: 20px;
-  line-height: 1.3;
-}
-
-.brand-sub {
-  font-size: 13px;
-  color: rgba(255, 255, 255, 0.55);
-  margin-top: 1px;
-}
-
-.brand-title {
-  font-size: 36px;
-  font-weight: 800;
-  margin-bottom: 16px;
-  line-height: 1.25;
-}
-
-.brand-desc {
-  color: rgba(255, 255, 255, 0.65);
-  font-size: 15px;
-  margin-bottom: 40px;
-  line-height: 1.7;
-}
-
-.brand-features {
+.login-shell__visual {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-}
-
-.brand-feature {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  color: rgba(255, 255, 255, 0.75);
-  font-size: 13px;
-}
-
-.feature-icon {
-  width: 28px;
-  height: 28px;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.1);
-  display: flex;
   align-items: center;
   justify-content: center;
-  flex-shrink: 0;
-  color: #fff;
+  gap: 12px;
+  padding: 24px 8px 20px 28px;
+  background: #ffffff;
+  min-height: 620px;
 }
 
-.brand-stats {
-  display: flex;
-  gap: 32px;
-  margin-top: 48px;
-  padding-top: 32px;
-  border-top: 1px solid rgba(255, 255, 255, 0.12);
+.login-shell__image {
+  flex: 1;
+  width: 108%;
+  height: auto;
+  max-height: 580px;
+  margin-left: -4%;
+  object-fit: contain;
+  object-position: center;
+  user-select: none;
+  pointer-events: none;
 }
 
-.brand-stat-val {
-  font-size: 24px;
-  font-weight: 700;
-}
-
-.brand-stat-label {
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.45);
-  margin-top: 2px;
-}
-
-/* ====== Card wrap ====== */
-.login-card-wrap {
-  width: 100%;
-  max-width: 420px;
+.login-shell__form {
   position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+}
+
+@media (min-width: 1024px) {
+  .login-shell__form {
+    margin-left: -52px;
+    padding-left: 0;
+  }
 }
 
 .login-card {
-  background: #fff;
-  border: 1px solid rgba(255, 255, 255, 0.55);
-  border-radius: 20px;
-  box-shadow: 0 24px 64px rgba(11, 58, 92, 0.28);
-  padding: 28px 32px 32px;
   position: relative;
+  flex: 1;
+  background: var(--login-blue);
+  border-radius: 28px;
+  padding: 32px 32px 28px;
+  overflow: hidden;
 }
 
-.login-footer {
-  text-align: center;
-  margin-top: 20px;
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.35);
+.login-shell--form-only .login-card {
+  min-height: calc(100vh - 48px);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  box-shadow: 0 16px 40px rgba(39, 72, 196, 0.18);
+  padding: 36px 24px 32px;
 }
 
-/* ====== Step dots ====== */
-.step-dots {
+@media (min-width: 1024px) {
+  .login-card {
+    border-top-left-radius: 48px;
+    border-bottom-left-radius: 108px;
+    min-height: 620px;
+    box-shadow: -12px 0 32px rgba(39, 72, 196, 0.1);
+  }
+}
+
+.login-card__brand {
   display: flex;
   align-items: center;
-  gap: 6px;
-  margin-bottom: 24px;
+  justify-content: center;
+  margin-bottom: 28px;
 }
 
-.step-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #e2e8f0;
-  transition: all 300ms;
+.login-card__logo {
+  width: 52px;
+  height: 52px;
+  object-fit: contain;
 }
 
-.step-dot--active {
-  background: var(--color-primary, #1677FF);
+.login-card__title {
+  margin: 0 0 10px;
+  font-size: 36px;
+  font-weight: 800;
+  color: #ffffff;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
 }
 
-.step-label {
-  font-size: 11px;
-  color: #94a3b8;
-  margin-left: 4px;
+.login-card__title--inline {
+  margin-bottom: 0;
 }
 
-/* ====== Step panels ====== */
+.login-card__desc {
+  margin: 0 0 32px;
+  font-size: 13px;
+  line-height: 1.65;
+  color: rgba(255, 255, 255, 0.78);
+  max-width: 340px;
+}
+
+.login-form {
+  display: block;
+}
+
+.login-form :deep(.el-form-item) {
+  margin-bottom: 18px;
+}
+
+.login-form :deep(.el-form-item__label) {
+  display: block;
+  width: 100% !important;
+  padding: 0;
+  margin-bottom: 8px;
+  font-size: 12px;
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.92);
+  letter-spacing: 0.01em;
+  line-height: 1.4;
+  text-align: left;
+}
+
+.login-form :deep(.el-form-item__content) {
+  display: block;
+  width: 100%;
+  line-height: 1;
+}
+
+.login-form :deep(.el-form-item__error) {
+  color: #ffe7e6;
+  font-size: 12px;
+  padding-top: 6px;
+}
+
+.login-field__wrap {
+  position: relative;
+  width: 100%;
+}
+
+.login-field__label,
+.form-group .login-field__label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 12px;
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.92);
+  letter-spacing: 0.01em;
+}
+
+.login-field__icon {
+  position: absolute;
+  left: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: rgba(255, 255, 255, 0.72);
+  pointer-events: none;
+}
+
+.login-field__input {
+  width: 100%;
+  height: 48px;
+  padding: 0 16px 0 48px;
+  border: none;
+  border-radius: 10px;
+  background: var(--login-input-bg);
+  color: #ffffff;
+  font-size: 14px;
+  outline: none;
+  transition: background 150ms ease;
+  box-sizing: border-box;
+}
+
+.login-field__input--password {
+  padding-right: 48px;
+}
+
+.login-field__input::placeholder {
+  color: rgba(255, 255, 255, 0.42);
+}
+
+.login-field__input:focus {
+  background: var(--login-input-bg-focus);
+}
+
+.login-field__input:-webkit-autofill,
+.login-field__input:-webkit-autofill:hover,
+.login-field__input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 1000px rgba(255, 255, 255, 0.14) inset;
+  -webkit-text-fill-color: #ffffff;
+  caret-color: #ffffff;
+  transition: background-color 9999s ease-out 0s;
+}
+
+.login-field__input:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.login-field__toggle {
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.55);
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.login-field__toggle:hover {
+  color: #ffffff;
+}
+
+.form-options {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 4px 0 28px;
+}
+
+.form-options :deep(.el-checkbox) {
+  height: auto;
+}
+
+.form-options :deep(.el-checkbox__label) {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 13px;
+  padding-left: 8px;
+}
+
+.form-options :deep(.el-checkbox__inner) {
+  width: 16px;
+  height: 16px;
+  background: transparent;
+  border-color: rgba(255, 255, 255, 0.55);
+  border-radius: 4px;
+}
+
+.form-options :deep(.el-checkbox__input.is-checked .el-checkbox__inner) {
+  background: #ffffff;
+  border-color: #ffffff;
+}
+
+.form-options :deep(.el-checkbox__input.is-checked .el-checkbox__inner::after) {
+  border-color: var(--login-blue);
+}
+
+.link-btn {
+  border: none;
+  background: transparent;
+  padding: 0;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.88);
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.link-btn:hover {
+  color: #ffffff;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.login-submit {
+  width: 100%;
+  height: 48px;
+  border: none;
+  border-radius: 999px;
+  background: #ffffff;
+  color: var(--login-blue);
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 150ms ease, box-shadow 150ms ease, opacity 150ms ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 0;
+}
+
+.login-submit:hover:not(:disabled) {
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.12);
+}
+
+.login-submit:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.login-submit:disabled {
+  opacity: 0.72;
+  cursor: not-allowed;
+}
+
+.login-submit--spaced {
+  margin-top: 16px;
+}
+
+.login-card__help {
+  margin: 24px 0 0;
+  text-align: center;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.72);
+}
+
 .step-panel {
   animation: fadeSlideIn 250ms ease;
 }
@@ -769,317 +795,109 @@ function resetPassword() {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 4px;
+  margin-bottom: 8px;
 }
 
 .back-btn {
-  width: 28px;
-  height: 28px;
-  border-radius: 8px;
-  border: none;
-  background: transparent;
+  width: 32px;
+  height: 32px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #64748b;
-  transition: background 150ms;
-}
-.back-btn:hover { background: #f1f5f9; }
-
-.step-title {
-  font-size: 24px;
-  font-weight: 700;
-  color: #1e293b;
+  transition: background 150ms ease;
 }
 
-.step-desc {
-  font-size: 13px;
-  color: #64748b;
-  margin-bottom: 24px;
+.back-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
 }
 
-.step-desc--indent {
-  margin-left: 36px;
+.form-group {
+  margin-bottom: 16px;
 }
 
-/* ====== Role cards ====== */
-.role-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: 10px;
-  margin-bottom: 24px;
-}
-
-.role-card {
-  border: 2px solid #e2e8f0;
-  border-radius: 12px;
-  padding: 16px 12px;
-  text-align: center;
-  cursor: pointer;
-  transition: all 200ms;
-}
-
-.role-card:hover {
-  border-color: var(--color-primary, #1677FF);
-  background: var(--color-primary-light, #E6F4FF);
-  transform: translateY(-2px);
-}
-
-.role-icon-wrap {
-  width: 48px;
-  height: 48px;
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin: 0 auto 10px;
-  transition: all 200ms;
-}
-
-.role--student .role-icon-wrap { background: var(--color-success-light, #E6F7EF); color: var(--color-success, #00B96B); }
-.role--teacher .role-icon-wrap { background: var(--color-primary-light, #E6F4FF); color: var(--color-primary, #1677FF); }
-.role--admin   .role-icon-wrap { background: var(--color-navy-light, #E8F1F7); color: var(--color-navy, #0B3A5C); }
-
-.role-name {
-  font-weight: 600;
-  font-size: 13px;
-  color: #334155;
-}
-
-.role-desc {
-  font-size: 11px;
-  color: #94a3b8;
-  margin-top: 2px;
-}
-
-/* Selected state */
-.role-card--selected {
-  border-color: var(--color-primary, #1677FF);
-  background: var(--color-primary-light, #E6F4FF);
-  box-shadow: 0 0 0 3px rgba(22, 119, 255, 0.15);
-}
-.role-card--selected .role-icon-wrap { background: var(--color-primary, #1677FF); color: #fff; }
-
-.contact-hint {
-  text-align: center;
-  margin-top: 16px;
-  font-size: 12px;
-  color: #94a3b8;
-}
-.contact-link {
-  color: var(--color-primary, #1677FF);
-  cursor: pointer;
-}
-.contact-link:hover { text-decoration: underline; }
-
-/* Role hint in step 2 */
-.role-hint {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  color: #64748b;
-  margin-bottom: 20px;
-  margin-left: 36px;
-}
-
-.role-badge {
-  padding: 2px 8px;
-  border-radius: 100px;
-  font-size: 11px;
-  font-weight: 500;
-}
-
-.role--student.role-badge { background: var(--color-success-light, #E6F7EF); color: var(--color-success-hover, #009A57); }
-.role--teacher.role-badge { background: var(--color-primary-light, #E6F4FF); color: var(--color-primary, #1677FF); }
-.role--admin.role-badge   { background: var(--color-navy-light, #E8F1F7); color: var(--color-navy, #0B3A5C); }
-
-/* ====== Input fields ====== */
-.input-wrap {
-  position: relative;
-  width: 100%;
-}
-
-.input-icon {
-  position: absolute;
-  left: 12px;
-  top: 50%;
-  transform: translateY(-50%);
-  color: #94a3b8;
-  pointer-events: none;
-  z-index: 1;
-}
-
-.input-field {
-  width: 100%;
-  height: 44px;
-  padding: 0 12px 0 36px;
-  font-size: 14px;
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  background: #fff;
-  color: #1e293b;
-  outline: none;
-  transition: border-color 150ms, box-shadow 150ms;
-  box-sizing: border-box;
-}
-
-.input-field:focus {
-  border-color: var(--color-primary, #1677FF);
-  box-shadow: 0 0 0 3px rgba(22, 119, 255, 0.12);
-}
-
-.input-field::placeholder { color: #94a3b8; }
-.input-field:disabled { background: #f8fafc; cursor: not-allowed; }
-
-.pwd-toggle {
-  position: absolute;
-  right: 12px;
-  top: 50%;
-  transform: translateY(-50%);
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: #94a3b8;
-  padding: 0;
-  z-index: 1;
-}
-.pwd-toggle:hover { color: #64748b; }
-
-/* ====== Form options ====== */
-.form-options {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 24px;
-}
-
-.forgot-link {
-  font-size: 13px;
-  color: var(--color-primary, #1677FF);
-  cursor: pointer;
-}
-.forgot-link:hover { text-decoration: underline; }
-
-/* ====== Divider ====== */
-.divider {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin: 20px 0;
-}
-
-.divider::before,
-.divider::after {
-  content: "";
-  flex: 1;
-  height: 1px;
-  background: #f1f5f9;
-}
-
-.divider-text {
-  font-size: 12px;
-  color: #94a3b8;
-}
-
-/* ====== Other methods ====== */
-.other-methods {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-}
-
-.other-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 10px;
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  background: transparent;
-  cursor: pointer;
-  font-size: 13px;
-  color: #64748b;
-  transition: background 150ms;
-}
-.other-btn:hover { background: #f8fafc; }
-
-/* ====== SMS ====== */
 .sms-row {
   display: flex;
   gap: 8px;
 }
-.sms-input-wrap { flex: 1; }
+
+.sms-input-wrap {
+  flex: 1;
+}
+
 .sms-btn {
   flex-shrink: 0;
+  height: 48px;
   padding: 0 16px;
-  height: 44px;
   border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
   font-size: 13px;
-  font-weight: 500;
-  border: 1px solid var(--color-primary-mid, #91CAFF);
-  background: transparent;
-  color: var(--color-primary, #1677FF);
+  font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
-  transition: background 150ms;
-}
-.sms-btn:hover:not(:disabled) { background: var(--color-primary-light, #E6F4FF); }
-.sms-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-
-/* ====== Form group ====== */
-.form-group {
-  margin-bottom: 16px;
-}
-.form-label {
-  display: block;
-  font-size: 13px;
-  font-weight: 500;
-  color: #475569;
-  margin-bottom: 6px;
+  transition: background 150ms ease;
 }
 
-/* ====== Password strength ====== */
+.sms-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.sms-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 .strength-bars {
   display: flex;
   gap: 4px;
   margin-bottom: 4px;
 }
+
 .strength-bar {
   height: 4px;
   border-radius: 2px;
   flex: 1;
-  background: #e2e8f0;
-  transition: background 300ms;
+  transition: background 300ms ease;
 }
+
 .strength-label {
   font-size: 12px;
-  color: #94a3b8;
   margin-bottom: 8px;
 }
 
-/* ====== Success overlay ====== */
 .success-overlay {
   position: absolute;
   inset: 0;
-  background: rgba(255, 255, 255, 0.95);
+  background: rgba(39, 72, 196, 0.96);
   backdrop-filter: blur(8px);
-  border-radius: 16px;
+  border-radius: 28px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   z-index: 10;
+  padding: 24px;
+}
+
+@media (min-width: 1024px) {
+  .success-overlay {
+    border-top-left-radius: 48px;
+    border-bottom-left-radius: 108px;
+  }
 }
 
 .success-icon {
   width: 64px;
   height: 64px;
   border-radius: 50%;
-  background: #E6F7EF;
-  color: #00B96B;
+  background: rgba(255, 255, 255, 0.18);
+  color: #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1089,13 +907,13 @@ function resetPassword() {
 .success-title {
   font-size: 20px;
   font-weight: 700;
-  color: #1e293b;
+  color: #ffffff;
   margin-bottom: 4px;
 }
 
 .success-msg {
   font-size: 13px;
-  color: #64748b;
+  color: rgba(255, 255, 255, 0.82);
   margin-bottom: 16px;
 }
 
@@ -1103,14 +921,14 @@ function resetPassword() {
   width: 192px;
   height: 6px;
   border-radius: 3px;
-  background: #f1f5f9;
+  background: rgba(255, 255, 255, 0.22);
   overflow: hidden;
 }
 
 .success-bar-fill {
   height: 100%;
   border-radius: 3px;
-  background: var(--color-primary, #1677FF);
+  background: #ffffff;
   animation: progressFill 2s linear forwards;
 }
 
@@ -1119,11 +937,11 @@ function resetPassword() {
   to { width: 100%; }
 }
 
-/* ====== Transitions ====== */
 .fade-enter-active,
 .fade-leave-active {
   transition: opacity 150ms ease;
 }
+
 .fade-enter-from,
 .fade-leave-to {
   opacity: 0;

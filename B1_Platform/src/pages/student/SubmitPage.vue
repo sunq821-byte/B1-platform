@@ -2,16 +2,18 @@
 import { ref, computed, onMounted, onBeforeUnmount } from "vue"
 import { useRouter, useRoute } from "vue-router"
 import { ElMessage } from "element-plus"
-import { FileText, X } from "lucide-vue-next"
+import { ArrowLeft, Upload, Code2 } from "lucide-vue-next"
 import { useStudentStore } from "@/stores/useStudentStore"
 import request from "@/api/request"
-import BaseInput from "@/components/base/BaseInput.vue"
 import BaseButton from "@/components/base/BaseButton.vue"
-import PageHeader from "@/components/layout/PageHeader.vue"
+import BaseTable from "@/components/base/BaseTable.vue"
 import CodeEditor from "@/components/business/CodeEditor.vue"
+import LocalFilePreview from "@/components/business/LocalFilePreview.vue"
 import TaskStatusBadge from "@/components/business/TaskStatusBadge.vue"
 import LoadingState from "@/components/common/LoadingState.vue"
 import ErrorState from "@/components/common/ErrorState.vue"
+import { fetchSubmissionDraft } from "@/api/modules/student"
+import { inferCodeLanguage } from "@/utils/codeLanguage"
 
 const router = useRouter()
 const route = useRoute()
@@ -23,17 +25,27 @@ const loadError = ref("")
 const submitting = ref(false)
 
 // --- Mode ---
-type SubmitMode = "file" | "code" | "git"
+type SubmitMode = "file" | "code"
 const currentMode = ref<SubmitMode>("file")
-const allowedModes = ref<SubmitMode[]>(["file", "code", "git"])
+const allowedModes = ref<SubmitMode[]>(["file", "code"])
+
+const CODE_TEMPLATES: Record<string, string> = {
+  java: `public class Main {\n    public static void main(String[] args) {\n        \n    }\n}`,
+  python: `def main():\n    pass\n\nif __name__ == "__main__":\n    main()`,
+  cpp: `#include <iostream>\nusing namespace std;\n\nint main() {\n    return 0;\n}`,
+  javascript: `function main() {\n    \n}\n\nmain()`,
+  go: `package main\n\nimport "fmt"\n\nfunc main() {\n    \n}`,
+}
 
 function resolveAllowedModes(t?: string): SubmitMode[] {
   const u = (t || "").toUpperCase()
-  if (!u || u.includes("MIX") || u.includes("ALL")) return ["file", "code", "git"]
-  if (u.includes("GIT")) return ["git"]
-  if (u.includes("CODE") || u.includes("ONLINE")) return ["code"]
-  if (u.includes("ZIP") || u.includes("FILE") || u.includes("UPLOAD")) return ["file"]
-  return ["file", "code", "git"]
+  if (u === "FILE_CODE" || u === "ZIP_CODE") return ["file", "code"]
+  if (u.includes("MIX") || u.includes("ALL")) return ["file", "code"]
+  if (u === "ONLINE_CODE" || u === "CODE_ONLY") return ["code"]
+  if (u === "ZIP_UPLOAD" || u === "ZIP_ONLY" || u === "FILE_UPLOAD") return ["file"]
+  if (u.includes("CODE")) return ["code"]
+  if (u.includes("ZIP") || u.includes("FILE")) return ["file"]
+  return ["file"]
 }
 
 function selectMode(mode: SubmitMode) {
@@ -42,6 +54,34 @@ function selectMode(mode: SubmitMode) {
     return
   }
   currentMode.value = mode
+  if (mode === "code" && !codeContent.value.trim()) {
+    codeContent.value = CODE_TEMPLATES[codeLang.value] || ""
+  }
+}
+
+function goBack() {
+  router.push("/student/tasks")
+}
+
+const submissionLabel: Record<string, string> = {
+  ZIP_UPLOAD: "文件上传",
+  ONLINE_CODE: "在线代码",
+  ZIP_ONLY: "文件上传",
+  FILE_CODE: "文件或在线代码",
+}
+
+const canEditSubmit = computed(() => {
+  const s = store.currentTask?.mySubmissionStatus ?? "NOT_SUBMITTED"
+  return ["NOT_SUBMITTED", "REJECTED", "DRAFT", "AI_READY", "AI_COMPLETED"].includes(s)
+})
+
+function viewLatestAI() {
+  const sid = store.currentTask?.mySubmissionId
+  if (!sid) {
+    ElMessage.info("暂无 AI 评分记录")
+    return
+  }
+  router.push(`/student/grades/${sid}`)
 }
 
 // --- File ---
@@ -53,13 +93,6 @@ const uploadedFileId = ref("")
 // --- Code ---
 const codeLang = ref("java")
 const codeContent = ref("")
-
-// --- Git ---
-const gitUrl = ref("")
-const gitBranch = ref("main")
-const gitVerifying = ref(false)
-const gitVerified = ref(false)
-const gitVerifyResult = ref<{ repoName: string; branch: string; lastCommitTime: string } | null>(null)
 
 // --- Remark ---
 const remark = ref("")
@@ -82,9 +115,15 @@ async function initPage() {
     const modes = resolveAllowedModes(store.currentTask?.submissionType)
     allowedModes.value = modes
     currentMode.value = modes[0] || "file"
-    await loadHistory()
+    await Promise.all([loadHistory(), restoreDraft()])
   } catch (err: unknown) {
-    loadError.value = (err as Error)?.message || "加载任务信息失败"
+    const msg = (err as Error)?.message || "加载任务信息失败"
+    if (/不存在|已下架|已删除|404/.test(msg)) {
+      ElMessage.warning("该实训任务已被删除或下架")
+      router.replace("/student/tasks")
+      return
+    }
+    loadError.value = msg
   } finally {
     loading.value = false
   }
@@ -108,6 +147,26 @@ async function loadHistory() {
   }
 }
 
+async function restoreDraft() {
+  try {
+    const draft = await fetchSubmissionDraft(taskId.value)
+    if (!draft) return
+
+    if (draft.remark) remark.value = draft.remark
+
+    const submitType = (draft.submitType || "").toUpperCase()
+    if (submitType.includes("CODE") && draft.onlineCode?.trim()) {
+      codeContent.value = draft.onlineCode
+      codeLang.value = inferCodeLanguage(draft.onlineCode)
+      if (allowedModes.value.includes("code")) {
+        currentMode.value = "code"
+      }
+    }
+  } catch {
+    /* 无草稿或加载失败时保持默认空状态 */
+  }
+}
+
 onMounted(() => {
   initPage()
   document.addEventListener("paste", handlePaste)
@@ -118,17 +177,25 @@ onBeforeUnmount(() => {
 })
 
 // --- File handlers ---
-function onDragOver(e: DragEvent) { e.preventDefault(); isDragging.value = true }
+function onDragOver(e: DragEvent) {
+  if (!canEditSubmit.value) return
+  e.preventDefault()
+  isDragging.value = true
+}
 function onDragLeave() { isDragging.value = false }
 
 function onDrop(e: DragEvent) {
+  if (!canEditSubmit.value) return
   e.preventDefault()
   isDragging.value = false
   const file = e.dataTransfer?.files?.[0]
   if (file) handleFile(file)
 }
 
-function triggerFileInput() { fileInput.value?.click() }
+function triggerFileInput() {
+  if (!canEditSubmit.value) return
+  fileInput.value?.click()
+}
 
 function onFileInputChange(e: Event) {
   const input = e.target as HTMLInputElement
@@ -167,37 +234,7 @@ function removeFile() {
   uploadedFileId.value = ""
 }
 
-function formatFileSize(bytes: number) {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
-}
-
-// --- Git ---
-async function handleGitVerify() {
-  if (!gitUrl.value) { ElMessage.warning("请输入Git仓库地址"); return }
-  gitVerifying.value = true
-  try {
-    const res = await store.verifyGit(taskId.value, { gitUrl: gitUrl.value })
-    if (res.valid) {
-      gitVerified.value = true
-      gitVerifyResult.value = {
-        repoName: res.repoName,
-        branch: res.defaultBranch,
-        lastCommitTime: res.latestCommit.committedAt,
-      }
-      ElMessage.success("Git仓库验证通过")
-    } else {
-      ElMessage.error("Git仓库验证失败")
-    }
-  } catch (err: unknown) {
-    ElMessage.error((err as Error)?.message || "验证失败")
-  } finally {
-    gitVerifying.value = false
-  }
-}
-
-// --- Submit ---
+// --- Submit → AI 评分 → 跳转结果页确认 ---
 async function handleSubmit() {
   if (currentMode.value === "file" && !selectedFile.value) {
     ElMessage.warning("请先选择要上传的文件"); return
@@ -205,13 +242,10 @@ async function handleSubmit() {
   if (currentMode.value === "code" && !codeContent.value.trim()) {
     ElMessage.warning("请先编写代码"); return
   }
-  if (currentMode.value === "git" && !gitUrl.value.trim()) {
-    ElMessage.warning("请输入 Git 仓库地址"); return
-  }
 
   submitting.value = true
   try {
-    let submissionId = ""
+    let res
     if (currentMode.value === "file") {
       const formData = new FormData()
       formData.append("file", selectedFile.value!)
@@ -219,12 +253,11 @@ async function handleSubmit() {
         headers: { "Content-Type": "multipart/form-data" },
       }) as { fileId: string }
       uploadedFileId.value = uploadRes.fileId
-      const res = await store.submitTask(taskId.value, {
+      res = await store.trialSubmit(taskId.value, {
         submissionType: "ZIP_UPLOAD",
         zipFileId: uploadRes.fileId,
         remark: remark.value || undefined,
       })
-      submissionId = res.submissionId
     } else if (currentMode.value === "code") {
       const blob = new Blob([codeContent.value], { type: "text/plain" })
       const formData = new FormData()
@@ -232,31 +265,24 @@ async function handleSubmit() {
       const uploadRes = await request.post("/api/v1/files/upload", formData, {
         headers: { "Content-Type": "multipart/form-data" },
       }) as { fileId: string }
-      const res = await store.submitTask(taskId.value, {
+      res = await store.trialSubmit(taskId.value, {
         submissionType: "ONLINE_CODE",
         zipFileId: uploadRes.fileId,
         onlineCode: codeContent.value,
         remark: remark.value || undefined,
       })
-      submissionId = res.submissionId
     } else {
-      const res = await store.submitTask(taskId.value, {
-        submissionType: "GIT_URL",
-        gitUrl: gitUrl.value,
-        gitBranch: gitBranch.value || undefined,
-        remark: remark.value || undefined,
-      })
-      submissionId = res.submissionId
+      ElMessage.warning("请先选择文件或填写代码")
+      return
     }
 
-    ElMessage.success("提交成功，正在启动 AI 分析...")
+    ElMessage.success("提交成功，AI 正在评分...")
     try {
-      await store.triggerAIEvaluation(submissionId)
-      router.push(`/student/grades/${submissionId}`)
+      await store.triggerAIEvaluation(res.submissionId)
     } catch {
-      ElMessage.warning("提交成功，但 AI 分析启动失败，请稍后手动重试")
-      router.push(`/student/grades/${submissionId}`)
+      ElMessage.warning("提交成功，但 AI 分析启动较慢，请在结果页查看进度")
     }
+    router.push(`/student/grades/${res.submissionId}`)
   } catch (err: unknown) {
     ElMessage.error((err as Error)?.message || "提交失败")
   } finally {
@@ -274,173 +300,212 @@ function formatDate(dateStr: string) {
 
 <template>
   <div class="submit-page">
-    <PageHeader
-      :title="`${store.currentTask?.taskName ?? '成果提交'}`"
-      :subtitle="store.currentTask ? `${store.currentTask.courseName} · 截止 ${formatDate(store.currentTask.deadline)}` : ''"
-    />
-
     <LoadingState v-if="loading" text="加载任务信息..." />
     <ErrorState v-else-if="loadError" :message="loadError" @retry="handleRetry" />
 
     <template v-else-if="store.currentTask">
-      <!-- Task Summary Card -->
-      <div class="card">
-        <div class="card__title">任务摘要</div>
-        <table class="summary-table">
-          <tbody>
-            <tr>
-              <td class="summary-label">任务名称</td>
-              <td class="summary-value"><b>{{ store.currentTask.taskName }}</b></td>
-            </tr>
-            <tr>
-              <td class="summary-label">课程</td>
-              <td class="summary-value">{{ store.currentTask.courseName }}</td>
-            </tr>
-            <tr>
-              <td class="summary-label">截止日期</td>
-              <td class="summary-value mono">{{ formatDate(store.currentTask.deadline) }}</td>
-            </tr>
-            <tr>
-              <td class="summary-label">满分</td>
-              <td class="summary-value mono">{{ store.currentTask.totalScore }}</td>
-            </tr>
-            <tr v-if="store.currentTask.mySubmissionStatus !== 'NOT_SUBMITTED'">
-              <td class="summary-label">当前状态</td>
-              <td class="summary-value">
-                <TaskStatusBadge :status="store.currentTask.mySubmissionStatus" />
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <!-- Mode Selection -->
-      <div class="card">
-        <div class="card__title">提交方式</div>
-
-        <div class="mode-cards">
-          <div
-            v-if="allowedModes.includes('file')"
-            :class="['mode-card', { 'mode-card--active': currentMode === 'file' }]"
-            @click="selectMode('file')"
-          >
-            <div class="mode-card__icon">&#x1F4C1;</div>
-            <div class="mode-card__label">文件上传</div>
-            <div class="mode-card__desc">文档 / 截图</div>
-          </div>
-          <div
-            v-if="allowedModes.includes('code')"
-            :class="['mode-card', { 'mode-card--active': currentMode === 'code' }]"
-            @click="selectMode('code')"
-          >
-            <div class="mode-card__icon">&#x1F4BB;</div>
-            <div class="mode-card__label">代码提交</div>
-            <div class="mode-card__desc">在线编辑器</div>
-          </div>
-          <div
-            v-if="allowedModes.includes('git')"
-            :class="['mode-card', { 'mode-card--active': currentMode === 'git' }]"
-            @click="selectMode('git')"
-          >
-            <div class="mode-card__icon">&#x1F517;</div>
-            <div class="mode-card__label">Git 仓库</div>
-            <div class="mode-card__desc">URL 提交</div>
-          </div>
+      <!-- Toolbar -->
+      <header class="submit-toolbar">
+        <button type="button" class="submit-toolbar__back" title="返回任务列表" @click="goBack">
+          <ArrowLeft :size="18" />
+          <span>返回列表</span>
+        </button>
+        <div class="submit-toolbar__title">
+          <h1>{{ store.currentTask.taskName }}</h1>
+          <p>{{ store.currentTask.courseName }} · 截止 {{ formatDate(store.currentTask.deadline) }}</p>
         </div>
-        <p class="mode-hint">仅显示本任务允许的提交方式（{{ store.currentTask?.submissionType || '未配置' }}）</p>
+        <TaskStatusBadge :status="store.currentTask.mySubmissionStatus" />
+      </header>
 
-        <!-- File Upload Panel -->
-        <div v-show="currentMode === 'file'">
-          <div
-            :class="['upload-zone', { 'upload-zone--dragging': isDragging }]"
-            @click="triggerFileInput"
-            @dragover="onDragOver"
-            @dragleave="onDragLeave"
-            @drop="onDrop"
-          >
-            <div class="upload-zone__icon">&#x1F4C2;</div>
-            <div class="upload-zone__text">点击或拖拽文件到此处</div>
-            <div class="upload-zone__hint">支持 .zip .doc .docx .pdf .png .jpg .gif · 可 Ctrl+V 粘贴图片 · 最大 50MB</div>
-            <div class="upload-zone__tags">
-              <span class="upload-zone__tag">.zip</span>
-              <span class="upload-zone__tag">.doc</span>
-              <span class="upload-zone__tag">.pdf</span>
-              <span class="upload-zone__tag">.png</span>
-              <span class="upload-zone__tag">.jpg</span>
-            </div>
-            <input
-              ref="fileInput"
-              type="file"
-              accept=".zip,.doc,.docx,.pdf,.png,.jpg,.jpeg,.gif"
-              hidden
-              @change="onFileInputChange"
+      <!-- LeetCode-style workspace -->
+      <div class="submit-workspace">
+        <!-- Left: problem -->
+        <aside class="problem-panel">
+          <section class="problem-section">
+            <h2 class="problem-section__title">任务信息</h2>
+            <dl class="problem-meta">
+              <div class="problem-meta__row">
+                <dt>授课教师</dt>
+                <dd>{{ store.currentTask.teacherName }}</dd>
+              </div>
+              <div class="problem-meta__row">
+                <dt>满分</dt>
+                <dd class="mono">{{ store.currentTask.totalScore }}</dd>
+              </div>
+              <div class="problem-meta__row">
+                <dt>提交方式</dt>
+                <dd>{{ submissionLabel[store.currentTask.submissionType] || store.currentTask.submissionType }}</dd>
+              </div>
+              <div class="problem-meta__row">
+                <dt>AI 次数</dt>
+                <dd class="mono">
+                  {{ store.currentTask.mySubmitCount ?? 0 }} / {{ store.currentTask.maxAiAnalyzeCount ?? store.currentTask.maxSubmitCount ?? 3 }}
+                </dd>
+              </div>
+              <div v-if="store.currentTask.myScore != null" class="problem-meta__row">
+                <dt>成绩</dt>
+                <dd class="mono">{{ store.currentTask.myScore }}</dd>
+              </div>
+            </dl>
+          </section>
+
+          <section class="problem-section">
+            <h2 class="problem-section__title">任务描述</h2>
+            <div class="problem-body">{{ store.currentTask.description || "暂无描述" }}</div>
+          </section>
+
+          <section class="problem-section">
+            <h2 class="problem-section__title">任务要求</h2>
+            <div class="problem-body">{{ store.currentTask.requirements || "暂无要求" }}</div>
+          </section>
+
+          <section v-if="store.currentTask.evaluationDimensions?.length" class="problem-section">
+            <h2 class="problem-section__title">评分维度</h2>
+            <BaseTable
+              :data="store.currentTask.evaluationDimensions as unknown as Record<string, unknown>[]"
+              class="problem-table"
             >
-          </div>
+              <el-table-column prop="dimensionName" label="维度" min-width="100" />
+              <el-table-column prop="weight" label="权重" width="70" align="center">
+                <template #default="{ row }">{{ row.weight }}%</template>
+              </el-table-column>
+              <el-table-column prop="maxScore" label="满分" width="60" align="center" />
+            </BaseTable>
+          </section>
 
-          <div v-if="selectedFile" class="upload-file-info">
-            <FileText :size="18" />
-            <span>{{ selectedFile.name }} ({{ formatFileSize(selectedFile.size) }})</span>
-            <X :size="16" class="upload-file-info__remove" @click="removeFile" />
-          </div>
-        </div>
+          <section v-if="history.length" class="problem-section">
+            <h2 class="problem-section__title">提交记录</h2>
+            <div class="history-list">
+              <div v-for="item in history" :key="item.submissionId" class="history-item">
+                <span class="history-item__version">v{{ item.version }}</span>
+                <span class="history-item__time">{{ formatDate(item.submittedAt) }}</span>
+                <TaskStatusBadge :status="item.status" />
+                <span v-if="item.aiScore != null" class="history-item__score">{{ item.aiScore }}</span>
+              </div>
+            </div>
+          </section>
+        </aside>
 
-        <!-- Code Editor Panel -->
-        <div v-show="currentMode === 'code'">
-          <CodeEditor v-model="codeContent" v-model:language="codeLang" />
-        </div>
-
-        <!-- Git Panel -->
-        <div v-show="currentMode === 'git'" class="git-panel">
-          <div class="form-group">
-            <label class="form-label">Git 仓库地址</label>
-            <div class="git-row">
-              <BaseInput v-model="gitUrl" placeholder="https://github.com/username/repo.git" :disabled="submitting" />
-              <BaseButton :loading="gitVerifying" :disabled="!gitUrl || submitting" @click="handleGitVerify">
-                验证仓库
-              </BaseButton>
+        <!-- Right: submit workspace -->
+        <main class="workspace-panel">
+          <div v-if="allowedModes.length > 1" class="workspace-panel__head">
+            <div class="submit-tabs" role="tablist">
+              <button
+                v-if="allowedModes.includes('file')"
+                type="button"
+                role="tab"
+                :class="['submit-tab', { 'submit-tab--active': currentMode === 'file' }]"
+                :aria-selected="currentMode === 'file'"
+                @click="selectMode('file')"
+              >
+                <Upload :size="16" />
+                文件上传
+              </button>
+              <button
+                v-if="allowedModes.includes('code')"
+                type="button"
+                role="tab"
+                :class="['submit-tab', { 'submit-tab--active': currentMode === 'code' }]"
+                :aria-selected="currentMode === 'code'"
+                @click="selectMode('code')"
+              >
+                <Code2 :size="16" />
+                在线代码
+              </button>
             </div>
           </div>
-          <div class="form-group">
-            <label class="form-label">分支名称（可选）</label>
-            <BaseInput v-model="gitBranch" placeholder="main" :disabled="submitting" />
-          </div>
-          <div v-if="gitVerified && gitVerifyResult" class="git-verify-result">
-            仓库 {{ gitVerifyResult.repoName }} · 分支 {{ gitVerifyResult.branch }}
-          </div>
-        </div>
-      </div>
 
-      <!-- Remark -->
-      <div class="card">
-        <div class="card__title">提交备注</div>
-        <textarea
-          v-model="remark"
-          class="remark-textarea"
-          placeholder="可选：说明本次提交的内容、完成情况、遇到的问题等..."
-          rows="4"
-          :disabled="submitting"
-        />
-      </div>
+          <div class="workspace-panel__body">
+            <div
+              v-if="!canEditSubmit"
+              class="workspace-notice workspace-notice--muted"
+            >
+              当前状态不可再次提交，可在左侧查看题目要求。
+            </div>
+            <div
+              v-else-if="['AI_READY', 'AI_COMPLETED'].includes(store.currentTask.mySubmissionStatus)"
+              class="workspace-notice"
+            >
+              已有 AI 参考评分，可先查看结果再决定是否提交教师审核。
+              <BaseButton size="small" type="primary" @click="viewLatestAI">查看 AI 评分</BaseButton>
+            </div>
 
-      <!-- Submit History -->
-      <div v-if="history.length > 0" class="card">
-        <div class="card__title">提交历史</div>
-        <div class="history-list">
-          <div v-for="item in history" :key="item.submissionId" class="history-item">
-            <span class="history-item__version">v{{ item.version }}</span>
-            <span class="history-item__time">{{ formatDate(item.submittedAt) }}</span>
-            <TaskStatusBadge :status="item.status" />
-            <span v-if="item.aiScore != null" class="history-item__score">{{ item.aiScore }}</span>
+            <!-- File Upload -->
+            <div
+              v-show="currentMode === 'file'"
+              class="submit-pane submit-pane--file"
+              @dragover="onDragOver"
+              @dragleave="onDragLeave"
+              @drop="onDrop"
+            >
+              <div
+                v-if="!selectedFile"
+                :class="['upload-zone', { 'upload-zone--dragging': isDragging, 'upload-zone--disabled': !canEditSubmit }]"
+                @click="triggerFileInput"
+              >
+                <div class="upload-zone__icon">
+                  <Upload :size="28" />
+                </div>
+                <div class="upload-zone__text">点击或拖拽文件到此处</div>
+                <div class="upload-zone__hint">支持 .zip .doc .docx .pdf .md .png .jpg .gif · 可 Ctrl+V 粘贴图片 · 最大 50MB</div>
+                <input
+                  ref="fileInput"
+                  type="file"
+                  accept=".zip,.doc,.docx,.pdf,.md,.markdown,.png,.jpg,.jpeg,.gif"
+                  hidden
+                  :disabled="!canEditSubmit"
+                  @change="onFileInputChange"
+                >
+              </div>
+              <template v-else>
+                <input
+                  ref="fileInput"
+                  type="file"
+                  accept=".zip,.doc,.docx,.pdf,.md,.markdown,.png,.jpg,.jpeg,.gif"
+                  hidden
+                  :disabled="!canEditSubmit"
+                  @change="onFileInputChange"
+                >
+                <LocalFilePreview
+                  :file="selectedFile"
+                  :editable="canEditSubmit"
+                  @replace="triggerFileInput"
+                  @remove="removeFile"
+                />
+              </template>
+            </div>
+
+            <!-- Online Code -->
+            <div v-show="currentMode === 'code'" class="submit-pane submit-pane--code">
+              <CodeEditor v-model="codeContent" v-model:language="codeLang" :disabled="!canEditSubmit" />
+            </div>
           </div>
-        </div>
-      </div>
 
-      <!-- Actions -->
-      <div class="actions">
-        <BaseButton type="primary" size="large" :loading="submitting" @click="handleSubmit">
-          确认提交
-        </BaseButton>
-        <BaseButton size="large" @click="router.back()">取消</BaseButton>
+          <footer class="workspace-panel__footer">
+            <textarea
+              v-model="remark"
+              class="remark-textarea"
+              placeholder="提交备注（可选）"
+              rows="2"
+              :disabled="submitting || !canEditSubmit"
+            />
+            <div class="workspace-actions">
+              <p class="actions-hint">提交后将进行 AI 参考评分，查看结果后可选择是否递交教师审核。</p>
+              <div class="actions-row">
+                <BaseButton
+                  type="primary"
+                  size="large"
+                  :loading="submitting"
+                  :disabled="!canEditSubmit"
+                  @click="handleSubmit"
+                >
+                  提交
+                </BaseButton>
+                <BaseButton size="large" :disabled="submitting" @click="goBack">返回列表</BaseButton>
+              </div>
+            </div>
+          </footer>
+        </main>
       </div>
     </template>
   </div>
@@ -448,80 +513,266 @@ function formatDate(dateStr: string) {
 
 <style scoped>
 .submit-page {
-  /* width/centering handled by AppLayout (.app-layout__main = prototype .content) */
-}
-
-/* --- Card --- */
-.card {
-  background: var(--color-card, #fff);
-  border: 1px solid var(--color-border, #E5E7EB);
-  border-radius: var(--radius-xl, 16px);
-  padding: var(--spacing-lg, 24px);
-  margin-bottom: var(--spacing-md, 16px);
-  box-shadow: var(--shadow-card);
-}
-
-.card__title {
-  font-size: 18px;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  color: var(--color-navy, #0B3A5C);
-  margin-bottom: var(--spacing-md, 16px);
-}
-
-/* --- Summary Table --- */
-.summary-table { width: 100%; font-size: 14px; }
-.summary-label { padding: 6px 0; color: var(--color-text-secondary, #64748b); width: 80px; vertical-align: top; }
-.summary-value { padding: 6px 0; color: var(--color-text-primary, #1e293b); }
-.mono { font-family: "JetBrains Mono", "SF Mono", monospace; }
-
-/* --- Mode Cards --- */
-.mode-cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: 12px;
-  margin-bottom: 8px;
-}
-.mode-hint {
-  margin: 0 0 16px;
-  font-size: 12px;
-  color: var(--color-text-placeholder, #94a3b8);
-}
-
-.mode-card {
-  border: 2px solid var(--color-border, #E5E7EB);
-  border-radius: var(--radius-xl, 16px);
-  padding: 20px 16px;
-  text-align: center;
-  cursor: pointer;
-  transition: border-color 150ms, background 150ms, box-shadow 150ms;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  min-height: 640px;
+  padding: 16px 24px 24px;
+  box-sizing: border-box;
   background: var(--color-bg, #F5F7FA);
 }
 
-.mode-card:hover {
-  border-color: var(--color-primary, #1677FF);
+.mono {
+  font-family: "JetBrains Mono", "SF Mono", monospace;
+}
+
+/* --- Toolbar --- */
+.submit-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 16px;
+  flex-shrink: 0;
+}
+
+.submit-toolbar__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--color-border, #E5E7EB);
+  background: var(--color-card, #fff);
+  color: var(--color-text-secondary, #64748b);
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: color 150ms, border-color 150ms, background 150ms;
+  flex-shrink: 0;
+}
+
+.submit-toolbar__back:hover {
+  color: var(--color-primary, #1677FF);
+  border-color: var(--color-primary-mid, #91CAFF);
   background: var(--color-primary-light, #E6F4FF);
 }
 
-.mode-card--active {
-  border-color: var(--color-primary, #1677FF);
-  background: var(--color-primary-light, #E6F4FF);
-  box-shadow: 0 0 0 3px rgba(22, 119, 255, 0.15);
+.submit-toolbar__title {
+  flex: 1;
+  min-width: 0;
 }
 
-.mode-card__icon { font-size: 32px; margin-bottom: 8px; }
-.mode-card__label { font-size: 14px; font-weight: 600; margin-bottom: 4px; color: var(--color-text-primary, #1e293b); }
-.mode-card__desc { font-size: 12px; color: var(--color-text-placeholder, #94a3b8); }
+.submit-toolbar__title h1 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--color-navy, #0B3A5C);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 
-/* --- Upload Zone --- */
-.upload-zone {
-  border: 2px dashed var(--color-primary-mid, #91CAFF);
+.submit-toolbar__title p {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--color-text-secondary, #64748b);
+}
+
+/* --- Workspace --- */
+.submit-workspace {
+  flex: 1;
+  display: grid;
+  grid-template-columns: minmax(340px, 42%) minmax(460px, 58%);
+  min-height: 0;
+  border: 1px solid var(--color-border, #E5E7EB);
   border-radius: var(--radius-xl, 16px);
-  padding: 40px 24px;
+  overflow: hidden;
+  background: var(--color-card, #fff);
+  box-shadow: var(--shadow-card);
+}
+
+/* --- Left panel --- */
+.problem-panel {
+  border-right: 1px solid var(--color-border, #E5E7EB);
+  overflow-y: auto;
+  padding: 20px 24px;
+  background: var(--color-card, #fff);
+}
+
+.problem-section + .problem-section {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid var(--color-border, #E5E7EB);
+}
+
+.problem-section__title {
+  margin: 0 0 12px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--color-navy, #0B3A5C);
+}
+
+.problem-meta {
+  margin: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.problem-meta__row {
+  display: grid;
+  grid-template-columns: 72px 1fr;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.problem-meta__row dt {
+  margin: 0;
+  color: var(--color-text-secondary, #64748b);
+}
+
+.problem-meta__row dd {
+  margin: 0;
+  color: var(--color-text-primary, #1e293b);
+  font-weight: 500;
+}
+
+.problem-body {
+  padding: 12px 14px;
+  border-radius: 8px;
+  background: var(--color-bg, #F5F7FA);
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--color-text-primary, #1e293b);
+  white-space: pre-wrap;
+}
+
+.problem-table {
+  font-size: 13px;
+}
+
+/* --- Right panel --- */
+.workspace-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--color-bg, #F5F7FA);
+}
+
+.workspace-panel__head {
+  flex-shrink: 0;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--color-border, #E5E7EB);
+  background: var(--color-card, #fff);
+}
+
+.workspace-panel__body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+}
+
+.workspace-panel__footer {
+  flex-shrink: 0;
+  padding: 12px 16px 16px;
+  border-top: 1px solid var(--color-border, #E5E7EB);
+  background: var(--color-card, #fff);
+}
+
+.workspace-notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: var(--color-primary-light, #E6F4FF);
+  border: 1px solid var(--color-primary-mid, #91CAFF);
+  font-size: 13px;
+  color: var(--color-text-primary, #1e293b);
+}
+
+.workspace-notice--muted {
+  background: var(--color-bg, #F5F7FA);
+  border-color: var(--color-border, #E5E7EB);
+  color: var(--color-text-secondary, #64748b);
+}
+
+.submit-tabs {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  background: var(--color-bg, #F5F7FA);
+  border-radius: var(--radius-md, 8px);
+}
+
+.submit-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: none;
+  background: transparent;
+  padding: 8px 14px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text-secondary, #64748b);
+  cursor: pointer;
+  transition: color 150ms, background 150ms, box-shadow 150ms;
+}
+
+.submit-tab:hover {
+  color: var(--color-text-primary, #1e293b);
+}
+
+.submit-tab--active {
+  background: var(--color-card, #fff);
+  color: var(--color-primary, #1677FF);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+  font-weight: 600;
+}
+
+.submit-pane {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.submit-pane--file {
+  gap: 12px;
+}
+
+.submit-pane--code {
+  height: 100%;
+}
+
+.submit-pane--code :deep(.code-editor-wrapper) {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 320px;
+  border-radius: 8px;
+}
+
+.submit-pane--code :deep(.ce-body) {
+  flex: 1;
+  min-height: 0;
+  max-height: none;
+}
+
+/* --- Upload --- */
+.upload-zone {
+  border: 1px dashed var(--color-border, #CBD5E1);
+  border-radius: var(--radius-lg, 12px);
+  padding: 48px 24px;
   text-align: center;
   cursor: pointer;
   transition: border-color 150ms, background 150ms;
-  background: var(--color-primary-light, #E6F4FF);
+  background: var(--color-card, #fff);
 }
 
 .upload-zone:hover,
@@ -530,50 +781,37 @@ function formatDate(dateStr: string) {
   background: var(--color-primary-light, #E6F4FF);
 }
 
-.upload-zone__icon { font-size: 40px; margin-bottom: 10px; }
-.upload-zone__text { font-size: 14px; font-weight: 500; color: var(--color-text-primary, #1e293b); }
-.upload-zone__hint { font-size: 12px; color: var(--color-text-placeholder, #94a3b8); margin-top: 6px; }
+.upload-zone--filled {
+  border-style: solid;
+  border-color: var(--color-primary-mid, #91CAFF);
+}
 
-.upload-zone__tags {
+.upload-zone--disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.upload-zone__icon {
   display: flex;
   justify-content: center;
-  gap: 8px;
-  margin-top: 12px;
-  flex-wrap: wrap;
-}
-
-.upload-zone__tag {
-  font-size: 11px;
-  padding: 3px 10px;
-  border-radius: 100px;
-  background: var(--color-bg, #f8fafc);
-  border: 1px solid var(--color-border, #e2e8f0);
-  color: var(--color-text-secondary, #64748b);
-}
-
-.upload-file-info {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: var(--color-primary-light, #E6F4FF);
-  border: 1px solid var(--color-primary, #1677FF);
-  border-radius: var(--radius-sm, 4px);
-  padding: 10px 14px;
-  margin-top: 12px;
-  font-size: 13px;
+  margin-bottom: 10px;
   color: var(--color-primary, #1677FF);
 }
 
-.upload-file-info__remove {
-  margin-left: auto;
-  cursor: pointer;
-  opacity: 0.7;
+.upload-zone__text {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text-primary, #1e293b);
 }
 
-.upload-file-info__remove:hover { opacity: 1; }
+.upload-zone__hint {
+  font-size: 12px;
+  color: var(--color-text-placeholder, #94a3b8);
+  margin-top: 6px;
+}
 
-/* --- Git Panel --- */
-.git-panel { margin-top: 0; }
+/* --- Git --- */
+.git-panel { width: 100%; }
 
 .git-row {
   display: flex;
@@ -602,24 +840,46 @@ function formatDate(dateStr: string) {
   margin-bottom: 6px;
 }
 
-/* --- Remark --- */
+/* --- Footer --- */
 .remark-textarea {
   width: 100%;
-  padding: 12px 14px;
+  padding: 10px 12px;
   border: 1px solid var(--color-border, #e2e8f0);
   border-radius: var(--radius-sm, 4px);
-  font-size: 14px;
+  font-size: 13px;
   font-family: inherit;
   color: var(--color-text-primary, #1e293b);
-  background: var(--color-card, #fff);
+  background: var(--color-bg, #F5F7FA);
   resize: vertical;
   outline: none;
   box-sizing: border-box;
+  margin-bottom: 10px;
 }
 
 .remark-textarea:focus { border-color: var(--color-primary, #1677FF); }
 .remark-textarea::placeholder { color: var(--color-text-placeholder, #94a3b8); }
-.remark-textarea:disabled { background: var(--color-bg, #f8fafc); }
+.remark-textarea:disabled { opacity: 0.7; }
+
+.workspace-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.actions-row {
+  display: flex;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.actions-hint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--color-text-secondary, #64748b);
+  line-height: 1.5;
+  max-width: 420px;
+}
 
 /* --- History --- */
 .history-list {
@@ -630,41 +890,79 @@ function formatDate(dateStr: string) {
 .history-item {
   display: flex;
   align-items: center;
-  gap: var(--spacing-md, 16px);
-  padding: 10px 0;
+  gap: 10px;
+  padding: 8px 0;
   border-bottom: 1px solid var(--color-border, #e2e8f0);
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .history-item:last-child { border-bottom: none; }
 
 .history-item__version {
   font-family: "JetBrains Mono", "SF Mono", monospace;
-  font-size: 12px;
   color: var(--color-text-placeholder, #94a3b8);
-  width: 32px;
+  width: 28px;
 }
 
 .history-item__time {
   flex: 1;
   color: var(--color-text-secondary, #64748b);
   font-family: "JetBrains Mono", "SF Mono", monospace;
-  font-size: 12px;
 }
 
 .history-item__score {
   font-family: "JetBrains Mono", "SF Mono", monospace;
-  font-size: 13px;
   font-weight: 600;
   color: var(--color-primary, #1677FF);
-  width: 40px;
-  text-align: right;
 }
 
-/* --- Actions --- */
-.actions {
-  display: flex;
-  gap: 10px;
-  margin-top: var(--spacing-md, 16px);
+@media (max-width: 1023.98px) {
+  .submit-page {
+    height: auto;
+    min-height: 0;
+    padding: 12px 16px 24px;
+  }
+
+  .submit-workspace {
+    grid-template-columns: 1fr;
+    overflow: visible;
+  }
+
+  .problem-panel {
+    border-right: none;
+    border-bottom: 1px solid var(--color-border, #E5E7EB);
+    max-height: none;
+  }
+
+  .workspace-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .actions-row {
+    flex-wrap: wrap;
+  }
+
+  .actions-hint {
+    max-width: none;
+  }
+}
+
+@media (max-width: 767.98px) {
+  .submit-toolbar {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .submit-toolbar__title h1 {
+    font-size: 17px;
+    white-space: normal;
+  }
+
+  .actions-row :deep(.base-button),
+  .actions-row :deep(button) {
+    flex: 1;
+    min-width: calc(50% - 5px);
+  }
 }
 </style>

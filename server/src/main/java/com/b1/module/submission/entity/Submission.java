@@ -43,6 +43,18 @@ public class Submission implements Serializable {
     @TableField("submit_count")
     private Integer submitCount;
 
+    @TableField("ai_analyze_used_count")
+    private Integer aiAnalyzeUsedCount;
+
+    @TableField("current_trial_id")
+    private Long currentTrialId;
+
+    @TableField("confirmed_trial_id")
+    private Long confirmedTrialId;
+
+    @TableField("confirmed_at")
+    private LocalDateTime confirmedAt;
+
     @TableField("submit_time")
     private LocalDateTime submitTime;
 

@@ -54,7 +54,6 @@ function getOption(): echarts.EChartsOption {
           fontSize: 28,
           fontWeight: 700,
           fontFamily: "JetBrains Mono, SF Mono, Consolas, monospace",
-          textAlign: "center",
         },
       },
       {
@@ -65,7 +64,6 @@ function getOption(): echarts.EChartsOption {
           text: props.centerLabel,
           fill: "#94A3B8",
           fontSize: 12,
-          textAlign: "center",
         },
       },
     ],

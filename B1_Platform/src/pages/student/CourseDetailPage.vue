@@ -37,7 +37,7 @@ function formatDate(dateStr: string) {
 }
 
 function goToTask(taskId: string) {
-  router.push(`/student/tasks/${taskId}`)
+  router.push(`/student/submit/${taskId}`)
 }
 
 function formatScore(score: unknown) {
@@ -161,6 +161,10 @@ onMounted(() => { loadCourseDetail() })
   border-bottom: 1px solid var(--color-border, #e2e8f0);
 }
 .course-detail-page__info-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+
+@media (max-width: 767.98px) {
+  .course-detail-page__info-grid { grid-template-columns: 1fr; }
+}
 .course-detail-page__info-item { display: flex; flex-direction: column; gap: 4px; }
 .course-detail-page__label { font-size: 14px; color: var(--color-text-secondary, #64748b); }
 .course-detail-page__value { font-size: 16px; color: var(--color-text-primary, #1e293b); font-weight: 500; }

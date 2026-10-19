@@ -1,4 +1,4 @@
-﻿import type { RouteRecordRaw } from "vue-router"
+import type { RouteRecordRaw } from "vue-router"
 
 const adminRoutes: RouteRecordRaw[] = [
   {
@@ -11,37 +11,47 @@ const adminRoutes: RouteRecordRaw[] = [
         path: "dashboard",
         name: "AdminDashboard",
         component: () => import("@/pages/admin/DashboardPage.vue"),
-        meta: { title: "系统总览", icon: "LayoutDashboard", sort: 1, keepAlive: true },
+        meta: { title: "系统总览", icon: "LayoutDashboard", sort: 1 },
+      },
+      {
+        path: "organization",
+        name: "AdminOrganization",
+        component: () => import("@/pages/admin/AdminOrganizationHubPage.vue"),
+        meta: { title: "组织管理", icon: "Users", sort: 2 },
       },
       {
         path: "users",
-        name: "AdminUsers",
-        component: () => import("@/pages/admin/UsersPage.vue"),
-        meta: { title: "用户管理", icon: "Users", sort: 2, keepAlive: true },
+        redirect: (to) => ({ path: "/admin/organization", query: { ...to.query, tab: "users" } }),
       },
       {
         path: "classes",
-        name: "AdminClasses",
-        component: () => import("@/pages/admin/ClassesPage.vue"),
-        meta: { title: "班级管理", icon: "School", sort: 3, keepAlive: true },
+        redirect: (to) => ({ path: "/admin/organization", query: { ...to.query, tab: "classes" } }),
+      },
+      {
+        path: "operations",
+        name: "AdminOperations",
+        component: () => import("@/pages/admin/AdminOperationsHubPage.vue"),
+        meta: { title: "运维中心", icon: "Activity", sort: 3 },
       },
       {
         path: "monitor",
-        name: "AdminMonitor",
-        component: () => import("@/pages/admin/MonitorPage.vue"),
-        meta: { title: "运行监控", icon: "Activity", sort: 4, keepAlive: true },
+        redirect: (to) => ({ path: "/admin/operations", query: { ...to.query, tab: "monitor" } }),
       },
       {
         path: "logs",
-        name: "AdminLogs",
-        component: () => import("@/pages/admin/LogsPage.vue"),
-        meta: { title: "操作日志", icon: "ScrollText", sort: 5, keepAlive: true },
+        redirect: (to) => ({ path: "/admin/operations", query: { ...to.query, tab: "logs" } }),
       },
       {
         path: "system",
         name: "AdminSystem",
         component: () => import("@/pages/admin/SystemPage.vue"),
-        meta: { title: "系统配置", icon: "Settings", sort: 6, keepAlive: true },
+        meta: { title: "系统配置", icon: "Settings", sort: 4 },
+      },
+      {
+        path: "profile",
+        name: "AdminProfile",
+        component: () => import("@/pages/student/ProfilePage.vue"),
+        meta: { title: "个人中心", hidden: true },
       },
     ],
   },

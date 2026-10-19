@@ -13,6 +13,10 @@ public class SubmissionListVO {
 
     private Long taskId;
 
+    private Long courseId;
+
+    private String courseName;
+
     private Long studentUserId;
 
     private String studentName;

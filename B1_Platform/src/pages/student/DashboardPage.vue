@@ -11,10 +11,16 @@ import LineChart from "@/components/chart/LineChart.vue"
 import RadarChart from "@/components/chart/RadarChart.vue"
 import LoadingState from "@/components/common/LoadingState.vue"
 import ErrorState from "@/components/common/ErrorState.vue"
+import { navigateStudentTaskAction } from "@/utils/studentTaskNavigation"
+import { useBreakpoint } from "@/composables/useBreakpoint"
 
 const router = useRouter()
 const studentStore = useStudentStore()
 const userStore = useUserStore()
+const { isXs } = useBreakpoint()
+
+const chartH = computed(() => (isXs.value ? "220px" : "280px"))
+const radarH = computed(() => (isXs.value ? "240px" : "260px"))
 
 const loadError = ref("")
 
@@ -76,27 +82,37 @@ function statusMeta(status: string): { label: string; action: string; tone: "dan
   switch (status) {
     case "NOT_SUBMITTED":
       return { label: "进行中 · 未提交", action: "去提交", tone: "danger" }
+    case "DRAFT":
+      return { label: "试交中", action: "继续试交", tone: "ai" }
     case "REJECTED":
       return { label: "已退回", action: "去修改", tone: "danger" }
+    case "ANALYZING":
     case "AI_EVALUATING":
       return { label: "AI 分析中", action: "查看进度", tone: "ai" }
+    case "AI_READY":
     case "AI_COMPLETED":
-      return { label: "AI 分析完成", action: "查看反馈", tone: "ok" }
+      return { label: "待确认提交", action: "去确认", tone: "ok" }
+    case "CONFIRMED":
+      return { label: "已递交教师", action: "查看详情", tone: "muted" }
+    case "REVIEWING":
     case "TEACHER_SCORING":
-      return { label: "教师评阅中", action: "查看详情", tone: "muted" }
+      return { label: "教师复核中", action: "查看详情", tone: "muted" }
+    case "PUBLISHED":
     case "COMPLETED":
-      return { label: "已终审", action: "查看成绩", tone: "ok" }
+      return { label: "已发布成绩", action: "查看成绩", tone: "ok" }
+    case "INCOMPLETE":
+      return { label: "未完成", action: "查看详情", tone: "danger" }
     default:
       return { label: status || "未知", action: "查看", tone: "muted" }
   }
 }
 
-function taskAction(taskId: string, status: string) {
-  if (status === "NOT_SUBMITTED" || status === "REJECTED") {
-    goTo(`/student/submit/${taskId}`)
-    return
-  }
-  goTo(`/student/tasks/${taskId}`)
+function taskAction(item: { taskId: string; status: string; submissionId?: string | null }) {
+  navigateStudentTaskAction(router, {
+    taskId: item.taskId,
+    status: item.status,
+    submissionId: item.submissionId,
+  })
 }
 </script>
 
@@ -157,7 +173,7 @@ function taskAction(taskId: string, status: string) {
         <section class="stat-group">
           <h2 class="section-label">学习状态</h2>
           <div class="stat-triple">
-            <article class="stat-card" @click="goTo('/student/reports')">
+            <article class="stat-card" @click="goTo('/student/analytics?tab=reports')">
               <div class="stat-card__top">
                 <div>
                   <div class="stat-label">平均成绩</div>
@@ -193,7 +209,7 @@ function taskAction(taskId: string, status: string) {
                 <span>预计 {{ stats.analyzingEtaMinutes }} 分钟</span>
               </div>
             </article>
-            <article class="stat-card" @click="goTo('/student/growth')">
+            <article class="stat-card" @click="goTo('/student/analytics?tab=growth')">
               <div class="stat-card__top">
                 <div>
                   <div class="stat-label">待改进项</div>
@@ -228,7 +244,7 @@ function taskAction(taskId: string, status: string) {
               { name: '我的成绩', data: data.scoreTrend?.myScores ?? [], color: '#1677FF' },
               { name: '班级平均', data: data.scoreTrend?.classAvg ?? [], color: '#9CA3AF' },
             ]"
-            height="280px"
+            :height="chartH"
           />
         </section>
 
@@ -243,7 +259,7 @@ function taskAction(taskId: string, status: string) {
               { name: '我的能力', data: data.radarData?.myScores ?? [], color: '#1677FF' },
               { name: '班级均值', data: data.radarData?.classAvg ?? [], color: '#00B96B' },
             ]"
-            height="260px"
+            :height="radarH"
           />
         </section>
       </div>
@@ -276,7 +292,7 @@ function taskAction(taskId: string, status: string) {
                 type="button"
                 class="badge"
                 :class="statusMeta(item.status).tone"
-                @click="taskAction(item.taskId, item.status)"
+                @click="taskAction(item)"
               >
                 {{ statusMeta(item.status).action }}
               </button>
@@ -300,7 +316,7 @@ function taskAction(taskId: string, status: string) {
               <div class="mini__k"><BookOpen :size="14" />我的课程</div>
               <div class="mini__v linkish">进入</div>
             </button>
-            <button type="button" class="mini" @click="goTo('/student/growth')">
+            <button type="button" class="mini" @click="goTo('/student/analytics?tab=growth')">
               <div class="mini__k"><Sparkles :size="14" />成长档案</div>
               <div class="mini__v linkish">查看</div>
             </button>
@@ -312,6 +328,11 @@ function taskAction(taskId: string, status: string) {
 </template>
 
 <style scoped>
+.dash {
+  width: 100%;
+  min-width: 0;
+}
+
 .dash-state { padding: 48px 0; }
 
 .dash-hero {
@@ -341,6 +362,7 @@ function taskAction(taskId: string, status: string) {
   border: none;
   border-radius: 10px;
   padding: 12px 16px;
+  min-height: var(--touch-min, 44px);
   background: var(--color-primary, #1677FF);
   color: #fff;
   font-size: 14px;
@@ -348,6 +370,7 @@ function taskAction(taskId: string, status: string) {
   cursor: pointer;
   box-shadow: 0 8px 18px rgba(22, 119, 255, 0.25);
   transition: background var(--transition-fast), transform var(--transition-fast);
+  flex-shrink: 0;
 }
 .cta-primary:hover {
   background: var(--color-primary-hover, #0958D9);
@@ -381,6 +404,7 @@ function taskAction(taskId: string, status: string) {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-xl, 20px);
   box-shadow: var(--shadow-card);
+  min-width: 0;
 }
 .stat-card {
   cursor: pointer;
@@ -422,6 +446,7 @@ function taskAction(taskId: string, status: string) {
   border-radius: 12px;
   display: grid;
   place-items: center;
+  flex-shrink: 0;
 }
 .stat-icon.g { background: var(--color-success-light, #E6F7EF); color: var(--color-success-hover, #009A57); }
 .stat-icon.b { background: var(--color-primary-light, #E6F4FF); color: var(--color-primary, #1677FF); }
@@ -463,7 +488,7 @@ function taskAction(taskId: string, status: string) {
   gap: 18px;
 }
 
-.panel { padding: 20px; }
+.panel { padding: 20px; overflow: hidden; }
 .panel__head {
   display: flex;
   align-items: center;
@@ -496,6 +521,9 @@ function taskAction(taskId: string, status: string) {
   padding: 0;
   box-shadow: none;
   border-radius: 0;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
 }
 .chart-panel :deep(.chart-card__title) { display: none; }
 
@@ -640,13 +668,125 @@ function taskAction(taskId: string, status: string) {
   color: var(--color-text-placeholder);
 }
 
-@media (max-width: 1100px) {
-  .stat-grid, .mid-grid, .bottom-grid { grid-template-columns: 1fr; }
-  .stat-triple { grid-template-columns: 1fr 1fr; }
+@media (max-width: 1023.98px) {
+  .stat-grid,
+  .mid-grid,
+  .bottom-grid {
+    grid-template-columns: 1fr;
+  }
+  .stat-triple {
+    grid-template-columns: 1fr 1fr;
+  }
 }
-@media (max-width: 640px) {
-  .dash-hero { flex-direction: column; align-items: flex-start; }
-  .dash-hero__title { font-size: 26px; }
-  .stat-pair, .stat-triple { grid-template-columns: 1fr; }
+
+@media (max-width: 767.98px) {
+  .dash-hero {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 14px;
+    margin-bottom: 20px;
+  }
+  .dash-hero__title {
+    font-size: 22px;
+  }
+  .dash-hero__sub {
+    font-size: 12px;
+    line-height: 1.45;
+  }
+  .cta-primary {
+    width: 100%;
+    justify-content: center;
+  }
+
+  /* 分区标题 + 卡片落入同一 2 列网格，符合手机扫读习惯 */
+  .stat-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .stat-group,
+  .stat-pair,
+  .stat-triple {
+    display: contents;
+  }
+  .section-label {
+    grid-column: 1 / -1;
+    margin: 4px 0 0;
+    font-size: 11px;
+  }
+  .stat-group + .stat-group .section-label {
+    margin-top: 8px;
+  }
+
+  .stat-card {
+    min-height: 0;
+    padding: 12px;
+    border-radius: 14px;
+  }
+  .stat-card:hover {
+    transform: none;
+  }
+  .stat-label {
+    font-size: 12px;
+  }
+  .stat-value {
+    margin-top: 6px;
+    font-size: 22px;
+  }
+  .stat-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+  }
+  .stat-icon :deep(svg) {
+    width: 14px;
+    height: 14px;
+  }
+  .stat-foot {
+    margin-top: 8px;
+    font-size: 11px;
+  }
+  .spark {
+    display: none;
+  }
+
+  .mid-grid,
+  .bottom-grid {
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+  .panel {
+    padding: 14px;
+    border-radius: 14px;
+  }
+  .panel__title {
+    font-size: 16px;
+  }
+  .panel__head {
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+  }
+
+  .task-item {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+  .task-item__title {
+    white-space: normal;
+  }
+  .badge {
+    align-self: stretch;
+    text-align: center;
+    min-height: var(--touch-min, 44px);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .quick-links {
+    grid-template-columns: 1fr 1fr;
+  }
 }
 </style>

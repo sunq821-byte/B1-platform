@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from "vue"
+import { ref, computed, onMounted, inject } from "vue"
 import { ElMessage, ElMessageBox } from "element-plus"
 import { useAdminStore } from "@/stores/useAdminStore"
 import type { IClassItem } from "@/types/admin"
@@ -8,6 +8,7 @@ import LoadingState from "@/components/common/LoadingState.vue"
 import ErrorState from "@/components/common/ErrorState.vue"
 
 const store = useAdminStore()
+const embedded = inject("tabHubEmbedded", false)
 const loadError = ref("")
 const searchKeyword = ref("")
 
@@ -76,6 +77,7 @@ onMounted(() => { loadClasses() })
 <template>
   <div>
     <PageHeader
+      v-if="!embedded"
       title="班级管理"
       :subtitle="`共 ${store.classes.length} 个班级 · 组织教学单元`"
     />

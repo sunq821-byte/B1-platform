@@ -7,10 +7,11 @@ public interface ReportExportService {
     /**
      * 导出班级成绩报表。
      *
-     * @param className 班级名（null/空 表示全部班级）
-     * @param format    xlsx | pdf
+     * @param adminClass  行政班名（null/空 表示全部）
+     * @param courseName  课程名（null/空 表示全部）
+     * @param format      xlsx | pdf
      */
-    void exportClassReport(String className, String format, HttpServletResponse response);
+    void exportClassReport(String adminClass, String courseName, String format, HttpServletResponse response);
 
     /**
      * 导出当前登录学生的个人成绩报告。

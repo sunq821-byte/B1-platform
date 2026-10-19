@@ -1,5 +1,5 @@
-﻿<script setup lang="ts">
-import { ref, onMounted, watch } from "vue"
+<script setup lang="ts">
+import { ref, onMounted, onActivated, watch } from "vue"
 import { useRouter } from "vue-router"
 import { useStudentStore } from "@/stores/useStudentStore"
 import { Search } from "lucide-vue-next"
@@ -13,6 +13,7 @@ import LoadingState from "@/components/common/LoadingState.vue"
 import ErrorState from "@/components/common/ErrorState.vue"
 import EmptyState from "@/components/common/EmptyState.vue"
 import TaskStatusBadge from "@/components/business/TaskStatusBadge.vue"
+import { navigateStudentTaskAction } from "@/utils/studentTaskNavigation"
 
 const router = useRouter()
 const store = useStudentStore()
@@ -25,13 +26,15 @@ const loadError = ref("")
 
 const statusOptions = [
   { label: "全部状态", value: "" },
-  { label: "未提交", value: "NOT_SUBMITTED" },
-  { label: "已提交", value: "SUBMITTED" },
-  { label: "AI分析中", value: "AI_EVALUATING" },
-  { label: "AI已完成", value: "AI_COMPLETED" },
-  { label: "教师评分中", value: "TEACHER_SCORING" },
-  { label: "已完成", value: "COMPLETED" },
-  { label: "已退回", value: "REJECTED" },
+  { label: "未开始", value: "NOT_SUBMITTED" },
+  { label: "试交中", value: "DRAFT" },
+  { label: "AI 分析中", value: "ANALYZING" },
+  { label: "待确认提交", value: "AI_READY" },
+  { label: "已递交教师", value: "CONFIRMED" },
+  { label: "教师复核中", value: "REVIEWING" },
+  { label: "已发布成绩", value: "PUBLISHED" },
+  { label: "未完成", value: "INCOMPLETE" },
+  { label: "已驳回", value: "REJECTED" },
 ]
 
 async function loadTasks() {
@@ -57,16 +60,28 @@ function handlePageChange() {
   loadTasks()
 }
 
-function viewDetail(taskId: string) {
-  router.push(`/student/tasks/${taskId}`)
-}
-
-function goSubmit(taskId: string) {
-  router.push(`/student/submit/${taskId}`)
+function handleRowAction(row: {
+  taskId: string
+  mySubmissionStatus: string
+  mySubmissionId?: string | null
+}) {
+  navigateStudentTaskAction(router, {
+    taskId: row.taskId,
+    status: row.mySubmissionStatus,
+    submissionId: row.mySubmissionId,
+  })
 }
 
 function canSubmit(status: string): boolean {
-  return status === "NOT_SUBMITTED" || status === "REJECTED"
+  return status === "NOT_SUBMITTED" || status === "REJECTED" || status === "DRAFT"
+}
+
+function getActionLabel(status: string): string {
+  if (canSubmit(status)) return "去提交"
+  if (status === "AI_READY" || status === "AI_COMPLETED") return "查看评分"
+  if (status === "PUBLISHED" || status === "COMPLETED") return "查看成绩"
+  if (status === "ANALYZING" || status === "AI_EVALUATING") return "查看进度"
+  return "进入任务"
 }
 
 function formatDate(dateStr: string) {
@@ -85,6 +100,10 @@ watch([statusFilter], () => {
 })
 
 onMounted(() => {
+  loadTasks()
+})
+
+onActivated(() => {
   loadTasks()
 })
 </script>
@@ -126,12 +145,42 @@ onMounted(() => {
     />
 
     <template v-else>
+      <div class="mobile-card-list" aria-label="任务卡片列表">
+        <button
+          v-for="row in store.tasks"
+          :key="String(row.taskId)"
+          type="button"
+          class="mobile-card"
+          @click="handleRowAction({
+            taskId: row.taskId as string,
+            mySubmissionStatus: row.mySubmissionStatus as string,
+            mySubmissionId: row.mySubmissionId as string | null,
+          })"
+        >
+          <div class="mobile-card__title">{{ row.taskName }}</div>
+          <div class="mobile-card__meta">{{ row.courseName }} · {{ row.teacherName }}</div>
+          <div class="mobile-card__row">
+            <TaskStatusBadge :status="row.mySubmissionStatus as string" />
+            <span class="mono">截止 {{ formatDate(row.deadline as string) }}</span>
+          </div>
+          <div class="mobile-card__row">
+            <span class="mono">成绩 {{ formatScore(row.myScore) }}</span>
+            <span class="mobile-card__action">{{ getActionLabel(row.mySubmissionStatus as string) }}</span>
+          </div>
+        </button>
+      </div>
+
+      <div class="desktop-table">
       <BaseTable :data="store.tasks as unknown as Record<string, unknown>[]">
         <el-table-column label="任务名称" min-width="180" show-overflow-tooltip>
           <template #default="{ row }">
             <span
               class="task-list-page__link"
-              @click="viewDetail(row.taskId as string)"
+              @click="handleRowAction({
+                taskId: row.taskId as string,
+                mySubmissionStatus: row.mySubmissionStatus as string,
+                mySubmissionId: row.mySubmissionId as string | null,
+              })"
             >
               {{ row.taskName }}
             </span>
@@ -155,20 +204,23 @@ onMounted(() => {
             <span class="mono">{{ formatScore(row.myScore) }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="200" align="center" fixed="right">
+        <el-table-column label="操作" width="120" align="center" fixed="right">
           <template #default="{ row }">
-            <div class="ops">
-              <BaseButton size="small" @click="viewDetail(row.taskId as string)">详情</BaseButton>
-              <BaseButton
-                v-if="canSubmit(row.mySubmissionStatus as string)"
-                size="small"
-                type="primary"
-                @click="goSubmit(row.taskId as string)"
-              >去提交</BaseButton>
-            </div>
+            <BaseButton
+              size="small"
+              :type="canSubmit(row.mySubmissionStatus as string) ? 'primary' : 'default'"
+              @click="handleRowAction({
+                taskId: row.taskId as string,
+                mySubmissionStatus: row.mySubmissionStatus as string,
+                mySubmissionId: row.mySubmissionId as string | null,
+              })"
+            >
+              {{ getActionLabel(row.mySubmissionStatus as string) }}
+            </BaseButton>
           </template>
         </el-table-column>
       </BaseTable>
+      </div>
 
       <BasePagination
         v-model:current-page="currentPage"
@@ -193,7 +245,6 @@ onMounted(() => {
   font-weight: 500;
 }
 .ml-auto { margin-left: auto; }
-.ops { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; }
 
 .task-list-page__link:hover {
   color: var(--color-primary-hover, #0958D9);
@@ -203,5 +254,65 @@ onMounted(() => {
   font-family: var(--font-mono);
   font-size: 12px;
   color: var(--color-text-secondary);
+}
+
+.mobile-card-list {
+  display: none;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.mobile-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  padding: 14px 16px;
+  border: 1px solid var(--color-border, #E5E7EB);
+  border-radius: var(--radius-xl, 16px);
+  background: var(--color-card, #fff);
+  box-shadow: var(--shadow-sm);
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+.mobile-card__title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--color-navy, #0B3A5C);
+}
+
+.mobile-card__meta {
+  font-size: 12px;
+  color: var(--color-text-secondary, #6B7280);
+}
+
+.mobile-card__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.mobile-card__action {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-primary, #1677FF);
+}
+
+@media (max-width: 767.98px) {
+  .filter-bar :deep(input),
+  .filter-bar :deep(.base-input),
+  .filter-bar :deep(.el-input),
+  .filter-bar :deep(select) {
+    width: 100% !important;
+    max-width: 100%;
+  }
+
+  .mobile-card-list { display: flex; }
+  .desktop-table { display: none; }
 }
 </style>

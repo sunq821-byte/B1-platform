@@ -10,6 +10,8 @@ public class SubmissionHistoryVO {
 
     private Long submissionId;
 
+    private Long trialId;
+
     private String status;
 
     private Integer submitCount;

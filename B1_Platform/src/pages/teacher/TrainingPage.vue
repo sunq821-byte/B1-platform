@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from "vue"
+import { ref, computed, onMounted, inject } from "vue"
 import { ElMessage, ElMessageBox } from "element-plus"
 import { useTeacherStore } from "@/stores/useTeacherStore"
 import type { ITeacherTaskItem } from "@/types/teacher"
@@ -10,20 +10,20 @@ import BaseModal from "@/components/base/BaseModal.vue"
 import LoadingState from "@/components/common/LoadingState.vue"
 import ErrorState from "@/components/common/ErrorState.vue"
 import GradingRuleForm from "@/components/business/GradingRuleForm.vue"
+import { formatDate } from "@/utils/format"
+
+const defaultDueDate = () => formatDate(new Date())
 
 const store = useTeacherStore()
+const embedded = inject("tabHubEmbedded", false)
 const loadError = ref("")
 const filterCourse = ref("all")
-const filterStatus = ref("all")
 const searchKeyword = ref("")
 
 const filteredTasks = computed(() => {
   const kw = searchKeyword.value.trim().toLowerCase()
   return store.tasks.filter((t) => {
     if (filterCourse.value !== "all" && t.courseName !== filterCourse.value) return false
-    const published = t.status.toLowerCase() === "published"
-    if (filterStatus.value === "published" && !published) return false
-    if (filterStatus.value === "draft" && published) return false
     if (!kw) return true
     return t.taskName.toLowerCase().includes(kw) || t.taskId.toLowerCase().includes(kw)
   })
@@ -37,10 +37,10 @@ const form = ref({
   taskName: "",
   courseId: "",
   description: "",
-  dueDate: "2026-07-15",
+  dueDate: defaultDueDate(),
   weight: 25,
   priority: "medium" as "high" | "medium" | "low",
-  submissionType: "GIT_URL",
+  submissionType: "ZIP_UPLOAD",
   maxSubmitCount: 3,
   roleText: "",
   skillText: "",
@@ -50,7 +50,7 @@ const form = ref({
 const modalTitle = computed(() => (isEdit.value ? "编辑任务" : "新建任务"))
 
 function resetForm() {
-  form.value = { taskName: "", courseId: store.courses[0]?.courseId || "", description: "", dueDate: "2026-07-15", weight: 25, priority: "medium", submissionType: "GIT_URL", maxSubmitCount: 3, roleText: "", skillText: "", ruleText: "" }
+  form.value = { taskName: "", courseId: store.courses[0]?.courseId || "", description: "", dueDate: defaultDueDate(), weight: 25, priority: "medium", submissionType: "ZIP_UPLOAD", maxSubmitCount: 3, roleText: "", skillText: "", ruleText: "" }
   isEdit.value = false
   editingId.value = ""
 }
@@ -83,7 +83,7 @@ function openEdit(task: ITeacherTaskItem) {
     dueDate: task.deadline ? task.deadline.substring(0, 10) : "",
     weight: task.totalScore,
     priority: task.priority,
-    submissionType: task.submissionType || "GIT_URL",
+    submissionType: task.submissionType || "ZIP_UPLOAD",
     maxSubmitCount: task.maxSubmitCount ?? 3,
     roleText: parsed.roleText,
     skillText: parsed.skillText,
@@ -101,31 +101,12 @@ async function handleSave() {
       ElMessage.success("任务已更新")
     } else {
       await store.createTask({ ...form.value })
-      ElMessage.success("任务已创建")
+      ElMessage.success("任务已发布")
     }
     showModal.value = false
   } catch (e: unknown) {
     ElMessage.error((e as Error)?.message || "操作失败")
   } finally { saving.value = false }
-}
-
-async function handlePublish() {
-  saving.value = true
-  try {
-    await store.publishTask(editingId.value)
-    ElMessage.success("任务已发布")
-    showModal.value = false
-  } catch (e: unknown) {
-    ElMessage.error((e as Error)?.message || "发布失败")
-  } finally { saving.value = false }
-}
-
-async function handlePublishRow(task: ITeacherTaskItem) {
-  try {
-    await ElMessageBox.confirm(`确认发布任务「${task.taskName}」？`, "发布任务", { type: "warning" })
-    await store.publishTask(task.taskId)
-    ElMessage.success("任务已发布")
-  } catch { /* cancelled */ }
 }
 
 async function handleDelete(taskId: string) {
@@ -137,7 +118,7 @@ async function handleDelete(taskId: string) {
 }
 
 function statusBadge(status: string) {
-  return status.toLowerCase() === "published" ? "已发布" : "草稿"
+  return status.toLowerCase() === "ended" ? "已结束" : "已发布"
 }
 
 async function initPage() {
@@ -154,7 +135,7 @@ onMounted(() => { initPage() })
 
 <template>
   <div class="page">
-    <PageHeader title="实训任务管理" :subtitle="`共 ${filteredTasks.length} 个任务`" />
+    <PageHeader v-if="!embedded" title="实训任务管理" :subtitle="`共 ${filteredTasks.length} 个任务`" />
 
     <LoadingState v-if="store.tasksLoading" />
     <ErrorState v-else-if="loadError" :message="loadError" @retry="initPage" />
@@ -164,11 +145,6 @@ onMounted(() => { initPage() })
         <select v-model="filterCourse" class="form-select w-course">
           <option value="all">全部课程</option>
           <option v-for="c in store.courses" :key="c.courseId" :value="c.courseName">{{ c.courseName }}</option>
-        </select>
-        <select v-model="filterStatus" class="form-select w-status">
-          <option value="all">全部状态</option>
-          <option value="published">已发布</option>
-          <option value="draft">草稿</option>
         </select>
         <input v-model="searchKeyword" class="form-input w-search" placeholder="搜索任务..." />
         <button type="button" class="btn btn-primary ml-auto" @click="openCreate">+ 新建任务</button>
@@ -187,16 +163,10 @@ onMounted(() => { initPage() })
               <td><span class="mono-sm">{{ t.deadline ? t.deadline.substring(0, 10) : '-' }}</span></td>
               <td>{{ t.totalScore }}</td>
               <td>
-                <span :class="['badge', t.status.toLowerCase() === 'published' ? 'badge--pub' : 'badge--draft']">{{ statusBadge(t.status) }}</span>
+                <span :class="['badge', t.status.toLowerCase() === 'ended' ? 'badge--ended' : 'badge--pub']">{{ statusBadge(t.status) }}</span>
               </td>
               <td class="actions-cell">
                 <BaseButton size="small" @click="openEdit(t)">编辑</BaseButton>
-                <BaseButton
-                  v-if="t.status.toLowerCase() !== 'published'"
-                  size="small"
-                  type="primary"
-                  @click="handlePublishRow(t)"
-                >发布</BaseButton>
                 <BaseButton size="small" type="danger" @click="handleDelete(t.taskId)">删除</BaseButton>
               </td>
             </tr>
@@ -222,12 +192,12 @@ onMounted(() => { initPage() })
           <label class="form-label">提交方式</label>
           <select v-model="form.submissionType" class="form-select">
             <option value="ZIP_UPLOAD">文件上传</option>
-            <option value="ONLINE_CODE">代码提交</option>
-            <option value="GIT_URL">Git 仓库</option>
+            <option value="FILE_CODE">文件或在线代码</option>
+            <option value="ONLINE_CODE">在线代码</option>
           </select>
         </div>
         <div class="form-group">
-          <label class="form-label">最大提交次数</label>
+          <label class="form-label">AI 分析次数上限</label>
           <BaseInput :model-value="String(form.maxSubmitCount)" @update:model-value="(v: string) => (form.maxSubmitCount = Number(v) || 1)" type="number" />
         </div>
         <div class="form-group">
@@ -251,11 +221,6 @@ onMounted(() => { initPage() })
           </select>
         </div>
         <GradingRuleForm v-model="form" />
-        <template v-if="isEdit" #footer>
-          <BaseButton @click="showModal = false">取消</BaseButton>
-          <BaseButton type="primary" :loading="saving" @click="handlePublish">发布任务</BaseButton>
-          <BaseButton type="primary" :loading="saving" @click="handleSave">保存</BaseButton>
-        </template>
       </BaseModal>
     </template>
   </div>
@@ -279,7 +244,6 @@ onMounted(() => { initPage() })
 
 .toolbar { display: flex; justify-content: flex-end; margin-bottom: 16px; }
 .w-course { width: 180px; }
-.w-status { width: 140px; }
 .w-search { width: 200px; }
 .ml-auto { margin-left: auto; }
 .empty {
@@ -306,7 +270,7 @@ onMounted(() => { initPage() })
 
 .badge { display: inline-flex; align-items: center; font-size: 11px; padding: 2px 8px; border-radius: 4px; font-weight: 500; }
 .badge--pub { background: #E6F7EF; color: #009A57; }
-.badge--draft { background: #fef3c7; color: #b45309; }
+.badge--ended { background: #f1f5f9; color: #64748b; }
 
 .actions-cell { display: flex; gap: 4px; }
 

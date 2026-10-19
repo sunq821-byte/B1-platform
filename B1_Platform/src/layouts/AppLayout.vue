@@ -1,11 +1,15 @@
 <script setup lang="ts">
-import { onMounted } from "vue"
+import { computed, onMounted } from "vue"
+import { useRoute } from "vue-router"
 import { useUserStore } from "@/stores/useUserStore"
 import { usePermissionStore } from "@/stores/usePermissionStore"
 import Navbar from "@/components/layout/Navbar.vue"
 
+const route = useRoute()
 const userStore = useUserStore()
 const permissionStore = usePermissionStore()
+
+const hideNavbar = computed(() => route.matched.some((record) => record.meta.hideNavbar === true))
 
 onMounted(() => {
   if (userStore.userRole) {
@@ -15,8 +19,9 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="app-layout">
+  <div class="app-layout" :class="{ 'app-layout--no-nav': hideNavbar }">
     <Navbar
+      v-if="!hideNavbar"
       :menus="permissionStore.menus"
       :username="userStore.userName"
       :role="userStore.userRole"
@@ -43,13 +48,24 @@ onMounted(() => {
   max-width: var(--content-max, 1280px);
   width: 100%;
   margin: 0 auto;
-  padding: 8px 28px 40px;
+  padding: 8px var(--content-pad-x, 28px) 40px;
   box-sizing: border-box;
 }
 
-@media (max-width: 768px) {
+.app-layout--no-nav {
+  min-height: 100vh;
+}
+
+.app-layout--no-nav .app-layout__main {
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+}
+
+@media (max-width: 767.98px) {
   .app-layout__main {
-    padding: 8px 16px 32px;
+    padding-bottom: 32px;
   }
 }
 </style>

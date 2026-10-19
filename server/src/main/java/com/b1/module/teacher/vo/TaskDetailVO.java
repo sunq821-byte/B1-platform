@@ -50,7 +50,13 @@ public class TaskDetailVO {
 
         private String email;
 
+        private Long submissionId;
+
         private Integer submitCount;
+
+        private Integer aiAnalyzeUsedCount;
+
+        private Integer maxAiAnalyzeCount;
 
         private String latestStatus;
 

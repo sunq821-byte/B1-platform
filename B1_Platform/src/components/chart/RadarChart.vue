@@ -1,4 +1,4 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch, nextTick } from "vue"
 import * as echarts from "echarts"
 
@@ -13,11 +13,17 @@ const props = withDefaults(defineProps<{
 
 const chartRef = ref<HTMLDivElement>()
 let chartInstance: echarts.ECharts | null = null
+let resizeObserver: ResizeObserver | null = null
 
 const COLOR_PALETTE = ["#1677FF", "#00B96B", "#FAAD14", "#FF4D4F", "#722ED1", "#0B3A5C"]
 
 function hasValidData(): boolean {
   return props.categories.length > 0 && props.seriesData.some(s => s.data.length > 0)
+}
+
+function isNarrow(): boolean {
+  const w = chartRef.value?.clientWidth ?? 0
+  return w > 0 ? w < 480 : false
 }
 
 function getOption(): echarts.EChartsOption {
@@ -26,16 +32,18 @@ function getOption(): echarts.EChartsOption {
       title: { text: "暂无数据", left: "center", top: "center", textStyle: { fontSize: 14, color: "#94a3b8" } },
     }
   }
+  const narrow = isNarrow()
   return {
-    tooltip: {},
+    tooltip: { confine: true },
     legend: {
       bottom: 0,
-      textStyle: { fontSize: 12, color: "#64748B" },
+      textStyle: { fontSize: narrow ? 11 : 12, color: "#64748B" },
     },
     radar: {
       indicator: props.categories.map((name) => ({ name, max: 100 })),
       shape: "polygon",
-      radius: "65%",
+      radius: narrow ? "58%" : "65%",
+      center: ["50%", narrow ? "46%" : "50%"],
       splitArea: {
         areaStyle: { opacity: 0.05 },
       },
@@ -43,7 +51,7 @@ function getOption(): echarts.EChartsOption {
         lineStyle: { width: 1 },
       },
       axisName: {
-        fontSize: 12,
+        fontSize: narrow ? 10 : 12,
         color: "#64748B",
       },
     },
@@ -77,7 +85,9 @@ function disposeAndReinit() {
 }
 
 function handleResize() {
-  chartInstance?.resize()
+  if (!chartInstance) return
+  chartInstance.resize()
+  chartInstance.setOption(getOption(), { replaceMerge: ["radar", "legend"] })
 }
 
 watch(
@@ -87,12 +97,20 @@ watch(
 )
 
 onMounted(() => {
-  nextTick(initChart)
+  nextTick(() => {
+    initChart()
+    if (chartRef.value && typeof ResizeObserver !== "undefined") {
+      resizeObserver = new ResizeObserver(() => handleResize())
+      resizeObserver.observe(chartRef.value)
+    }
+  })
   window.addEventListener("resize", handleResize)
 })
 
 onUnmounted(() => {
   window.removeEventListener("resize", handleResize)
+  resizeObserver?.disconnect()
+  resizeObserver = null
   chartInstance?.dispose()
   chartInstance = null
 })
@@ -107,6 +125,10 @@ onUnmounted(() => {
 
 <style scoped>
 .chart-card {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
   background: var(--color-card);
   border-radius: 12px;
   padding: 16px;
@@ -125,6 +147,8 @@ onUnmounted(() => {
 
 .chart-card__body {
   flex: 1;
+  width: 100%;
+  min-width: 0;
   min-height: 0;
 }
 </style>

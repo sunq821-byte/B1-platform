@@ -15,6 +15,8 @@ import type {
   IDashboardData,
 } from "@/types/teacher"
 import * as teacherApi from "@/api/modules/teacher"
+import { buildAIDeductionView } from "@/utils/aiDeductions"
+import type { IAIScoreResult } from "@/types/student"
 
 export const useTeacherStore = defineStore("teacher", () => {
   function extractList<T>(data: unknown, mapper: (raw: Record<string, unknown>) => T): T[] {
@@ -23,6 +25,25 @@ export const useTeacherStore = defineStore("teacher", () => {
     const list = (data as Record<string, unknown>).list
     if (Array.isArray(list)) return list.map((item) => mapper(item as Record<string, unknown>))
     return []
+  }
+
+  function compareTaskIdDesc(a: string, b: string): number {
+    if (/^\d+$/.test(a) && /^\d+$/.test(b)) {
+      if (a.length !== b.length) return b.length - a.length
+      if (b > a) return 1
+      if (b < a) return -1
+      return 0
+    }
+    return b.localeCompare(a)
+  }
+
+  function sortTasksNewestFirst(list: ITeacherTaskItem[]): ITeacherTaskItem[] {
+    return [...list].sort((a, b) => {
+      const ta = a.createdAt ? Date.parse(a.createdAt) : 0
+      const tb = b.createdAt ? Date.parse(b.createdAt) : 0
+      if (tb !== ta) return tb - ta
+      return compareTaskIdDesc(a.taskId, b.taskId)
+    })
   }
 
   // Courses
@@ -96,7 +117,7 @@ export const useTeacherStore = defineStore("teacher", () => {
 
   // === Tasks ===
   function mapTask(raw: Record<string, unknown>): ITeacherTaskItem {
-    const status = String(raw.status ?? 'DRAFT')
+    const status = String(raw.status ?? 'PUBLISHED')
     return {
       taskId: String(raw.taskId ?? ''),
       taskName: String(raw.taskName ?? ''),
@@ -119,13 +140,15 @@ export const useTeacherStore = defineStore("teacher", () => {
   async function fetchTasks(params?: { courseId?: string }): Promise<void> {
     tasksLoading.value = true
     try {
-      tasks.value = extractList(await teacherApi.fetchTeacherTasks(params), mapTask)
+      tasks.value = sortTasksNewestFirst(
+        extractList(await teacherApi.fetchTeacherTasks(params), mapTask),
+      )
     } finally { tasksLoading.value = false }
   }
 
   async function createTask(data: ITaskFormData): Promise<ITeacherTaskItem> {
     const t = mapTask(await teacherApi.createTask(data) as unknown as Record<string, unknown>)
-    tasks.value.push(t)
+    tasks.value = sortTasksNewestFirst([t, ...tasks.value])
     return t
   }
 
@@ -179,7 +202,7 @@ export const useTeacherStore = defineStore("teacher", () => {
 
   // === Submissions ===
   function mapSubmission(raw: Record<string, unknown>): IPendingSubmission {
-    const submitType = String(raw.submitType ?? 'FILE')
+    const submitType = String(raw.submitType ?? 'ZIP_ONLY')
     return {
       submissionId: String(raw.submissionId ?? ''),
       studentName: String(raw.studentName ?? ''),
@@ -187,9 +210,11 @@ export const useTeacherStore = defineStore("teacher", () => {
       studentEmail: String(raw.studentEmail ?? ''),
       taskId: String(raw.taskId ?? ''),
       taskName: String(raw.taskName ?? ''),
+      courseId: String(raw.courseId ?? ''),
+      courseName: String(raw.courseName ?? ''),
       submittedAt: raw.submittedAt ? String(raw.submittedAt) : '',
       status: String(raw.status ?? 'SUBMITTED').toLowerCase(),
-      submissionType: (submitType === 'GIT_URL' || submitType === 'ONLINE_CODE') ? 'code' : 'file',
+      submissionType: submitType === 'ONLINE_CODE' ? 'code' : 'file',
       submitType,
       submitCount: Number(raw.submitCount ?? 1),
       isLate: Number(raw.isLate ?? 0),
@@ -201,9 +226,12 @@ export const useTeacherStore = defineStore("teacher", () => {
   async function fetchPendingSubmissions(): Promise<void> {
     submissionsLoading.value = true
     try {
-      const page = await teacherApi.fetchPendingSubmissions() as unknown as { list: Array<Record<string, unknown>>; total: number }
+      const page = await teacherApi.fetchPendingSubmissions({
+        status: "CONFIRMED",
+        pageSize: 200,
+      }) as unknown as { list: Array<Record<string, unknown>>; total: number }
       pendingSubmissions.value = (page?.list ?? []).map(mapSubmission)
-      submissionsTotal.value = page?.total ?? 0
+      submissionsTotal.value = page?.total ?? pendingSubmissions.value.length
     } finally { submissionsLoading.value = false }
   }
 
@@ -214,25 +242,25 @@ export const useTeacherStore = defineStore("teacher", () => {
       currentDiagnosis.value = null
       return
     }
-    const result = raw.result as Record<string, unknown>
-    const dims = (result.dimensions ?? []) as Array<Record<string, unknown>>
+    const result = raw.result as IAIScoreResult
+    const view = buildAIDeductionView(result)
     currentDiagnosis.value = {
       submissionId,
-      aiScore: (result.overallScore as number) ?? 0,
-      totalDeductions: dims.length,
-      totalDeductScore: dims.reduce((sum: number, d) => sum + ((d.suggestDeduct as number) ?? 0), 0),
-      deductions: dims.map((d) => ({
-        agentType: (d.agentType as string) ?? "AI",
-        issueType: (d.issueType as string) ?? "",
-        suggestDeduct: (d.suggestDeduct as number) ?? 0,
-        reason: (d.comment as string) ?? "",
-        filePath: (d.filePath as string) ?? "",
-        lineNumber: (d.lineNumber as number) ?? 0,
-        confidence: (d.confidence as number) ?? 0,
+      aiScore: result.overallScore ?? 0,
+      totalDeductions: view.deductions.length,
+      totalDeductScore: view.totalDeductScore,
+      deductions: view.deductions.map((d) => ({
+        agentType: d.agentType,
+        issueType: d.issueType,
+        suggestDeduct: d.suggestDeduct,
+        reason: d.reason,
+        filePath: d.filePath,
+        lineNumber: d.lineNumber,
+        confidence: d.confidence,
         overridden: false,
       })),
-      aiIssueLines: dims.map((d) => (d.lineNumber as number) ?? 0).filter((n: number) => n > 0),
-      codePreview: (result.summary as string) ?? "",
+      aiIssueLines: view.deductions.map((d) => d.lineNumber).filter((n) => n > 0),
+      codePreview: result.summary ?? "",
     }
   }
 
@@ -248,6 +276,7 @@ export const useTeacherStore = defineStore("teacher", () => {
             fileName: String(a.fileName ?? ""),
             fileSize: Number(a.fileSize ?? 0),
             fileType: String(a.fileType ?? ""),
+            previewUrl: String((a as { previewUrl?: string }).previewUrl ?? ""),
             downloadUrl: String(a.downloadUrl ?? ""),
           })),
         }
@@ -260,6 +289,8 @@ export const useTeacherStore = defineStore("teacher", () => {
     pendingSubmissions.value = pendingSubmissions.value.filter((s) => s.submissionId !== submissionId)
     currentDiagnosis.value = null
     currentSubmissionId.value = ""
+    classReport.value = null
+    collegeReport.value = null
   }
 
   // === Dashboard ===
@@ -295,9 +326,9 @@ export const useTeacherStore = defineStore("teacher", () => {
   }
 
   // === Reports ===
-  async function fetchClassReport(className?: string): Promise<void> {
+  async function fetchClassReport(params?: { adminClass?: string; courseName?: string }): Promise<void> {
     classReportLoading.value = true
-    try { classReport.value = await teacherApi.fetchClassReport({ className }) }
+    try { classReport.value = await teacherApi.fetchClassReport(params) }
     finally { classReportLoading.value = false }
   }
 

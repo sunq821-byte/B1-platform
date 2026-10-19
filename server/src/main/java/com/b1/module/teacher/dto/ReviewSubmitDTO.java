@@ -15,6 +15,9 @@ public class ReviewSubmitDTO {
 
     private String teacherComment;
 
+    /** 教师终审总分（发布时由前端计算传入） */
+    private BigDecimal totalScore;
+
     private List<DimensionScoreDTO> dimensions;
 
     @Data

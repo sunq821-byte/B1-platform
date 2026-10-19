@@ -97,4 +97,13 @@ public class TeacherTaskController {
         teacherTaskService.deleteTask(taskId);
         return Result.ok();
     }
+
+    @Operation(summary = "还原学生 AI 分析次数（不驳回）")
+    @PostMapping("/tasks/{taskId}/students/{studentUserId}/restore-ai-count")
+    public Result<Void> restoreAiCount(
+            @PathVariable Long taskId,
+            @PathVariable Long studentUserId) {
+        teacherTaskService.restoreAiAnalyzeCount(taskId, studentUserId);
+        return Result.ok();
+    }
 }

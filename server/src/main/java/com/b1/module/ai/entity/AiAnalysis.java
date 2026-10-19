@@ -23,6 +23,9 @@ public class AiAnalysis implements Serializable {
     @TableField("submission_id")
     private Long submissionId;
 
+    @TableField("trial_id")
+    private Long trialId;
+
     @TableField("total_score")
     private BigDecimal totalScore;
 

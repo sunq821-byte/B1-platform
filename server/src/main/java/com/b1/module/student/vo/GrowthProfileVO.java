@@ -15,6 +15,8 @@ public class GrowthProfileVO {
 
     private Integer totalSubmissions;
 
+    private BigDecimal completionRate;
+
     private BigDecimal averageScore;
 
     private BigDecimal highestScore;
@@ -26,6 +28,10 @@ public class GrowthProfileVO {
     private List<MonthlyTrendVO> monthlyTrends;
 
     private List<DimensionRadarVO> dimensionRadar;
+
+    private DimensionInsightVO dimensionInsight;
+
+    private List<GrowthTimelineItemVO> growthTimeline;
 
     private List<SubmissionHistoryVO> submissionHistory;
 
@@ -59,6 +65,31 @@ public class GrowthProfileVO {
         private BigDecimal myAvg;
 
         private BigDecimal classAvg;
+    }
+
+    @Data
+    public static class DimensionInsightVO {
+
+        private String strongest;
+
+        private String weakest;
+
+        private String summary;
+    }
+
+    @Data
+    public static class GrowthTimelineItemVO {
+
+        private String date;
+
+        private String title;
+
+        private String description;
+
+        /** submit | score | reject */
+        private String type;
+
+        private BigDecimal score;
     }
 
     @Data

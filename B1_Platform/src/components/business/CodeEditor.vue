@@ -5,9 +5,11 @@ const props = withDefaults(defineProps<{
   modelValue: string
   language?: string
   disabled?: boolean
+  fillHeight?: boolean
 }>(), {
   language: "java",
   disabled: false,
+  fillHeight: false,
 })
 
 const emit = defineEmits<{
@@ -64,6 +66,7 @@ function onKeydown(e: KeyboardEvent) {
 }
 
 function onLanguageChange(e: Event) {
+  if (props.disabled) return
   const lang = (e.target as HTMLSelectElement).value
   emit("update:language", lang)
   emit("update:modelValue", "")
@@ -73,7 +76,7 @@ watch(() => props.modelValue, updateStats, { immediate: true })
 </script>
 
 <template>
-  <div class="code-editor-wrapper">
+  <div :class="['code-editor-wrapper', { 'code-editor-wrapper--fill': fillHeight }]">
     <div class="ce-toolbar">
       <select
         class="ce-lang-select"
@@ -117,6 +120,19 @@ watch(() => props.modelValue, updateStats, { immediate: true })
   border: 1px solid #e2e8f0;
   border-radius: 8px;
   overflow: hidden;
+}
+
+.code-editor-wrapper--fill {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 320px;
+}
+
+.code-editor-wrapper--fill .ce-body {
+  flex: 1;
+  min-height: 0;
+  max-height: none;
 }
 
 .ce-toolbar {

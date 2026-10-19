@@ -32,10 +32,11 @@ public class ReportExportServiceImpl implements ReportExportService {
     private final StudentService studentService;
 
     @Override
-    public void exportClassReport(String className, String format, HttpServletResponse response) {
+    public void exportClassReport(String adminClass, String courseName, String format,
+                                  HttpServletResponse response) {
         String fmt = normalizeFormat(format);
-        ClassReportVO vo = teacherReportService.getClassReport(className);
-        String classLabel = StringUtils.hasText(className) ? className : "全部班级";
+        ClassReportVO vo = teacherReportService.getClassReport(adminClass, courseName);
+        String classLabel = buildExportLabel(adminClass, courseName);
         String fileName = "班级成绩报表_" + classLabel + "_" + LocalDate.now().format(DATE);
 
         List<String> summaryHeaders = List.of("统计项", "数值");
@@ -138,6 +139,19 @@ public class ReportExportServiceImpl implements ReportExportService {
 
     private static String nz(String v) {
         return v == null ? "" : v;
+    }
+
+    private static String buildExportLabel(String adminClass, String courseName) {
+        if (StringUtils.hasText(adminClass) && StringUtils.hasText(courseName)) {
+            return adminClass + "_" + courseName;
+        }
+        if (StringUtils.hasText(adminClass)) {
+            return adminClass;
+        }
+        if (StringUtils.hasText(courseName)) {
+            return courseName;
+        }
+        return "全部班级";
     }
 
     private static String statusLabel(String status) {

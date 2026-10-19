@@ -34,6 +34,8 @@ import com.b1.module.submission.entity.Submission;
 import com.b1.module.submission.entity.SubmissionFile;
 import com.b1.module.submission.mapper.SubmissionFileMapper;
 import com.b1.module.submission.mapper.SubmissionMapper;
+import com.b1.module.submission.entity.SubmissionTrial;
+import com.b1.module.submission.mapper.SubmissionTrialMapper;
 import com.b1.module.task.entity.TrainingTask;
 import com.b1.module.task.mapper.TrainingTaskMapper;
 import lombok.extern.slf4j.Slf4j;
@@ -60,6 +62,7 @@ import java.util.stream.Collectors;
 public class AiServiceImpl implements AiService {
 
     private final SubmissionMapper submissionMapper;
+    private final SubmissionTrialMapper submissionTrialMapper;
     private final SubmissionFileMapper submissionFileMapper;
     private final AiAnalysisMapper aiAnalysisMapper;
     private final AiAnalysisDetailMapper aiAnalysisDetailMapper;
@@ -77,6 +80,7 @@ public class AiServiceImpl implements AiService {
 
     public AiServiceImpl(
             SubmissionMapper submissionMapper,
+            SubmissionTrialMapper submissionTrialMapper,
             SubmissionFileMapper submissionFileMapper,
             AiAnalysisMapper aiAnalysisMapper,
             AiAnalysisDetailMapper aiAnalysisDetailMapper,
@@ -92,6 +96,7 @@ public class AiServiceImpl implements AiService {
             PromptBuilder promptBuilder,
             @Qualifier("ai-analysis-executor") Executor aiExecutor) {
         this.submissionMapper = submissionMapper;
+        this.submissionTrialMapper = submissionTrialMapper;
         this.submissionFileMapper = submissionFileMapper;
         this.aiAnalysisMapper = aiAnalysisMapper;
         this.aiAnalysisDetailMapper = aiAnalysisDetailMapper;
@@ -146,6 +151,9 @@ public class AiServiceImpl implements AiService {
 
         AiAnalysis aiAnalysis = new AiAnalysis();
         aiAnalysis.setSubmissionId(submissionId);
+        if (submission.getCurrentTrialId() != null) {
+            aiAnalysis.setTrialId(submission.getCurrentTrialId());
+        }
         aiAnalysis.setAnalysisStatus("PROCESSING");
         aiAnalysis.setStartTime(LocalDateTime.now());
         aiAnalysisMapper.insert(aiAnalysis);
@@ -301,6 +309,17 @@ public class AiServiceImpl implements AiService {
             aiAnalysis.setAnalysisTimeMs((int) (System.currentTimeMillis() - aiAnalysis.getStartTime().atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()));
             aiAnalysisMapper.updateById(aiAnalysis);
 
+            submission.setStatus("AI_READY");
+            submissionMapper.updateById(submission);
+            if (submission.getCurrentTrialId() != null) {
+                SubmissionTrial trial = submissionTrialMapper.selectById(submission.getCurrentTrialId());
+                if (trial != null) {
+                    trial.setStatus("AI_READY");
+                    trial.setAiReferenceScore(overallScore);
+                    submissionTrialMapper.updateById(trial);
+                }
+            }
+
         } catch (Exception e) {
             log.error("AI analysis failed for submission {}", submission.getId(), e);
             aiAnalysis.setAnalysisStatus("FAILED");
@@ -360,6 +379,16 @@ public class AiServiceImpl implements AiService {
         vo.setSubmissionId(submissionId);
         vo.setTaskId(submission.getTrainingTaskId());
         vo.setSubmittedAt(submission.getSubmitTime());
+        vo.setSubmitType(submission.getSubmitType());
+
+        SubmissionFile primaryFile = submissionFileMapper.selectOne(
+                new LambdaQueryWrapper<SubmissionFile>()
+                        .eq(SubmissionFile::getSubmissionId, submissionId)
+                        .orderByAsc(SubmissionFile::getSortOrder)
+                        .last("LIMIT 1"));
+        if (primaryFile != null) {
+            vo.setAttachmentFileName(primaryFile.getFileName());
+        }
 
         TrainingTask task = trainingTaskMapper.selectById(submission.getTrainingTaskId());
         if (task != null) {
@@ -458,6 +487,43 @@ public class AiServiceImpl implements AiService {
         }
     }
 
+    private List<AiResultVO.AiIssueVO> buildIssueVOs(List<AiAnalysisDetail> details) {
+        List<AiResultVO.AiIssueVO> issueVOs = new ArrayList<>();
+        for (AiAnalysisDetail detail : details) {
+            AiResultVO.AiIssueVO issue = new AiResultVO.AiIssueVO();
+            issue.setAgentType(inferAgentCategory(detail));
+            issue.setIssueType(detail.getIssueType() != null && !detail.getIssueType().isBlank()
+                    ? detail.getIssueType() : "待分类问题");
+            issue.setSeverity(detail.getSeverity());
+            issue.setReason(detail.getReason());
+            issue.setSuggestion(detail.getSuggestion());
+            issue.setSuggestDeduct(detail.getSuggestDeduct());
+            issue.setConfidence(detail.getConfidence());
+            issue.setFilePath(detail.getFilePath());
+            issue.setLineNumber(detail.getLineNumber());
+            if (detail.getDimensionId() != null) {
+                StandardDimension dim = standardDimensionMapper.selectById(detail.getDimensionId());
+                if (dim != null) {
+                    issue.setDimensionName(dim.getDimName());
+                }
+            }
+            issueVOs.add(issue);
+        }
+        return issueVOs;
+    }
+
+    /** 将分析明细映射为 CODE / DOC / REQ，供前端分区展示 */
+    private String inferAgentCategory(AiAnalysisDetail detail) {
+        String path = detail.getFilePath() != null ? detail.getFilePath().toLowerCase() : "";
+        if (path.endsWith(".md") || path.endsWith(".doc") || path.endsWith(".docx") || path.endsWith(".pdf")) {
+            return "DOC";
+        }
+        if (path.endsWith(".png") || path.endsWith(".jpg") || path.endsWith(".jpeg") || path.endsWith(".gif")) {
+            return "REQ";
+        }
+        return "CODE";
+    }
+
     private AiResultVO buildPendingResult(AiAnalysis aiAnalysis) {
         AiResultVO vo = new AiResultVO();
         vo.setAnalyzeId(aiAnalysis.getId());
@@ -544,6 +610,7 @@ public class AiServiceImpl implements AiService {
         AiResultVO.AiScoreResultVO result = new AiResultVO.AiScoreResultVO();
         result.setOverallScore(aiAnalysis.getTotalScore());
         result.setDimensions(dimVOs);
+        result.setIssues(buildIssueVOs(details));
         result.setSummary(String.format("AI分析完成，总分%d分，共发现%d个问题。",
                 aiAnalysis.getTotalScore() != null ? aiAnalysis.getTotalScore().intValue() : 0,
                 details.size()));

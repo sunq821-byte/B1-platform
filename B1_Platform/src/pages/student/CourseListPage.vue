@@ -74,6 +74,24 @@ onMounted(() => { loadCourses() })
     />
 
     <template v-else>
+      <div class="mobile-card-list" aria-label="课程卡片列表">
+        <button
+          v-for="row in store.courses"
+          :key="String(row.courseId)"
+          type="button"
+          class="mobile-card"
+          @click="router.push(`/student/courses/${row.courseId}`)"
+        >
+          <div class="mobile-card__title">{{ row.courseName }}</div>
+          <div class="mobile-card__meta">{{ row.courseCode }} · {{ row.teacherName }}</div>
+          <div class="mobile-card__row">
+            <span>{{ row.semester }}</span>
+            <span>{{ row.taskCount }} 个任务</span>
+          </div>
+        </button>
+      </div>
+
+      <div class="desktop-table">
       <BaseTable :data="store.courses as unknown as Record<string, unknown>[]">
         <el-table-column label="课程名称" min-width="180" show-overflow-tooltip>
           <template #default="{ row }">
@@ -98,6 +116,7 @@ onMounted(() => { loadCourses() })
           </template>
         </el-table-column>
       </BaseTable>
+      </div>
 
       <BasePagination
         v-model:current-page="currentPage"
@@ -126,4 +145,55 @@ onMounted(() => { loadCourses() })
   color: var(--color-primary-hover, #0958D9);
 }
 .ml-auto { margin-left: auto; }
+
+.mobile-card-list {
+  display: none;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.mobile-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  padding: 14px 16px;
+  border: 1px solid var(--color-border, #E5E7EB);
+  border-radius: var(--radius-xl, 16px);
+  background: var(--color-card, #fff);
+  box-shadow: var(--shadow-sm);
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+.mobile-card__title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--color-navy, #0B3A5C);
+}
+
+.mobile-card__meta {
+  font-size: 12px;
+  color: var(--color-text-secondary, #6B7280);
+}
+
+.mobile-card__row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  color: var(--color-text-secondary, #6B7280);
+}
+
+@media (max-width: 767.98px) {
+  .filter-bar :deep(input),
+  .filter-bar :deep(.el-input) {
+    width: 100% !important;
+    max-width: 100%;
+  }
+  .mobile-card-list { display: flex; }
+  .desktop-table { display: none; }
+}
 </style>

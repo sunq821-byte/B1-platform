@@ -5,6 +5,7 @@ import type {
   ICourseFormData,
   ITeacherTaskItem,
   ITaskFormData,
+  ITaskDetail,
   IStudentItem,
   IStudentDetail,
   IPendingSubmission,
@@ -13,6 +14,9 @@ import type {
   IClassReport,
   ICollegeReport,
   IDashboardData,
+  IKnowledgeDocument,
+  IKnowledgeVisibilityOption,
+  IKnowledgeDocumentForm,
 } from "@/types/teacher"
 
 // ========== Courses ==========
@@ -57,8 +61,11 @@ function toTaskPayload(data: ITaskFormData): Record<string, unknown> {
 
 export function fetchTeacherTasks(params?: {
   courseId?: string
+  pageSize?: number
 }): Promise<ITeacherTaskItem[]> {
-  return request.get("/api/v1/teacher/tasks", { params }) as Promise<ITeacherTaskItem[]>
+  return request.get("/api/v1/teacher/tasks", {
+    params: { pageSize: 200, ...params },
+  }) as Promise<ITeacherTaskItem[]>
 }
 
 export function createTask(data: ITaskFormData): Promise<ITeacherTaskItem> {
@@ -77,6 +84,16 @@ export function publishTask(taskId: string): Promise<void> {
   return request.post(`/api/v1/teacher/tasks/${taskId}/publish`) as Promise<void>
 }
 
+export function fetchTaskDetail(taskId: string): Promise<ITaskDetail> {
+  return request.get(`/api/v1/teacher/tasks/${taskId}`) as Promise<ITaskDetail>
+}
+
+export function restoreAiAnalyzeCount(taskId: string, studentUserId: string): Promise<void> {
+  return request.post(
+    `/api/v1/teacher/tasks/${taskId}/students/${studentUserId}/restore-ai-count`,
+  ) as Promise<void>
+}
+
 // ========== Students ==========
 
 export function fetchStudents(params: {
@@ -92,8 +109,18 @@ export function fetchStudentDetail(userId: string): Promise<IStudentDetail> {
 
 // ========== Submissions / Review ==========
 
-export function fetchPendingSubmissions(): Promise<IPendingSubmission[]> {
-  return request.get("/api/v1/teacher/submissions") as Promise<IPendingSubmission[]>
+export function fetchPendingSubmissions(params?: {
+  page?: number
+  pageSize?: number
+  status?: string
+}): Promise<IPendingSubmission[]> {
+  return request.get("/api/v1/teacher/submissions", {
+    params: {
+      page: params?.page ?? 1,
+      pageSize: params?.pageSize ?? 200,
+      status: params?.status ?? "CONFIRMED",
+    },
+  }) as Promise<IPendingSubmission[]>
 }
 
 export function fetchAIDiagnosis(submissionId: string): Promise<IAIDiagnosis> {
@@ -108,6 +135,7 @@ export function publishReview(submissionId: string, data: IPublishRequest): Prom
   return request.post(`/api/v1/teacher/submissions/${submissionId}/publish`, {
     status: data.status,
     teacherComment: data.comment,
+    totalScore: data.status === "PUBLISHED" ? data.finalScore : undefined,
   }) as Promise<void>
 }
 
@@ -124,7 +152,8 @@ export function remindTasks(taskIds: string[]): Promise<{ notifiedStudents: numb
 // ========== Reports ==========
 
 export function fetchClassReport(params?: {
-  className?: string
+  adminClass?: string
+  courseName?: string
 }): Promise<IClassReport> {
   return request.get("/api/v1/teacher/reports", { params }) as Promise<IClassReport>
 }
@@ -133,6 +162,51 @@ export function fetchCollegeReport(): Promise<ICollegeReport> {
   return request.get("/api/v1/teacher/reports-college") as Promise<ICollegeReport>
 }
 
-export function exportClassReport(className: string | undefined, format: "xlsx" | "pdf"): Promise<void> {
-  return downloadFile("/api/v1/teacher/reports/export", { className, format })
+export function exportClassReport(
+  adminClass: string | undefined,
+  courseName: string | undefined,
+  format: "xlsx" | "pdf",
+): Promise<void> {
+  return downloadFile("/api/v1/teacher/reports/export", { adminClass, courseName, format })
+}
+
+export function fetchKnowledgeDocuments(params: {
+  courseId?: string
+  tag?: string
+  keyword?: string
+  page?: number
+  pageSize?: number
+}): Promise<{ list: IKnowledgeDocument[]; total: number }> {
+  return request.get("/api/v1/teacher/knowledge/documents", { params }) as Promise<{
+    list: IKnowledgeDocument[]
+    total: number
+  }>
+}
+
+export function fetchKnowledgeVisibilityOptions(
+  courseId: string,
+): Promise<IKnowledgeVisibilityOption[]> {
+  return request.get("/api/v1/teacher/knowledge/visibility-options", {
+    params: { courseId },
+  }) as Promise<IKnowledgeVisibilityOption[]>
+}
+
+export function createKnowledgeDocument(
+  data: IKnowledgeDocumentForm,
+): Promise<IKnowledgeDocument> {
+  return request.post("/api/v1/teacher/knowledge/documents", data) as Promise<IKnowledgeDocument>
+}
+
+export function updateKnowledgeDocument(
+  documentId: string,
+  data: IKnowledgeDocumentForm,
+): Promise<IKnowledgeDocument> {
+  return request.put(
+    `/api/v1/teacher/knowledge/documents/${documentId}`,
+    data,
+  ) as Promise<IKnowledgeDocument>
+}
+
+export function deleteKnowledgeDocument(documentId: string): Promise<void> {
+  return request.delete(`/api/v1/teacher/knowledge/documents/${documentId}`) as Promise<void>
 }

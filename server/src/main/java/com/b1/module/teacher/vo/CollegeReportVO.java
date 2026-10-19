@@ -1,9 +1,9 @@
 package com.b1.module.teacher.vo;
 
-import lombok.Data;
-import lombok.Builder;
-import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -16,6 +16,7 @@ public class CollegeReportVO {
 
     private CrossClass crossClass;
     private SemesterTrend semesterTrend;
+    private List<ClassDetail> classDetails;
 
     @Data
     @Builder
@@ -42,5 +43,19 @@ public class CollegeReportVO {
             private String name;
             private List<BigDecimal> data;
         }
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class ClassDetail {
+        private String className;
+        private String courseName;
+        private String semester;
+        private int studentCount;
+        private BigDecimal avgScore;
+        private BigDecimal passRate;
+        private BigDecimal maxScore;
     }
 }

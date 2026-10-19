@@ -28,7 +28,7 @@ vi .env          # 按需填 DEEPSEEK_API_KEY / QWEN_API_KEY（留空则 AI 不�
 
 ```powershell
 # Windows 开发机
-cd server && mvn package -DskipTests         # → target/b1-platform-1.0.0-SNAPSHOT.jar
+cd server && mvn package -DskipTests         # → target/b1-platform-1.0.0.jar
 cd B1_Platform && npm install && npm run build  # → dist/
 ```
 

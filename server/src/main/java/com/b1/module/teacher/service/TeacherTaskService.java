@@ -21,4 +21,6 @@ public interface TeacherTaskService {
     void deleteTask(Long taskId);
 
     void publishTask(Long taskId);
+
+    void restoreAiAnalyzeCount(Long taskId, Long studentUserId);
 }

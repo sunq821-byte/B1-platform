@@ -1,4 +1,4 @@
-﻿import { defineStore } from "pinia"
+import { defineStore } from "pinia"
 import { ref, computed } from "vue"
 import type { UserRole } from "@/constants/role"
 import { useUserStore } from "./useUserStore"
@@ -14,29 +14,21 @@ export interface MenuItem {
 /** 角色菜单配置 */
 const ROLE_MENUS: Record<string, MenuItem[]> = {
   student: [
-    { path: "/student/dashboard", title: "仪表盘", icon: "LayoutDashboard" },
-    { path: "/student/courses", title: "我的课程", icon: "BookOpen" },
+    { path: "/student/dashboard", title: "工作台", icon: "LayoutDashboard" },
     { path: "/student/tasks", title: "实训任务", icon: "ClipboardList" },
-    { path: "/student/reports", title: "个人报告", icon: "BarChart3" },
-    { path: "/student/growth", title: "成长中心", icon: "TrendingUp" },
-    { path: "/student/profile", title: "个人中心", icon: "User" },
+    { path: "/student/analytics", title: "学情分析", icon: "BarChart3" },
   ],
   teacher: [
-    { path: "/teacher/dashboard", title: "仪表盘", icon: "LayoutDashboard" },
-    { path: "/teacher/courses", title: "课程管理", icon: "BookOpen" },
-    { path: "/teacher/tasks", title: "实训任务", icon: "ClipboardList" },
-    { path: "/teacher/students", title: "学生管理", icon: "Users" },
-    { path: "/teacher/submissions", title: "审核工作台", icon: "FileText" },
-    { path: "/teacher/reports", title: "班级报告", icon: "BarChart3" },
-    { path: "/teacher/reports-college", title: "学院报告", icon: "TrendingUp" },
+    { path: "/teacher/dashboard", title: "工作台", icon: "LayoutDashboard" },
+    { path: "/teacher/teaching", title: "课程与任务", icon: "BookOpen" },
     { path: "/teacher/knowledge-base", title: "知识库", icon: "BookMarked" },
+    { path: "/teacher/submissions", title: "审核工作台", icon: "FileText" },
+    { path: "/teacher/reports", title: "数据报表", icon: "BarChart3" },
   ],
   admin: [
     { path: "/admin/dashboard", title: "系统总览", icon: "LayoutDashboard" },
-    { path: "/admin/users", title: "用户管理", icon: "Users" },
-    { path: "/admin/classes", title: "班级管理", icon: "School" },
-    { path: "/admin/monitor", title: "运行监控", icon: "Activity" },
-    { path: "/admin/logs", title: "操作日志", icon: "ScrollText" },
+    { path: "/admin/organization", title: "组织管理", icon: "Users" },
+    { path: "/admin/operations", title: "运维中心", icon: "Activity" },
     { path: "/admin/system", title: "系统配置", icon: "Settings" },
   ],
 }

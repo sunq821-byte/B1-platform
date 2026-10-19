@@ -29,6 +29,12 @@ public class EvaluationVO {
 
     private String rejectReason;
 
+    /** 学生提交方式：ZIP_UPLOAD / GIT_URL / ONLINE_CODE */
+    private String submitType;
+
+    /** 主附件文件名，用于前端推断 AI 分析维度 */
+    private String attachmentFileName;
+
     @Data
     public static class AiEvalSummaryVO {
 

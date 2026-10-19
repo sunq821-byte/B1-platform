@@ -8,36 +8,47 @@ import com.b1.module.ai.entity.AiAnalysis;
 import com.b1.module.ai.mapper.AiAnalysisMapper;
 import com.b1.module.file.entity.FileStorage;
 import com.b1.module.file.mapper.FileStorageMapper;
-import com.b1.module.file.service.FileService;
-import com.b1.module.file.vo.FileUploadVO;
-import com.b1.module.submission.dto.GitVerifyDTO;
+import com.b1.module.submission.dto.ConfirmSubmitDTO;
 import com.b1.module.submission.dto.SubmitRequestDTO;
 import com.b1.module.submission.entity.Submission;
 import com.b1.module.submission.entity.SubmissionFile;
+import com.b1.module.submission.entity.SubmissionTrial;
 import com.b1.module.submission.mapper.SubmissionFileMapper;
 import com.b1.module.submission.mapper.SubmissionMapper;
+import com.b1.module.submission.mapper.SubmissionTrialMapper;
 import com.b1.module.submission.service.SubmissionService;
-import org.springframework.transaction.annotation.Transactional;
 import com.b1.module.submission.vo.GitVerifyResultVO;
 import com.b1.module.submission.vo.ReportUploadVO;
+import com.b1.module.submission.vo.SubmissionDraftVO;
 import com.b1.module.submission.vo.SubmissionHistoryVO;
 import com.b1.module.submission.vo.SubmissionVO;
 import com.b1.module.task.entity.TrainingTask;
 import com.b1.module.task.mapper.TrainingTaskMapper;
+import com.b1.module.file.service.FileService;
+import com.b1.module.file.vo.FileUploadVO;
+import com.b1.module.submission.dto.GitVerifyDTO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
 public class SubmissionServiceImpl implements SubmissionService {
 
+    private static final Set<String> LOCKED_STATUSES = Set.of("CONFIRMED", "REVIEWING", "PUBLISHED");
+    private static final Set<String> TEACHER_VISIBLE = Set.of("CONFIRMED", "REVIEWING", "PUBLISHED", "INCOMPLETE", "REJECTED");
+
     private final TrainingTaskMapper trainingTaskMapper;
     private final SubmissionMapper submissionMapper;
+    private final SubmissionTrialMapper submissionTrialMapper;
     private final FileService fileService;
     private final AiAnalysisMapper aiAnalysisMapper;
     private final SubmissionFileMapper submissionFileMapper;
@@ -46,81 +57,138 @@ public class SubmissionServiceImpl implements SubmissionService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public SubmissionVO submit(Long taskId, SubmitRequestDTO dto) {
+        return trialSubmit(taskId, dto);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public SubmissionVO trialSubmit(Long taskId, SubmitRequestDTO dto) {
         Long userId = StpUtil.getLoginIdAsLong();
-
-        TrainingTask task = trainingTaskMapper.selectById(taskId);
-        if (task == null) {
-            throw new BusinessException(ErrorCode.NOT_FOUND, "任务不存在");
+        TrainingTask task = requireOpenTask(taskId);
+        if (dto.getSubmissionType() != null && dto.getSubmissionType().toUpperCase().contains("GIT")) {
+            throw new BusinessException(ErrorCode.OPERATION_NOT_ALLOWED, "当前版本不支持 Git 仓库提交");
         }
-
         LocalDateTime now = LocalDateTime.now();
-        if (task.getEndTime() != null && now.isAfter(task.getEndTime())
-                && (task.getAllowLate() == null || task.getAllowLate() != 1)) {
-            throw new BusinessException(ErrorCode.OPERATION_NOT_ALLOWED, "该实训任务已截止");
-        }
+        int maxAi = task.getMaxAiAnalyzeCount() != null ? task.getMaxAiAnalyzeCount() : 3;
 
-        int maxSubmitCount = task.getMaxSubmitCount() != null ? task.getMaxSubmitCount() : 1;
-        int isLate = (task.getEndTime() != null && now.isAfter(task.getEndTime())) ? 1 : 0;
-
-        // One row per (user, task): the unique key uk_submission_user_task enforces this,
-        // so a re-submission overwrites the existing row instead of inserting a new one.
-        Submission existing = submissionMapper.selectOne(
+        Submission submission = submissionMapper.selectOne(
                 new LambdaQueryWrapper<Submission>()
                         .eq(Submission::getTrainingTaskId, taskId)
                         .eq(Submission::getUserId, userId)
                         .eq(Submission::getDeleted, 0));
 
-        if (existing != null) {
-            int currentCount = existing.getSubmitCount() != null ? existing.getSubmitCount() : 0;
-            // A teacher-rejected submission may always be redone; otherwise enforce the limit.
-            boolean rejected = "REJECTED".equals(existing.getStatus());
-            if (!rejected && currentCount >= maxSubmitCount) {
-                throw new BusinessException(ErrorCode.OPERATION_NOT_ALLOWED,
-                        "已达到提交次数上限（" + maxSubmitCount + "次），无法再次提交");
-            }
-            int newSubmitCount = currentCount + 1;
-
-            existing.setSubmitType(dto.getSubmissionType());
-            existing.setGitUrl(dto.getGitUrl());
-            existing.setGitBranch(dto.getGitBranch());
-            existing.setSummary(dto.getRemark());
-            existing.setSubmitCount(newSubmitCount);
-            existing.setSubmitTime(now);
-            existing.setIsLate(isLate);
-            existing.setStatus("SUBMITTED");
-
-            submissionMapper.updateById(existing);
-
-            linkSubmissionFile(existing.getId(), dto);
-
-            return buildSubmissionVO(existing.getId(), taskId, dto.getSubmissionType(),
-                    newSubmitCount, maxSubmitCount, now);
+        if (submission != null && LOCKED_STATUSES.contains(submission.getStatus())) {
+            throw new BusinessException(ErrorCode.OPERATION_NOT_ALLOWED, "已确认提交，无法继续试交");
+        }
+        if (submission != null && "ANALYZING".equals(submission.getStatus())) {
+            throw new BusinessException(ErrorCode.OPERATION_NOT_ALLOWED, "AI 分析进行中，请稍后再试交");
         }
 
-        Submission submission = new Submission();
-        submission.setTrainingTaskId(taskId);
-        submission.setUserId(userId);
+        int usedCount = submission != null && submission.getAiAnalyzeUsedCount() != null
+                ? submission.getAiAnalyzeUsedCount() : 0;
+        boolean rejected = submission != null && "REJECTED".equals(submission.getStatus());
+        if (!rejected && usedCount >= maxAi) {
+            throw new BusinessException(ErrorCode.OPERATION_NOT_ALLOWED,
+                    "已达到 AI 分析次数上限（" + maxAi + "次），请确认提交或联系教师驳回重提");
+        }
+
+        if (submission == null) {
+            submission = new Submission();
+            submission.setTrainingTaskId(taskId);
+            submission.setUserId(userId);
+            submission.setSubmitType(dto.getSubmissionType());
+            submission.setSubmitCount(0);
+            submission.setAiAnalyzeUsedCount(0);
+            submission.setStatus("DRAFT");
+            submissionMapper.insert(submission);
+        }
+
+        int trialNo = usedCount + 1;
+        SubmissionTrial trial = new SubmissionTrial();
+        trial.setSubmissionId(submission.getId());
+        trial.setTrialNo(trialNo);
+        trial.setSubmitType(dto.getSubmissionType());
+        trial.setGitUrl(dto.getGitUrl());
+        trial.setGitBranch(dto.getGitBranch());
+        trial.setSummary(dto.getRemark());
+        trial.setSubmitTime(now);
+        trial.setStatus("ANALYZING");
+        submissionTrialMapper.insert(trial);
+
         submission.setSubmitType(dto.getSubmissionType());
         submission.setGitUrl(dto.getGitUrl());
         submission.setGitBranch(dto.getGitBranch());
         submission.setSummary(dto.getRemark());
-        submission.setSubmitCount(1);
+        submission.setSubmitCount(trialNo);
+        submission.setAiAnalyzeUsedCount(trialNo);
         submission.setSubmitTime(now);
-        submission.setIsLate(isLate);
-        submission.setStatus("SUBMITTED");
-
-        submissionMapper.insert(submission);
+        submission.setIsLate((task.getEndTime() != null && now.isAfter(task.getEndTime())) ? 1 : 0);
+        submission.setStatus("ANALYZING");
+        submission.setCurrentTrialId(trial.getId());
+        submission.setConfirmedTrialId(null);
+        submission.setConfirmedAt(null);
+        submissionMapper.updateById(submission);
 
         linkSubmissionFile(submission.getId(), dto);
 
-        return buildSubmissionVO(submission.getId(), taskId, dto.getSubmissionType(),
-                1, maxSubmitCount, now);
+        return buildSubmissionVO(submission, trial, task, maxAi);
     }
 
-    /**
-     * Persist the uploaded artifact as this submission's file so downstream AI analysis
-     * can read it. One artifact per submission; a re-submission replaces the previous link.
-     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public SubmissionVO confirmSubmit(Long taskId, ConfirmSubmitDTO dto) {
+        Long userId = StpUtil.getLoginIdAsLong();
+        TrainingTask task = requireOpenTask(taskId);
+        int maxAi = task.getMaxAiAnalyzeCount() != null ? task.getMaxAiAnalyzeCount() : 3;
+
+        Submission submission = submissionMapper.selectOne(
+                new LambdaQueryWrapper<Submission>()
+                        .eq(Submission::getTrainingTaskId, taskId)
+                        .eq(Submission::getUserId, userId)
+                        .eq(Submission::getDeleted, 0));
+        if (submission == null || submission.getCurrentTrialId() == null) {
+            throw new BusinessException(ErrorCode.OPERATION_NOT_ALLOWED, "请先试交成果后再确认提交");
+        }
+        if (LOCKED_STATUSES.contains(submission.getStatus())) {
+            throw new BusinessException(ErrorCode.OPERATION_NOT_ALLOWED, "已确认提交，请勿重复操作");
+        }
+
+        Long trialId = dto != null && dto.getTrialId() != null ? dto.getTrialId() : submission.getCurrentTrialId();
+        SubmissionTrial trial = submissionTrialMapper.selectById(trialId);
+        if (trial == null || !trial.getSubmissionId().equals(submission.getId())) {
+            throw new BusinessException(ErrorCode.NOT_FOUND, "试交记录不存在");
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        trial.setStatus("CONFIRMED");
+        submissionTrialMapper.updateById(trial);
+
+        submission.setStatus("CONFIRMED");
+        submission.setConfirmedTrialId(trialId);
+        submission.setConfirmedAt(now);
+        submission.setIsLate((task.getEndTime() != null && now.isAfter(task.getEndTime())) ? 1 : 0);
+        submissionMapper.updateById(submission);
+
+        return buildSubmissionVO(submission, trial, task, maxAi);
+    }
+
+    private TrainingTask requireOpenTask(Long taskId) {
+        TrainingTask task = trainingTaskMapper.selectOne(
+                new LambdaQueryWrapper<TrainingTask>()
+                        .eq(TrainingTask::getId, taskId)
+                        .eq(TrainingTask::getDeleted, 0)
+                        .eq(TrainingTask::getStatus, "PUBLISHED"));
+        if (task == null) {
+            throw new BusinessException(ErrorCode.NOT_FOUND, "任务不存在或已下架");
+        }
+        LocalDateTime now = LocalDateTime.now();
+        if (task.getEndTime() != null && now.isAfter(task.getEndTime())
+                && (task.getAllowLate() == null || task.getAllowLate() != 1)) {
+            throw new BusinessException(ErrorCode.OPERATION_NOT_ALLOWED, "该实训任务已截止");
+        }
+        return task;
+    }
+
     private void linkSubmissionFile(Long submissionId, SubmitRequestDTO dto) {
         submissionFileMapper.delete(new LambdaQueryWrapper<SubmissionFile>()
                 .eq(SubmissionFile::getSubmissionId, submissionId));
@@ -152,16 +220,62 @@ public class SubmissionServiceImpl implements SubmissionService {
         submissionFileMapper.insert(sf);
     }
 
-    private SubmissionVO buildSubmissionVO(Long submissionId, Long taskId, String submissionType,
-                                           int submitCount, int maxSubmitCount, LocalDateTime submittedAt) {
+    private SubmissionVO buildSubmissionVO(Submission submission, SubmissionTrial trial,
+                                           TrainingTask task, int maxAi) {
         SubmissionVO vo = new SubmissionVO();
-        vo.setSubmissionId(submissionId);
-        vo.setTaskId(taskId);
-        vo.setSubmissionType(submissionType);
-        vo.setStatus("SUBMITTED");
-        vo.setSubmitCount(submitCount);
-        vo.setMaxSubmitCount(maxSubmitCount);
-        vo.setSubmittedAt(submittedAt);
+        vo.setSubmissionId(submission.getId());
+        vo.setTrialId(trial.getId());
+        vo.setTaskId(task.getId());
+        vo.setSubmissionType(trial.getSubmitType());
+        vo.setStatus(submission.getStatus());
+        vo.setTrialNo(trial.getTrialNo());
+        vo.setAiAnalyzeUsedCount(submission.getAiAnalyzeUsedCount());
+        vo.setMaxAiAnalyzeCount(maxAi);
+        vo.setMaxSubmitCount(maxAi);
+        vo.setSubmittedAt(trial.getSubmitTime());
+        vo.setConfirmedAt(submission.getConfirmedAt());
+        return vo;
+    }
+
+    @Override
+    public SubmissionDraftVO getDraft(Long taskId) {
+        Long userId = StpUtil.getLoginIdAsLong();
+
+        Submission submission = submissionMapper.selectOne(
+                new LambdaQueryWrapper<Submission>()
+                        .eq(Submission::getTrainingTaskId, taskId)
+                        .eq(Submission::getUserId, userId)
+                        .eq(Submission::getDeleted, 0));
+        if (submission == null) {
+            return null;
+        }
+
+        SubmissionDraftVO vo = new SubmissionDraftVO();
+        vo.setSubmissionId(submission.getId());
+        vo.setSubmitType(submission.getSubmitType());
+        vo.setStatus(submission.getStatus());
+        vo.setRemark(submission.getSummary());
+
+        String submitType = submission.getSubmitType() != null
+                ? submission.getSubmitType().toUpperCase() : "";
+        if (!submitType.contains("CODE")) {
+            return vo;
+        }
+
+        SubmissionFile primaryFile = submissionFileMapper.selectOne(
+                new LambdaQueryWrapper<SubmissionFile>()
+                        .eq(SubmissionFile::getSubmissionId, submission.getId())
+                        .orderByAsc(SubmissionFile::getSortOrder)
+                        .last("LIMIT 1"));
+        if (primaryFile == null || primaryFile.getFileId() == null) {
+            return vo;
+        }
+
+        try (InputStream in = fileService.download(primaryFile.getFileId())) {
+            vo.setOnlineCode(new String(in.readAllBytes(), StandardCharsets.UTF_8));
+        } catch (Exception e) {
+            // 文件读取失败时仍返回备注等元数据
+        }
         return vo;
     }
 
@@ -169,31 +283,40 @@ public class SubmissionServiceImpl implements SubmissionService {
     public List<SubmissionHistoryVO> listHistory(Long taskId) {
         Long userId = StpUtil.getLoginIdAsLong();
 
-        List<Submission> submissions = submissionMapper.selectList(
+        Submission submission = submissionMapper.selectOne(
                 new LambdaQueryWrapper<Submission>()
                         .eq(Submission::getTrainingTaskId, taskId)
                         .eq(Submission::getUserId, userId)
-                        .eq(Submission::getDeleted, 0)
-                        .orderByAsc(Submission::getSubmitCount));
+                        .eq(Submission::getDeleted, 0));
+        if (submission == null) {
+            return List.of();
+        }
+
+        List<SubmissionTrial> trials = submissionTrialMapper.selectList(
+                new LambdaQueryWrapper<SubmissionTrial>()
+                        .eq(SubmissionTrial::getSubmissionId, submission.getId())
+                        .orderByAsc(SubmissionTrial::getTrialNo));
 
         List<SubmissionHistoryVO> result = new ArrayList<>();
-        for (Submission s : submissions) {
+        for (SubmissionTrial trial : trials) {
             SubmissionHistoryVO vo = new SubmissionHistoryVO();
-            vo.setSubmissionId(s.getId());
-            vo.setStatus(s.getStatus());
-            vo.setSubmitCount(s.getSubmitCount());
-            vo.setSubmittedAt(s.getSubmitTime());
-
-            AiAnalysis analysis = aiAnalysisMapper.selectOne(
-                    new LambdaQueryWrapper<AiAnalysis>()
-                            .eq(AiAnalysis::getSubmissionId, s.getId())
-                            .eq(AiAnalysis::getAnalysisStatus, "COMPLETED")
-                            .orderByDesc(AiAnalysis::getId)
-                            .last("LIMIT 1"));
-            if (analysis != null) {
-                vo.setAiScore(analysis.getTotalScore());
+            vo.setSubmissionId(submission.getId());
+            vo.setTrialId(trial.getId());
+            vo.setStatus(trial.getStatus());
+            vo.setSubmitCount(trial.getTrialNo());
+            vo.setSubmittedAt(trial.getSubmitTime());
+            if (trial.getAiReferenceScore() != null) {
+                vo.setAiScore(trial.getAiReferenceScore());
+            } else {
+                AiAnalysis analysis = aiAnalysisMapper.selectOne(
+                        new LambdaQueryWrapper<AiAnalysis>()
+                                .eq(AiAnalysis::getTrialId, trial.getId())
+                                .eq(AiAnalysis::getAnalysisStatus, "COMPLETED")
+                                .last("LIMIT 1"));
+                if (analysis != null) {
+                    vo.setAiScore(analysis.getTotalScore());
+                }
             }
-
             result.add(vo);
         }
         return result;
@@ -208,7 +331,6 @@ public class SubmissionServiceImpl implements SubmissionService {
 
         String gitUrl = dto.getGitUrl();
         String repoName = extractRepoName(gitUrl);
-
         String defaultBranch = dto.getGitBranch() != null ? dto.getGitBranch() : "main";
 
         GitVerifyResultVO.GitCommitVO commitVO = new GitVerifyResultVO.GitCommitVO();
@@ -224,7 +346,6 @@ public class SubmissionServiceImpl implements SubmissionService {
         vo.setDefaultBranch(defaultBranch);
         vo.setBranches(List.of(defaultBranch));
         vo.setLatestCommit(commitVO);
-
         return vo;
     }
 
@@ -243,7 +364,6 @@ public class SubmissionServiceImpl implements SubmissionService {
         vo.setFileSize(upload.getFileSize());
         vo.setFileType(file.getContentType());
         vo.setUploadedAt(LocalDateTime.now());
-
         return vo;
     }
 

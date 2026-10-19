@@ -1,4 +1,4 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import { ref, reactive, onMounted, onUnmounted } from "vue"
 import { useUserStore } from "@/stores/useUserStore"
 import { updateProfile, changePassword, uploadAvatar } from "@/api/modules/user"
@@ -64,9 +64,9 @@ async function handleAvatarChange(e: Event) {
   if (!file) return
   avatarUploading.value = true
   try {
-    const result = await uploadAvatar(file)
+    const avatarUrl = await uploadAvatar(file)
     const info = userStore.userInfo
-    if (info) info.avatar = result.avatar
+    if (info) info.avatar = avatarUrl
     ElMessage.success("头像更新成功")
   } catch { ElMessage.error("头像上传失败") }
   finally { avatarUploading.value = false; (e.target as HTMLInputElement).value = "" }
@@ -150,6 +150,10 @@ onUnmounted(() => {
 <style scoped>
 .profile-page { height: 100%; display: flex; flex-direction: column; }
 .profile-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--spacing-lg, 24px); }
+
+@media (max-width: 767.98px) {
+  .profile-grid { grid-template-columns: 1fr; }
+}
 .profile-card {
   background: var(--color-card, #fff);
   border: 1px solid var(--color-border, #E5E7EB);

@@ -1,11 +1,13 @@
 <script setup lang="ts">
+import { ref, watch } from "vue"
 import { useRouter, useRoute } from "vue-router"
-import { useUserStore } from "@/stores/useUserStore"
-import { LogOut, User, ChevronDown, Settings } from "lucide-vue-next"
+import { LogOut, User, ChevronDown, Settings, Menu } from "lucide-vue-next"
 import type { MenuItem } from "@/stores/usePermissionStore"
+import { useUserStore } from "@/stores/useUserStore"
+import { useBreakpoint } from "@/composables/useBreakpoint"
 import NotificationBell from "@/components/layout/NotificationBell.vue"
 
-defineProps<{
+const props = defineProps<{
   menus: MenuItem[]
   username: string
   role: string | null
@@ -14,6 +16,22 @@ defineProps<{
 const router = useRouter()
 const route = useRoute()
 const userStore = useUserStore()
+const { isMdDown } = useBreakpoint()
+const drawerOpen = ref(false)
+
+watch(
+  () => route.path,
+  () => {
+    drawerOpen.value = false
+  },
+)
+
+function profilePath(): string {
+  const role = userStore.userRole
+  if (role === "teacher") return "/teacher/profile"
+  if (role === "admin") return "/admin/profile"
+  return "/student/profile"
+}
 
 function isActive(path: string): boolean {
   return route.path === path || route.path.startsWith(path + "/")
@@ -28,10 +46,12 @@ function isParentActive(item: MenuItem): boolean {
 }
 
 function navigate(path: string) {
+  drawerOpen.value = false
   router.push(path)
 }
 
 async function handleLogout() {
+  drawerOpen.value = false
   await userStore.logout()
   router.push("/login")
 }
@@ -42,13 +62,23 @@ function getAvatarChar(name: string): string {
 </script>
 
 <template>
-  <header class="navbar">
-    <a class="navbar__brand" @click="navigate('/')">
-      <div class="navbar__logo">B1</div>
-      <span class="navbar__title">B1 Platform</span>
-    </a>
+  <header class="navbar" :class="{ 'navbar--compact': isMdDown }">
+    <div class="navbar__leading">
+      <button
+        v-if="isMdDown"
+        type="button"
+        class="icon-btn navbar__menu-btn"
+        aria-label="打开导航菜单"
+        @click="drawerOpen = true"
+      >
+        <Menu :size="18" />
+      </button>
+      <a class="navbar__brand" @click="navigate('/')">
+        <img class="navbar__logo" src="/logo.svg" alt="衡迹" />
+      </a>
+    </div>
 
-    <nav class="navbar__pill" aria-label="主导航">
+    <nav v-if="!isMdDown" class="navbar__pill" aria-label="主导航">
       <a
         v-for="item in menus"
         :key="item.path"
@@ -62,11 +92,11 @@ function getAvatarChar(name: string): string {
 
     <div class="navbar__right">
       <button
-        v-if="role === 'teacher' || role === 'admin'"
+        v-if="role === 'admin'"
         type="button"
         class="icon-btn"
-        title="设置"
-        @click="navigate(role === 'admin' ? '/admin/system' : '/teacher/knowledge-base')"
+        title="系统配置"
+        @click="navigate('/admin/system')"
       >
         <Settings :size="16" />
       </button>
@@ -79,7 +109,7 @@ function getAvatarChar(name: string): string {
         </button>
         <template #dropdown>
           <el-dropdown-menu>
-            <el-dropdown-item @click="navigate('/student/profile')">
+            <el-dropdown-item @click="navigate(profilePath())">
               <User :size="16" />
               <span style="margin-left: 8px">个人中心</span>
             </el-dropdown-item>
@@ -92,6 +122,28 @@ function getAvatarChar(name: string): string {
       </el-dropdown>
     </div>
   </header>
+
+  <el-drawer
+    v-model="drawerOpen"
+    direction="ltr"
+    size="280px"
+    :with-header="true"
+    title="导航"
+    class="navbar-drawer"
+  >
+    <nav class="navbar-drawer__nav" aria-label="移动端主导航">
+      <button
+        v-for="item in props.menus"
+        :key="item.path"
+        type="button"
+        class="navbar-drawer__item"
+        :class="{ 'navbar-drawer__item--active': isParentActive(item) }"
+        @click="navigate(item.path)"
+      >
+        {{ item.title }}
+      </button>
+    </nav>
+  </el-drawer>
 </template>
 
 <style scoped>
@@ -101,7 +153,7 @@ function getAvatarChar(name: string): string {
   align-items: center;
   gap: 16px;
   min-height: var(--header-height, 64px);
-  padding: 12px 28px;
+  padding: 12px var(--content-pad-x, 28px);
   background: transparent;
   flex-shrink: 0;
   position: sticky;
@@ -109,49 +161,40 @@ function getAvatarChar(name: string): string {
   z-index: 100;
 }
 
+.navbar--compact {
+  grid-template-columns: 1fr auto;
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+
+.navbar__leading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-self: start;
+  min-width: 0;
+}
+
+.navbar__menu-btn {
+  flex-shrink: 0;
+  width: var(--touch-min, 44px);
+  height: var(--touch-min, 44px);
+}
+
 .navbar__brand {
   display: flex;
   align-items: center;
   gap: 10px;
-  justify-self: start;
   cursor: pointer;
   text-decoration: none;
 }
 
 .navbar__logo {
-  position: relative;
-  width: 30px;
-  height: 30px;
-  background: var(--color-primary, #1677FF);
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #fff;
-  font-weight: 800;
-  font-size: 11px;
+  width: 38px;
+  height: 38px;
   flex-shrink: 0;
-  box-shadow: 0 6px 14px rgba(22, 119, 255, 0.28);
-}
-
-.navbar__logo::after {
-  content: "";
-  position: absolute;
-  top: -2px;
-  right: -2px;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--color-brand-accent, #E03C31);
-  border: 2px solid #fff;
-}
-
-.navbar__title {
-  font-size: 17px;
-  font-weight: 800;
-  color: var(--color-navy, #0B3A5C);
-  letter-spacing: -0.02em;
-  white-space: nowrap;
+  object-fit: contain;
+  border-radius: 8px;
 }
 
 .navbar__pill {
@@ -211,10 +254,13 @@ function getAvatarChar(name: string): string {
 .icon-btn {
   width: 36px;
   height: 36px;
+  min-width: var(--touch-min, 44px);
+  min-height: var(--touch-min, 44px);
   border-radius: 50%;
   display: grid;
   place-items: center;
   color: var(--color-text-secondary, #6B7280);
+  box-sizing: border-box;
 }
 
 .icon-btn:hover {
@@ -228,6 +274,7 @@ function getAvatarChar(name: string): string {
   align-items: center;
   gap: 8px;
   padding: 3px 10px 3px 3px;
+  min-height: var(--touch-min, 44px);
   border-radius: var(--radius-full);
   font: inherit;
   color: inherit;
@@ -262,21 +309,36 @@ function getAvatarChar(name: string): string {
   color: var(--color-text-placeholder);
 }
 
-@media (max-width: 1100px) {
-  .navbar {
-    grid-template-columns: 1fr auto;
-    grid-template-areas:
-      "brand right"
-      "pill pill";
-    padding: 12px 16px;
+.navbar-drawer__nav {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.navbar-drawer__item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 12px 14px;
+  min-height: var(--touch-min, 44px);
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--color-text-primary, #1F2937);
+  cursor: pointer;
+}
+
+.navbar-drawer__item--active {
+  background: var(--color-primary-light, #E6F4FF);
+  color: var(--color-primary, #1677FF);
+  font-weight: 700;
+}
+
+@media (max-width: 1279.98px) {
+  .navbar__username {
+    display: none;
   }
-  .navbar__brand { grid-area: brand; }
-  .navbar__right { grid-area: right; }
-  .navbar__pill {
-    grid-area: pill;
-    max-width: none;
-    justify-content: flex-start;
-  }
-  .navbar__username { display: none; }
 }
 </style>

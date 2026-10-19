@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from "vue"
+import { ref, computed, onMounted, inject } from "vue"
 import { useAdminStore } from "@/stores/useAdminStore"
 import { Cpu, Database, HardDrive, Timer } from "lucide-vue-next"
 import PageHeader from "@/components/layout/PageHeader.vue"
@@ -7,6 +7,7 @@ import LoadingState from "@/components/common/LoadingState.vue"
 import ErrorState from "@/components/common/ErrorState.vue"
 
 const store = useAdminStore()
+const embedded = inject("tabHubEmbedded", false)
 const loadError = ref("")
 
 const showExtraCols = computed(() => {
@@ -36,7 +37,7 @@ onMounted(() => { loadMonitor() })
 
 <template>
   <div>
-    <PageHeader title="运行监控" subtitle="服务健康状态与资源使用情况" />
+    <PageHeader v-if="!embedded" title="运行监控" subtitle="服务健康状态与资源使用情况" />
 
     <LoadingState v-if="store.monitorLoading" text="加载监控数据..." />
     <ErrorState v-else-if="loadError" :message="loadError" @retry="loadMonitor" />

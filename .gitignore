@@ -19,8 +19,15 @@
 !.env.example
 !deploy/
 !deploy/**
+!Material/
+!Material/**
 
-# Exclude build outputs (must come after the !server/** whitelist to take effect)
+# 本地交付物，不入库
+docs/截图/
+docs/立项材料/
+docs/软著/
+
+# Exclude build outputs
 server/target/**
 server/target/
 server/BOOT-INF/**
@@ -29,10 +36,14 @@ server/BOOT-INF/
 # Exclude secrets (local-only config, never commit)
 server/src/main/resources/application-local.yml
 
-# Exclude runtime logs
+# Exclude runtime logs and build artifacts
 server/*.log
 server/**/*.log
 B1_Platform/dev.log
+B1_Platform/test-dev.log
+B1_Platform/dist/
+B1_Platform/dist.zip
+B1_Platform/.env*.local
 
 # Exclude real secrets (only the .env.example template is tracked)
 .env

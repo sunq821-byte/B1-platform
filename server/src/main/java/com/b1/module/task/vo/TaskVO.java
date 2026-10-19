@@ -26,5 +26,9 @@ public class TaskVO {
 
     private String mySubmissionStatus;
 
+    private Long mySubmissionId;
+
+    private BigDecimal myScore;
+
     private LocalDateTime createdAt;
 }

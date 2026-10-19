@@ -9,9 +9,13 @@ import com.b1.common.exception.ErrorCode;
 import com.b1.common.result.PageResult;
 import com.b1.module.auth.entity.User;
 import com.b1.module.auth.mapper.UserMapper;
+import com.b1.module.admin.entity.ClassInfo;
+import com.b1.module.admin.mapper.ClassInfoMapper;
 import com.b1.module.course.entity.Course;
+import com.b1.module.course.entity.CourseClass;
 import com.b1.module.course.entity.CourseStudent;
 import com.b1.module.course.entity.CourseTeacher;
+import com.b1.module.course.mapper.CourseClassMapper;
 import com.b1.module.course.mapper.CourseMapper;
 import com.b1.module.course.mapper.CourseStudentMapper;
 import com.b1.module.course.mapper.CourseTeacherMapper;
@@ -41,6 +45,8 @@ public class TeacherCourseServiceImpl implements TeacherCourseService {
 
     private final CourseMapper courseMapper;
     private final CourseTeacherMapper courseTeacherMapper;
+    private final CourseClassMapper courseClassMapper;
+    private final ClassInfoMapper classInfoMapper;
     private final CourseStudentMapper courseStudentMapper;
     private final TrainingTaskMapper trainingTaskMapper;
     private final SubmissionMapper submissionMapper;
@@ -70,12 +76,16 @@ public class TeacherCourseServiceImpl implements TeacherCourseService {
         IPage<Course> coursePage = courseMapper.selectPage(
                 new Page<>(page, pageSize), courseQuery);
 
+        List<Long> pageCourseIds = coursePage.getRecords().stream().map(Course::getId).toList();
+        Map<Long, String> classNameMap = resolveCourseClassNames(pageCourseIds);
+
         List<CourseVO> vos = new ArrayList<>();
         for (Course course : coursePage.getRecords()) {
             CourseVO vo = new CourseVO();
             vo.setCourseId(course.getId());
             vo.setCourseName(course.getCourseName());
             vo.setCourseCode(course.getCourseCode());
+            vo.setClassName(classNameMap.getOrDefault(course.getId(), ""));
             vo.setSemester(course.getSemester());
             vo.setCredits(course.getCredits());
             vo.setStatus(course.getStatus());
@@ -363,5 +373,25 @@ public class TeacherCourseServiceImpl implements TeacherCourseService {
         }
 
         return PageResult.of(vos, page, pageSize, studentPage.getTotal());
+    }
+
+    private Map<Long, String> resolveCourseClassNames(List<Long> courseIds) {
+        if (courseIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        List<CourseClass> links = courseClassMapper.selectList(
+                new LambdaQueryWrapper<CourseClass>().in(CourseClass::getCourseId, courseIds));
+        List<Long> classIds = links.stream().map(CourseClass::getClassId).distinct().toList();
+        Map<Long, ClassInfo> classMap = classIds.isEmpty() ? Collections.emptyMap()
+                : classInfoMapper.selectBatchIds(classIds).stream()
+                .collect(Collectors.toMap(ClassInfo::getId, c -> c));
+        Map<Long, String> result = new java.util.HashMap<>();
+        for (CourseClass link : links) {
+            ClassInfo info = classMap.get(link.getClassId());
+            if (info != null && StringUtils.hasText(info.getClassName())) {
+                result.put(link.getCourseId(), info.getClassName());
+            }
+        }
+        return result;
     }
 }

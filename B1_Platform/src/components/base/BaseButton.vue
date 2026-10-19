@@ -1,6 +1,6 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 defineProps<{
-  type?: "primary" | "default" | "danger" | "text"
+  type?: "primary" | "default" | "danger" | "text" | "success"
   size?: "small" | "default" | "large"
   loading?: boolean
   disabled?: boolean
@@ -14,7 +14,7 @@ defineEmits<{
 
 <template>
   <el-button
-    :type="type === 'primary' ? 'primary' : type === 'danger' ? 'danger' : type === 'text' ? 'text' : 'default'"
+    :type="type === 'primary' ? 'primary' : type === 'danger' ? 'danger' : type === 'success' ? 'success' : type === 'text' ? 'text' : 'default'"
     :size="size === 'small' ? 'small' : size === 'large' ? 'large' : 'default'"
     :loading="loading"
     :disabled="disabled"

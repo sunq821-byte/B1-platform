@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from "vue"
+import { ref, computed, onMounted, inject } from "vue"
 import { ElMessage } from "element-plus"
 import { useAdminStore } from "@/stores/useAdminStore"
 import type { IAdminUserItem, IAdminUserFormData } from "@/types/admin"
@@ -8,6 +8,7 @@ import LoadingState from "@/components/common/LoadingState.vue"
 import ErrorState from "@/components/common/ErrorState.vue"
 
 const store = useAdminStore()
+const embedded = inject("tabHubEmbedded", false)
 
 const loadError = ref("")
 const filterRole = ref("all")
@@ -115,6 +116,7 @@ onMounted(() => { loadUsers() })
 <template>
   <div>
     <PageHeader
+      v-if="!embedded"
       title="用户管理"
       :subtitle="`共 ${filteredUsers.length} 个用户 · 角色权限在此页分配`"
     />

@@ -22,8 +22,10 @@ public class TeacherReportController {
 
     @Operation(summary = "班级报告")
     @GetMapping("/reports")
-    public Result<ClassReportVO> getClassReport(@RequestParam(required = false) String className) {
-        return Result.ok(reportService.getClassReport(className));
+    public Result<ClassReportVO> getClassReport(
+            @RequestParam(required = false) String adminClass,
+            @RequestParam(required = false) String courseName) {
+        return Result.ok(reportService.getClassReport(adminClass, courseName));
     }
 
     @Operation(summary = "学院报告")
@@ -34,9 +36,10 @@ public class TeacherReportController {
 
     @Operation(summary = "导出班级报告", description = "format: xlsx 或 pdf")
     @GetMapping("/reports/export")
-    public void exportClassReport(@RequestParam(required = false) String className,
+    public void exportClassReport(@RequestParam(required = false) String adminClass,
+                                  @RequestParam(required = false) String courseName,
                                   @RequestParam(defaultValue = "xlsx") String format,
                                   HttpServletResponse response) {
-        reportExportService.exportClassReport(className, format, response);
+        reportExportService.exportClassReport(adminClass, courseName, format, response);
     }
 }

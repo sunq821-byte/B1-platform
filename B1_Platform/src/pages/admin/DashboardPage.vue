@@ -104,10 +104,10 @@ function logBadge(type: string): { text: string; cls: string } {
 function onQuickSearch() {
   const q = quickQuery.value.trim()
   if (!q) {
-    goTo("/admin/users")
+    goTo("/admin/organization?tab=users")
     return
   }
-  goTo("/admin/users")
+  goTo("/admin/organization?tab=users")
 }
 
 onMounted(() => { initPage() })
@@ -287,7 +287,7 @@ onMounted(() => { initPage() })
           <div class="head"><h3>运维快捷台</h3></div>
           <p class="help-intro">Hi, {{ userStore.userName || "管理员" }}。常用运维入口：</p>
           <div class="help-grid">
-            <button type="button" class="help-item" @click="goTo('/admin/users')">
+            <button type="button" class="help-item" @click="goTo('/admin/organization?tab=users')">
               <Users :size="14" /> 新建用户
               <span>账号开通</span>
             </button>
@@ -701,13 +701,16 @@ onMounted(() => { initPage() })
   color: var(--color-text-placeholder, #9CA3AF);
 }
 
-@media (max-width: 1100px) {
+@media (max-width: 1023.98px) {
   .hero, .mid, .bottom { grid-template-columns: 1fr; }
   .kpis { grid-template-columns: repeat(3, 1fr); }
 }
-@media (max-width: 640px) {
-  .welcome h1 { font-size: 24px; }
-  .pills, .kpis, .help-grid { grid-template-columns: 1fr; }
+@media (max-width: 767.98px) {
+  .welcome h1 { font-size: 22px; }
+  .pills { grid-template-columns: 1fr 1fr; }
+  .kpis { grid-template-columns: 1fr 1fr; gap: 10px; }
+  .help-grid { grid-template-columns: 1fr; }
   .alert-card { min-height: auto; }
+  .hero, .mid, .bottom { gap: 12px; min-width: 0; overflow: hidden; }
 }
 </style>

@@ -19,7 +19,7 @@ import java.util.List;
 @ConfigurationProperties(prefix = "b1.minio")
 public class MinioConfig {
 
-    private static final List<String> REQUIRED_BUCKETS = List.of("submissions", "reports");
+    private static final List<String> REQUIRED_BUCKETS = List.of("submissions", "reports", "knowledge");
 
     private String endpoint;
     private String accessKey;

@@ -82,12 +82,13 @@ export const useStudentStore = defineStore("student", () => {
         ? raw.recentTasks.map((t) => ({
             ...t,
             taskId: String(t.taskId),
+            submissionId: t.submissionId != null ? String(t.submissionId) : null,
           }))
         : [],
       scoreTrend: {
         xAxis: raw.scoreTrend?.xAxis ?? [],
-        myScores: (raw.scoreTrend?.myScores ?? []).map((v) => (v == null || v === "" ? null : Number(v))),
-        classAvg: (raw.scoreTrend?.classAvg ?? []).map((v) => (v == null || v === "" ? null : Number(v))),
+        myScores: (raw.scoreTrend?.myScores ?? []).map((v) => (v == null ? null : Number(v))),
+        classAvg: (raw.scoreTrend?.classAvg ?? []).map((v) => (v == null ? null : Number(v))),
       },
       radarData: {
         categories: raw.radarData?.categories ?? [],
@@ -128,7 +129,12 @@ export const useStudentStore = defineStore("student", () => {
     tasksLoading.value = true
     try {
       const res = await studentApi.fetchTasks(params)
-      tasks.value = res.list
+      tasks.value = res.list.map((item) => ({
+        ...item,
+        taskId: String(item.taskId),
+        mySubmissionId: item.mySubmissionId != null ? String(item.mySubmissionId) : null,
+        myScore: item.myScore != null ? Number(item.myScore) : null,
+      }))
       tasksTotal.value = res.total
     } finally {
       tasksLoading.value = false
@@ -144,7 +150,21 @@ export const useStudentStore = defineStore("student", () => {
     taskId: string,
     data: ISubmitRequest,
   ): Promise<ISubmitResponse> {
-    return studentApi.submitTask(taskId, data)
+    return studentApi.trialSubmit(taskId, data)
+  }
+
+  async function trialSubmit(
+    taskId: string,
+    data: ISubmitRequest,
+  ): Promise<ISubmitResponse> {
+    return studentApi.trialSubmit(taskId, data)
+  }
+
+  async function confirmSubmit(
+    taskId: string,
+    trialId?: string,
+  ): Promise<ISubmitResponse> {
+    return studentApi.confirmSubmit(taskId, trialId)
   }
 
   async function verifyGit(
@@ -169,32 +189,37 @@ export const useStudentStore = defineStore("student", () => {
     pollingAttempts = 0
     pollingErrors = 0
 
-    return new Promise((resolve, reject) => {
-      pollingTimer = setInterval(async () => {
-        pollingAttempts++
-        try {
-          await fetchAIResult(submissionId)
-          pollingErrors = 0
-          if (aiResult.value?.status === "COMPLETED") {
-            aiPollingStatus.value = "completed"
-            stopPolling()
-            resolve()
-          } else if (aiResult.value?.status === "FAILED") {
-            aiPollingStatus.value = "timeout"
-            stopPolling()
-            reject(new Error("AI 分析失败，请重新提交"))
-          } else if (pollingAttempts >= MAX_ATTEMPTS) {
-            aiPollingStatus.value = "timeout"
-            stopPolling()
-            reject(new Error("AI 分析超时，请联系教师"))
-          }
-        } catch {
-          pollingErrors++
-          if (pollingErrors >= MAX_CONSECUTIVE_ERRORS) {
-            stopPolling()
-            reject(new Error("获取 AI 分析结果失败"))
-          }
+    const tick = async (resolve: () => void, reject: (err: Error) => void) => {
+      pollingAttempts++
+      try {
+        await fetchAIResult(submissionId)
+        pollingErrors = 0
+        if (aiResult.value?.status === "COMPLETED") {
+          aiPollingStatus.value = "completed"
+          stopPolling()
+          resolve()
+        } else if (aiResult.value?.status === "FAILED") {
+          aiPollingStatus.value = "timeout"
+          stopPolling()
+          reject(new Error("AI 分析失败，请重新提交"))
+        } else if (pollingAttempts >= MAX_ATTEMPTS) {
+          aiPollingStatus.value = "timeout"
+          stopPolling()
+          reject(new Error("AI 分析超时，请联系教师"))
         }
+      } catch {
+        pollingErrors++
+        if (pollingErrors >= MAX_CONSECUTIVE_ERRORS) {
+          stopPolling()
+          reject(new Error("获取 AI 分析结果失败"))
+        }
+      }
+    }
+
+    return new Promise((resolve, reject) => {
+      void tick(resolve, reject)
+      pollingTimer = setInterval(() => {
+        void tick(resolve, reject)
       }, 3000)
     })
   }
@@ -273,6 +298,8 @@ export const useStudentStore = defineStore("student", () => {
     fetchTasks,
     fetchTaskDetail,
     submitTask,
+    trialSubmit,
+    confirmSubmit,
     verifyGit,
     triggerAIEvaluation,
     fetchAIResult,

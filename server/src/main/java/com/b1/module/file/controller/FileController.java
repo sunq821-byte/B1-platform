@@ -45,6 +45,20 @@ public class FileController {
                 .body(new InputStreamResource(stream));
     }
 
+    @Operation(summary = "在线预览文件")
+    @GetMapping("/{id}/preview")
+    public ResponseEntity<InputStreamResource> preview(@PathVariable Long id) {
+        InputStream stream = fileService.download(id);
+        String filename = fileService.getOriginalName(id);
+        String contentType = fileService.resolveContentType(id);
+        MediaType mediaType = MediaType.parseMediaType(contentType);
+        return ResponseEntity.ok()
+                .contentType(mediaType)
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        "inline; filename*=UTF-8''" + URLEncoder.encode(filename, StandardCharsets.UTF_8))
+                .body(new InputStreamResource(stream));
+    }
+
     @Operation(summary = "获取文件访问URL")
     @GetMapping("/{id}/url")
     public Result<String> getUrl(@PathVariable Long id) {

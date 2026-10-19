@@ -27,7 +27,8 @@ export default defineConfig({
     // 避开本机其他项目（如 Trek）占用/缓存的 3000 端口
     port: 5173,
     strictPort: true,
-    host: '127.0.0.1',
+    // true = 0.0.0.0，同网段手机可用 http://<电脑局域网IP>:5173 访问
+    host: true,
     proxy: {
       '/api': {
         target: 'http://localhost:8080',

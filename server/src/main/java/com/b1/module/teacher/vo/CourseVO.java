@@ -14,6 +14,9 @@ public class CourseVO {
 
     private String courseCode;
 
+    /** 关联行政班名称 */
+    private String className;
+
     private String semester;
 
     private BigDecimal credits;

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from "vue"
+import { ref, computed, onMounted, inject } from "vue"
 import { ElMessage } from "element-plus"
 import { Upload, Download } from "lucide-vue-next"
 import { useTeacherStore } from "@/stores/useTeacherStore"
@@ -10,6 +10,7 @@ import LoadingState from "@/components/common/LoadingState.vue"
 import ErrorState from "@/components/common/ErrorState.vue"
 
 const store = useTeacherStore()
+const embedded = inject("tabHubEmbedded", false)
 const loadError = ref("")
 const filterClass = ref("all")
 const searchTerm = ref("")
@@ -161,7 +162,7 @@ onMounted(() => { initPage() })
 
 <template>
   <div class="page">
-    <PageHeader title="学生管理" :subtitle="`共 ${filteredStudents.length} 名学生 · 名单以导入维护`" />
+    <PageHeader v-if="!embedded" title="提交进度" :subtitle="`共 ${filteredStudents.length} 名学生`" />
 
     <LoadingState v-if="store.studentsLoading" />
     <ErrorState v-else-if="loadError" :message="loadError" @retry="initPage" />

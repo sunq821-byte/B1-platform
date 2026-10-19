@@ -90,7 +90,7 @@ public class TeacherTaskServiceImpl implements TeacherTaskService {
             vo.setCourseName(courseName);
             vo.setDescription(task.getDescription());
             vo.setSubmissionType(task.getSubmissionType());
-            vo.setMaxSubmitCount(task.getMaxSubmitCount());
+            vo.setMaxSubmitCount(task.getMaxAiAnalyzeCount());
             vo.setTotalScore(task.getMaxScore());
             vo.setStatus(task.getStatus());
             vo.setDeadline(task.getEndTime());
@@ -145,7 +145,7 @@ public class TeacherTaskServiceImpl implements TeacherTaskService {
         vo.setDescription(task.getDescription());
         vo.setRequirement(task.getRequirement());
         vo.setSubmissionType(task.getSubmissionType());
-        vo.setMaxSubmitCount(task.getMaxSubmitCount());
+        vo.setMaxSubmitCount(task.getMaxAiAnalyzeCount());
         vo.setAllowLate(task.getAllowLate());
         vo.setEndTime(task.getEndTime());
         vo.setPublishTime(task.getPublishTime());
@@ -209,18 +209,23 @@ public class TeacherTaskServiceImpl implements TeacherTaskService {
             sv.setEmail(u.getEmail());
 
             List<Submission> userSubs = submissionsByUser.getOrDefault(cs.getUserId(), Collections.emptyList());
-            sv.setSubmitCount(userSubs.size());
+            sv.setMaxAiAnalyzeCount(task.getMaxAiAnalyzeCount());
 
             if (!userSubs.isEmpty()) {
                 Submission latest = userSubs.stream()
                         .max(Comparator.comparing(Submission::getSubmitTime, Comparator.nullsLast(Comparator.naturalOrder())))
                         .orElse(null);
                 if (latest != null) {
+                    sv.setSubmissionId(latest.getId());
+                    sv.setSubmitCount(latest.getSubmitCount());
+                    sv.setAiAnalyzeUsedCount(latest.getAiAnalyzeUsedCount() != null ? latest.getAiAnalyzeUsedCount() : 0);
                     sv.setLatestStatus(latest.getStatus());
                     sv.setLatestSubmitTime(latest.getSubmitTime());
                 }
                 sv.setHasReview(userSubs.stream().anyMatch(s -> reviewedSubmissionIds.contains(s.getId())));
             } else {
+                sv.setSubmitCount(0);
+                sv.setAiAnalyzeUsedCount(0);
                 sv.setLatestStatus("NOT_SUBMITTED");
                 sv.setHasReview(false);
             }
@@ -248,7 +253,7 @@ public class TeacherTaskServiceImpl implements TeacherTaskService {
         task.setCourseId(courseId);
         task.setTaskName(dto.getTaskName());
         task.setSubmissionType(dto.getSubmissionType());
-        task.setMaxSubmitCount(dto.getMaxSubmitCount());
+        task.setMaxAiAnalyzeCount(dto.getMaxSubmitCount());
         task.setMaxScore(dto.getTotalScore());
         task.setDescription(dto.getDescription());
         task.setRequirement(dto.getRequirement());
@@ -256,7 +261,8 @@ public class TeacherTaskServiceImpl implements TeacherTaskService {
         task.setEndTime(dto.getEndTime());
         task.setAllowLate(dto.getAllowLate() != null ? dto.getAllowLate() : 0);
         task.setStandardId(SystemConstants.DEFAULT_STANDARD_ID);
-        task.setStatus("DRAFT");
+        task.setStatus("PUBLISHED");
+        task.setPublishTime(LocalDateTime.now());
 
         trainingTaskMapper.insert(task);
 
@@ -274,7 +280,7 @@ public class TeacherTaskServiceImpl implements TeacherTaskService {
         vo.setTaskName(task.getTaskName());
         vo.setCourseName(course != null ? course.getCourseName() : "");
         vo.setSubmissionType(task.getSubmissionType());
-        vo.setMaxSubmitCount(task.getMaxSubmitCount());
+        vo.setMaxSubmitCount(task.getMaxAiAnalyzeCount());
         vo.setTotalScore(task.getMaxScore());
         vo.setStatus(task.getStatus());
         vo.setDeadline(task.getEndTime());
@@ -315,7 +321,7 @@ public class TeacherTaskServiceImpl implements TeacherTaskService {
             task.setSubmissionType(dto.getSubmissionType());
         }
         if (dto.getMaxSubmitCount() != null) {
-            task.setMaxSubmitCount(dto.getMaxSubmitCount());
+            task.setMaxAiAnalyzeCount(dto.getMaxSubmitCount());
         }
         if (dto.getAllowLate() != null) {
             task.setAllowLate(dto.getAllowLate());
@@ -340,7 +346,7 @@ public class TeacherTaskServiceImpl implements TeacherTaskService {
         vo.setTaskName(updated.getTaskName());
         vo.setCourseName(course != null ? course.getCourseName() : "");
         vo.setSubmissionType(updated.getSubmissionType());
-        vo.setMaxSubmitCount(updated.getMaxSubmitCount());
+        vo.setMaxSubmitCount(updated.getMaxAiAnalyzeCount());
         vo.setTotalScore(updated.getMaxScore());
         vo.setStatus(updated.getStatus());
         vo.setDeadline(updated.getEndTime());
@@ -413,7 +419,7 @@ public class TeacherTaskServiceImpl implements TeacherTaskService {
             vo.setCourseName(c != null ? c.getCourseName() : "");
             vo.setDescription(task.getDescription());
             vo.setSubmissionType(task.getSubmissionType());
-            vo.setMaxSubmitCount(task.getMaxSubmitCount());
+            vo.setMaxSubmitCount(task.getMaxAiAnalyzeCount());
             vo.setTotalScore(task.getMaxScore());
             vo.setStatus(task.getStatus());
             vo.setDeadline(task.getEndTime());
@@ -488,5 +494,44 @@ public class TeacherTaskServiceImpl implements TeacherTaskService {
         task.setStatus("PUBLISHED");
         task.setPublishTime(LocalDateTime.now());
         trainingTaskMapper.updateById(task);
+    }
+
+    private static final Set<String> AI_COUNT_RESTORE_STATUSES = Set.of(
+            "DRAFT", "ANALYZING", "AI_READY", "REJECTED");
+
+    @Override
+    public void restoreAiAnalyzeCount(Long taskId, Long studentUserId) {
+        Long teacherId = StpUtil.getLoginIdAsLong();
+
+        TrainingTask task = trainingTaskMapper.selectById(taskId);
+        if (task == null) {
+            throw new BusinessException(ErrorCode.NOT_FOUND, "任务不存在");
+        }
+
+        Long belongCount = courseTeacherMapper.selectCount(
+                new LambdaQueryWrapper<CourseTeacher>()
+                        .eq(CourseTeacher::getCourseId, task.getCourseId())
+                        .eq(CourseTeacher::getUserId, teacherId));
+        if (belongCount == 0) {
+            throw new BusinessException(ErrorCode.OPERATION_NOT_ALLOWED, "无权操作该任务");
+        }
+
+        Submission submission = submissionMapper.selectOne(
+                new LambdaQueryWrapper<Submission>()
+                        .eq(Submission::getTrainingTaskId, taskId)
+                        .eq(Submission::getUserId, studentUserId)
+                        .eq(Submission::getDeleted, 0)
+                        .last("LIMIT 1"));
+        if (submission == null) {
+            throw new BusinessException(ErrorCode.NOT_FOUND, "该学生尚未创建提交记录");
+        }
+
+        if (!AI_COUNT_RESTORE_STATUSES.contains(submission.getStatus())) {
+            throw new BusinessException(ErrorCode.OPERATION_NOT_ALLOWED,
+                    "仅试交阶段（草稿/分析中/待确认/已驳回）可还原 AI 次数");
+        }
+
+        submission.setAiAnalyzeUsedCount(0);
+        submissionMapper.updateById(submission);
     }
 }

@@ -1,9 +1,9 @@
 package com.b1.module.teacher.vo;
 
-import lombok.Data;
-import lombok.Builder;
-import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -17,6 +17,8 @@ public class ClassReportVO {
     private Stats stats;
     private Histogram histogram;
     private CourseAvgs courseAvgs;
+    private TaskCompletion taskCompletion;
+    private DimensionAvgs dimensionAvgs;
     private List<Row> rows;
 
     @Data
@@ -26,8 +28,10 @@ public class ClassReportVO {
     public static class Stats {
         private int totalStudents;
         private int totalReviewed;
+        private int totalTasks;
         private BigDecimal classAverage;
         private BigDecimal passRate;
+        private BigDecimal taskCompletionRate;
     }
 
     @Data
@@ -52,10 +56,30 @@ public class ClassReportVO {
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
+    public static class TaskCompletion {
+        private List<String> categories;
+        private List<Integer> completedCount;
+        private List<Integer> totalStudents;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class DimensionAvgs {
+        private List<String> categories;
+        private List<BigDecimal> values;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
     public static class Row {
         private String studentId;
         private String name;
         private String className;
+        private String courseName;
         private int completedCount;
         private BigDecimal avgScore;
         private BigDecimal maxScore;

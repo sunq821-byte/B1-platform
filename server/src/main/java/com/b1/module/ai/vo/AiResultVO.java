@@ -30,6 +30,8 @@ public class AiResultVO {
 
         private List<AiDimensionScoreVO> dimensions;
 
+        private List<AiIssueVO> issues;
+
         private String summary;
 
         private List<String> strengths;
@@ -67,5 +69,29 @@ public class AiResultVO {
         private Integer lineNumber;
 
         private BigDecimal confidence;
+    }
+
+    @Data
+    public static class AiIssueVO {
+
+        private String agentType;
+
+        private String issueType;
+
+        private String severity;
+
+        private String reason;
+
+        private String suggestion;
+
+        private BigDecimal suggestDeduct;
+
+        private BigDecimal confidence;
+
+        private String filePath;
+
+        private Integer lineNumber;
+
+        private String dimensionName;
     }
 }

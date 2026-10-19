@@ -15,6 +15,10 @@ public interface FileService {
 
     String getAccessUrl(Long fileId);
 
+    String getPreviewUrl(Long fileId);
+
+    String resolveContentType(Long fileId);
+
     /**
      * 读取文件内容并编码为 base64 data URI（形如 {@code data:image/png;base64,...}）。
      * 用于把图片内联传给需要"可直接读取图片"的外部服务（如通义千问视觉），

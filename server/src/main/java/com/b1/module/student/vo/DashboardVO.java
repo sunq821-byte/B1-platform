@@ -39,6 +39,7 @@ public class DashboardVO {
         private LocalDateTime deadline;
         private String status;
         private BigDecimal score;
+        private Long submissionId;
     }
 
     @Data

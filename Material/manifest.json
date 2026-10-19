@@ -1,0 +1,341 @@
+{
+  "version": 2,
+  "files": [
+    {
+      "id": 5001,
+      "localPath": "03-打包成果/servlet-session.zip",
+      "bucket": "submissions",
+      "objectKey": "material/seed/submissions/servlet-session.zip",
+      "originalName": "servlet-session.zip",
+      "contentType": "application/zip"
+    },
+    {
+      "id": 5002,
+      "localPath": "03-打包成果/book-mgr-source.zip",
+      "bucket": "submissions",
+      "objectKey": "material/seed/submissions/book-mgr-source.zip",
+      "originalName": "book-mgr-source.zip",
+      "contentType": "application/zip"
+    },
+    {
+      "id": 5003,
+      "localPath": "03-打包成果/vue-components.zip",
+      "bucket": "submissions",
+      "objectKey": "material/seed/submissions/vue-components.zip",
+      "originalName": "vue-components.zip",
+      "contentType": "application/zip"
+    },
+    {
+      "id": 5004,
+      "localPath": "02-实训报告/book-mgr-实训报告.md",
+      "bucket": "submissions",
+      "objectKey": "material/seed/submissions/book-mgr-report.md",
+      "originalName": "book-mgr-实训报告.md",
+      "contentType": "text/markdown"
+    },
+    {
+      "id": 5005,
+      "localPath": "02-实训报告/servlet-session-实训报告.md",
+      "bucket": "submissions",
+      "objectKey": "material/seed/submissions/servlet-session-report.md",
+      "originalName": "servlet-session-实训报告.md",
+      "contentType": "text/markdown"
+    },
+    {
+      "id": 5006,
+      "localPath": "02-实训报告/vue-components-实训报告.md",
+      "bucket": "submissions",
+      "objectKey": "material/seed/submissions/vue-components-report.md",
+      "originalName": "vue-components-实训报告.md",
+      "contentType": "text/markdown"
+    },
+    {
+      "id": 5007,
+      "localPath": "05-设计文档/api-design-sample.md",
+      "bucket": "reports",
+      "objectKey": "material/seed/reports/api-design-sample.md",
+      "originalName": "api-design-sample.md",
+      "contentType": "text/markdown"
+    },
+    {
+      "id": 5008,
+      "localPath": "07-知识库样例/java-web-faq.md",
+      "bucket": "reports",
+      "objectKey": "material/seed/reports/java-web-faq.md",
+      "originalName": "java-web-faq.md",
+      "contentType": "text/markdown"
+    },
+    {
+      "id": 5009,
+      "localPath": "01-源码示例/servlet-session/LoginServlet.java",
+      "bucket": "submissions",
+      "objectKey": "material/seed/submissions/LoginServlet.java",
+      "originalName": "LoginServlet.java",
+      "contentType": "text/plain"
+    },
+    {
+      "id": 5010,
+      "localPath": "01-源码示例/redis-cache/RedisCacheService.java",
+      "bucket": "submissions",
+      "objectKey": "material/seed/submissions/RedisCacheService.java",
+      "originalName": "RedisCacheService.java",
+      "contentType": "text/plain"
+    },
+    {
+      "id": 5011,
+      "localPath": "01-源码示例/vue3-components/BaseButton.vue",
+      "bucket": "submissions",
+      "objectKey": "material/seed/submissions/BaseButton.vue",
+      "originalName": "BaseButton.vue",
+      "contentType": "text/plain"
+    },
+    {
+      "id": 5012,
+      "localPath": "01-源码示例/linked-list/LinkedListDemo.java",
+      "bucket": "submissions",
+      "objectKey": "material/seed/submissions/LinkedListDemo.java",
+      "originalName": "LinkedListDemo.java",
+      "contentType": "text/plain"
+    },
+    {
+      "id": 5013,
+      "localPath": "04-界面截图/book-mgr-ui.png",
+      "bucket": "submissions",
+      "objectKey": "material/seed/submissions/book-mgr-ui.png",
+      "originalName": "book-mgr-ui.png",
+      "contentType": "image/png"
+    },
+    {
+      "id": 5014,
+      "localPath": "04-界面截图/redis-cache-screenshot.png",
+      "bucket": "submissions",
+      "objectKey": "material/seed/submissions/redis-cache-screenshot.png",
+      "originalName": "redis-cache-screenshot.png",
+      "contentType": "image/png"
+    },
+    {
+      "id": 5015,
+      "localPath": "04-界面截图/vue-component-preview.jpg",
+      "bucket": "submissions",
+      "objectKey": "material/seed/submissions/vue-component-preview.jpg",
+      "originalName": "vue-component-preview.jpg",
+      "contentType": "image/jpeg"
+    },
+    {
+      "id": 5016,
+      "localPath": "04-界面截图/servlet-session-run.jpg",
+      "bucket": "submissions",
+      "objectKey": "material/seed/submissions/servlet-session-run.jpg",
+      "originalName": "servlet-session-run.jpg",
+      "contentType": "image/jpeg"
+    },
+    {
+      "id": 6001,
+      "localPath": "07-知识库样例/java-web-faq.md",
+      "bucket": "knowledge",
+      "objectKey": "material/seed/knowledge/java-web-faq.md",
+      "originalName": "Java Web 常见问题.md",
+      "contentType": "text/markdown"
+    },
+    {
+      "id": 6002,
+      "localPath": "06-评分细则/book-mgr-grading-rule.md",
+      "bucket": "knowledge",
+      "objectKey": "material/seed/knowledge/book-mgr-grading-rule.md",
+      "originalName": "Spring Boot 开发规范手册.md",
+      "contentType": "text/markdown"
+    },
+    {
+      "id": 6003,
+      "localPath": "02-实训报告/vue-components-实训报告.md",
+      "bucket": "knowledge",
+      "objectKey": "material/seed/knowledge/vue-components-report.md",
+      "originalName": "Vue3 组件设计实战指南.md",
+      "contentType": "text/markdown"
+    },
+    {
+      "id": 6004,
+      "localPath": "05-设计文档/api-design-sample.md",
+      "bucket": "knowledge",
+      "objectKey": "material/seed/knowledge/api-design-sample.md",
+      "originalName": "软件设计文档规范模板.md",
+      "contentType": "text/markdown"
+    },
+    {
+      "id": 6005,
+      "localPath": "02-实训报告/servlet-session-实训报告.md",
+      "bucket": "knowledge",
+      "objectKey": "material/seed/knowledge/servlet-session-report.md",
+      "originalName": "Servlet 实训报告参考.md",
+      "contentType": "text/markdown"
+    },
+    {
+      "id": 6010,
+      "localPath": "07-知识库样例/servlet-session-grading.md",
+      "bucket": "knowledge",
+      "objectKey": "material/seed/knowledge/servlet-session-grading.md",
+      "originalName": "Servlet 会话管理评分细则.md",
+      "contentType": "text/markdown"
+    },
+    {
+      "id": 6020,
+      "localPath": "07-知识库样例/经管/market-research-grading.md",
+      "bucket": "knowledge",
+      "objectKey": "material/seed/knowledge/bus301/market-research-grading.md",
+      "originalName": "市场调研报告评分细则.md",
+      "contentType": "text/markdown"
+    },
+    {
+      "id": 6021,
+      "localPath": "07-知识库样例/经管/market-research-faq.md",
+      "bucket": "knowledge",
+      "objectKey": "material/seed/knowledge/bus301/market-research-faq.md",
+      "originalName": "市场调研 FAQ.md",
+      "contentType": "text/markdown"
+    },
+    {
+      "id": 6022,
+      "localPath": "07-知识库样例/经管/market-research-template.md",
+      "bucket": "knowledge",
+      "objectKey": "material/seed/knowledge/bus301/market-research-template.md",
+      "originalName": "市场调研报告提交模板.md",
+      "contentType": "text/markdown"
+    },
+    {
+      "id": 6023,
+      "localPath": "07-知识库样例/经管/market-research-sample.md",
+      "bucket": "knowledge",
+      "objectKey": "material/seed/knowledge/bus301/market-research-sample.md",
+      "originalName": "优秀样例-校园便利店调研.md",
+      "contentType": "text/markdown"
+    },
+    {
+      "id": 6030,
+      "localPath": "07-知识库样例/机械/mechanical-design-grading.md",
+      "bucket": "knowledge",
+      "objectKey": "material/seed/knowledge/me301/mechanical-design-grading.md",
+      "originalName": "减速器设计评分细则.md",
+      "contentType": "text/markdown"
+    },
+    {
+      "id": 6031,
+      "localPath": "07-知识库样例/机械/mechanical-design-faq.md",
+      "bucket": "knowledge",
+      "objectKey": "material/seed/knowledge/me301/mechanical-design-faq.md",
+      "originalName": "减速器设计 FAQ.md",
+      "contentType": "text/markdown"
+    },
+    {
+      "id": 6032,
+      "localPath": "07-知识库样例/机械/mechanical-design-standard.md",
+      "bucket": "knowledge",
+      "objectKey": "material/seed/knowledge/me301/mechanical-design-standard.md",
+      "originalName": "机械制图与说明书规范.md",
+      "contentType": "text/markdown"
+    },
+    {
+      "id": 6033,
+      "localPath": "07-知识库样例/机械/mechanical-design-sample.md",
+      "bucket": "knowledge",
+      "objectKey": "material/seed/knowledge/me301/mechanical-design-sample.md",
+      "originalName": "减速器说明书结构参考.md",
+      "contentType": "text/markdown"
+    },
+    {
+      "id": 6040,
+      "localPath": "07-知识库样例/校企/enterprise-delivery-grading.md",
+      "bucket": "knowledge",
+      "objectKey": "material/seed/knowledge/ent301/enterprise-delivery-grading.md",
+      "originalName": "阶段交付评分细则.md",
+      "contentType": "text/markdown"
+    },
+    {
+      "id": 6041,
+      "localPath": "07-知识库样例/校企/enterprise-delivery-faq.md",
+      "bucket": "knowledge",
+      "objectKey": "material/seed/knowledge/ent301/enterprise-delivery-faq.md",
+      "originalName": "校企实训 FAQ.md",
+      "contentType": "text/markdown"
+    },
+    {
+      "id": 6042,
+      "localPath": "07-知识库样例/校企/enterprise-delivery-standard.md",
+      "bucket": "knowledge",
+      "objectKey": "material/seed/knowledge/ent301/enterprise-delivery-standard.md",
+      "originalName": "企业项目交付规范.md",
+      "contentType": "text/markdown"
+    },
+    {
+      "id": 6043,
+      "localPath": "07-知识库样例/校企/enterprise-delivery-sample.md",
+      "bucket": "knowledge",
+      "objectKey": "material/seed/knowledge/ent301/enterprise-delivery-sample.md",
+      "originalName": "阶段交付总结参考.md",
+      "contentType": "text/markdown"
+    },
+    {
+      "id": 5020,
+      "localPath": "02-实训报告/经管/市场调研报告.md",
+      "bucket": "submissions",
+      "objectKey": "material/seed/submissions/market-research-report.md",
+      "originalName": "市场调研报告.md",
+      "contentType": "text/markdown"
+    },
+    {
+      "id": 5021,
+      "localPath": "02-实训报告/经管/市场调研报告.pdf",
+      "bucket": "submissions",
+      "objectKey": "material/seed/submissions/market-research-report.pdf",
+      "originalName": "市场调研报告.pdf",
+      "contentType": "application/pdf"
+    },
+    {
+      "id": 5022,
+      "localPath": "02-实训报告/经管/市场调研报告.docx",
+      "bucket": "submissions",
+      "objectKey": "material/seed/submissions/market-research-report.docx",
+      "originalName": "市场调研报告.docx",
+      "contentType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    },
+    {
+      "id": 5023,
+      "localPath": "02-实训报告/工科/减速器设计说明书.md",
+      "bucket": "submissions",
+      "objectKey": "material/seed/submissions/mechanical-design-report.md",
+      "originalName": "减速器设计说明书.md",
+      "contentType": "text/markdown"
+    },
+    {
+      "id": 5024,
+      "localPath": "03-打包成果/mechanical-design.zip",
+      "bucket": "submissions",
+      "objectKey": "material/seed/submissions/mechanical-design.zip",
+      "originalName": "mechanical-design.zip",
+      "contentType": "application/zip"
+    },
+    {
+      "id": 5025,
+      "localPath": "02-实训报告/校企/项目阶段总结.md",
+      "bucket": "submissions",
+      "objectKey": "material/seed/submissions/enterprise-summary.md",
+      "originalName": "项目阶段总结.md",
+      "contentType": "text/markdown"
+    },
+    {
+      "id": 5026,
+      "localPath": "03-打包成果/enterprise-delivery.zip",
+      "bucket": "submissions",
+      "objectKey": "material/seed/submissions/enterprise-delivery.zip",
+      "originalName": "enterprise-delivery.zip",
+      "contentType": "application/zip"
+    },
+    {
+      "id": 5027,
+      "localPath": "02-实训报告/校企/项目阶段总结.pdf",
+      "bucket": "submissions",
+      "objectKey": "material/seed/submissions/enterprise-summary.pdf",
+      "originalName": "项目阶段总结.pdf",
+      "contentType": "application/pdf"
+    }
+  ]
+}

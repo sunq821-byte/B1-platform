@@ -148,7 +148,7 @@ onMounted(() => { initPage() })
         <section class="stat-group">
           <h2 class="section-label">教学概览</h2>
           <div class="stat-pair">
-            <article class="stat-card" @click="goTo('/teacher/courses')">
+            <article class="stat-card" @click="goTo('/teacher/teaching?tab=courses')">
               <div class="stat-card__top">
                 <div>
                   <div class="stat-label">在教课程</div>
@@ -702,13 +702,43 @@ onMounted(() => { initPage() })
   align-items: center;
 }
 
-@media (max-width: 1100px) {
+@media (max-width: 1023.98px) {
   .stat-grid, .mid-grid, .bottom-grid { grid-template-columns: 1fr; }
   .stat-triple { grid-template-columns: 1fr 1fr; }
 }
-@media (max-width: 640px) {
-  .dash-hero { flex-direction: column; align-items: flex-start; }
-  .dash-hero__title { font-size: 26px; }
-  .stat-pair, .stat-triple { grid-template-columns: 1fr; }
+@media (max-width: 767.98px) {
+  .dash-hero {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 14px;
+  }
+  .dash-hero__title { font-size: 22px; }
+  .stat-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .stat-group,
+  .stat-pair,
+  .stat-triple {
+    display: contents;
+  }
+  .section-label {
+    grid-column: 1 / -1;
+    margin: 4px 0 0;
+  }
+  .stat-pair, .stat-triple { grid-template-columns: 1fr 1fr; }
+  .stat-card {
+    min-height: 0;
+    padding: 12px;
+  }
+  .stat-value { font-size: 22px; }
+  .stat-icon { width: 28px; height: 28px; }
+  .panel { padding: 14px; overflow: hidden; min-width: 0; }
+  .chart-panel :deep(.chart-card) {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
 }
 </style>

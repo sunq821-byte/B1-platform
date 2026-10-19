@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from "vue"
+import { ref, computed, inject } from "vue"
 import { ElMessage } from "element-plus"
 import { useStudentStore } from "@/stores/useStudentStore"
 import { useUserStore } from "@/stores/useUserStore"
 import { exportStudentReport } from "@/api/modules/student"
+import { useReportRefresh } from "@/composables/useReportRefresh"
+import { useBreakpoint } from "@/composables/useBreakpoint"
 import PageHeader from "@/components/layout/PageHeader.vue"
 import LineChart from "@/components/chart/LineChart.vue"
 import RadarChart from "@/components/chart/RadarChart.vue"
@@ -11,8 +13,11 @@ import EmptyState from "@/components/common/EmptyState.vue"
 import LoadingState from "@/components/common/LoadingState.vue"
 import ErrorState from "@/components/common/ErrorState.vue"
 
+const embedded = inject("tabHubEmbedded", false)
 const store = useStudentStore()
 const userStore = useUserStore()
+const { isXs } = useBreakpoint()
+const chartH = computed(() => (isXs.value ? "240px" : "340px"))
 const exporting = ref(false)
 const loadError = ref("")
 
@@ -30,7 +35,7 @@ async function initPage() {
   }
 }
 
-onMounted(() => { initPage() })
+useReportRefresh(initPage)
 
 async function handleExport(format: "xlsx" | "pdf") {
   if (!store.studentReport || store.studentReport.rows.length === 0) {
@@ -55,11 +60,31 @@ function scoreColor(score: number) {
   if (score >= 60) return "var(--color-warning, #FAAD14)"
   return "var(--color-danger, #FF4D4F)"
 }
+
+function statusLabel(status: string): string {
+  const map: Record<string, string> = {
+    REVIEWED: "已评阅",
+    REJECTED: "已退回",
+    SUBMITTED: "已提交",
+    PUBLISHED: "已发布",
+    INCOMPLETE: "未完成",
+    CONFIRMED: "已递交",
+    DRAFT: "试交中",
+  }
+  return map[status] || status || "-"
+}
+
+function statusBadgeClass(status: string): string {
+  if (status === "REVIEWED" || status === "PUBLISHED") return "badge badge--success"
+  if (status === "REJECTED" || status === "INCOMPLETE") return "badge badge--danger"
+  if (status === "SUBMITTED" || status === "CONFIRMED") return "badge badge--info"
+  return "badge badge--default"
+}
 </script>
 
 <template>
   <div>
-    <PageHeader title="个人报告" :subtitle="subtitle" />
+    <PageHeader v-if="!embedded" title="个人报告" :subtitle="subtitle" />
 
     <div class="filter-bar">
       <span class="sem-chip">本学期</span>
@@ -98,7 +123,7 @@ function scoreColor(score: number) {
             title="分数趋势"
             :x-axis="store.studentReport.scoreTrend.categories"
             :series-data="[{ name: '我的成绩', data: store.studentReport.scoreTrend.values }]"
-            height="340px"
+            :height="chartH"
           />
         </div>
         <div class="chart-wrap lg">
@@ -107,7 +132,7 @@ function scoreColor(score: number) {
             title="能力雷达"
             :categories="store.studentReport.radarData.indicators"
             :series-data="[{ name: '个人', data: store.studentReport.radarData.values, color: '#1677FF' }]"
-            height="340px"
+            :height="chartH"
           />
           <EmptyState v-else description="暂无雷达数据" />
         </div>
@@ -120,40 +145,62 @@ function scoreColor(score: number) {
         <div v-if="!store.studentReport.rows.length">
           <EmptyState description="暂无成绩记录" />
         </div>
-        <div v-else class="data-table">
-          <table>
-            <thead>
-              <tr>
-                <th>任务名称</th>
-                <th>课程</th>
-                <th>成绩</th>
-                <th>评语</th>
-                <th>状态</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="(row, idx) in store.studentReport.rows" :key="idx">
-                <td>{{ row.taskName }}</td>
-                <td><span class="muted">{{ row.courseName }}</span></td>
-                <td>
-                  <span
-                    v-if="row.score != null"
-                    class="mono"
-                    :style="{ color: scoreColor(row.score) }"
-                  >{{ row.score.toFixed(1) }}</span>
-                  <span v-else class="muted">-</span>
-                </td>
-                <td><span class="muted sm">{{ row.reviewComment || '-' }}</span></td>
-                <td>
-                  <span v-if="row.status === 'REVIEWED'" class="badge badge--success">已评阅</span>
-                  <span v-else-if="row.status === 'REJECTED'" class="badge badge--danger">已退回</span>
-                  <span v-else-if="row.status === 'SUBMITTED'" class="badge badge--info">已提交</span>
-                  <span v-else class="badge badge--default">{{ row.status }}</span>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+        <template v-else>
+          <div class="mobile-score-list" aria-label="成绩明细卡片">
+            <article
+              v-for="(row, idx) in store.studentReport.rows"
+              :key="idx"
+              class="mobile-score-card"
+            >
+              <div class="mobile-score-card__top">
+                <div class="mobile-score-card__title">{{ row.taskName }}</div>
+                <span :class="statusBadgeClass(row.status)">{{ statusLabel(row.status) }}</span>
+              </div>
+              <div class="mobile-score-card__meta">{{ row.courseName }}</div>
+              <div class="mobile-score-card__row">
+                <span
+                  v-if="row.score != null"
+                  class="mono"
+                  :style="{ color: scoreColor(row.score) }"
+                >{{ row.score.toFixed(1) }} 分</span>
+                <span v-else class="muted">暂无成绩</span>
+              </div>
+              <p v-if="row.reviewComment" class="mobile-score-card__comment">{{ row.reviewComment }}</p>
+            </article>
+          </div>
+
+          <div class="data-table desktop-score-table">
+            <table>
+              <thead>
+                <tr>
+                  <th>任务名称</th>
+                  <th>课程</th>
+                  <th>成绩</th>
+                  <th>评语</th>
+                  <th>状态</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(row, idx) in store.studentReport.rows" :key="idx">
+                  <td>{{ row.taskName }}</td>
+                  <td><span class="muted">{{ row.courseName }}</span></td>
+                  <td>
+                    <span
+                      v-if="row.score != null"
+                      class="mono"
+                      :style="{ color: scoreColor(row.score) }"
+                    >{{ row.score.toFixed(1) }}</span>
+                    <span v-else class="muted">-</span>
+                  </td>
+                  <td class="cell-wrap"><span class="muted sm">{{ row.reviewComment || '-' }}</span></td>
+                  <td>
+                    <span :class="statusBadgeClass(row.status)">{{ statusLabel(row.status) }}</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </template>
       </div>
     </template>
     <EmptyState v-else description="暂无个人报告数据" />
@@ -181,4 +228,55 @@ function scoreColor(score: number) {
 .mono { font-family: var(--font-mono); font-weight: 500; }
 .muted { color: var(--color-text-secondary, #64748b); }
 .muted.sm { font-size: 13px; }
+
+.mobile-score-list {
+  display: none;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.mobile-score-card {
+  background: var(--color-card, #fff);
+  border: 1px solid var(--color-border, #E5E7EB);
+  border-radius: 14px;
+  padding: 14px 16px;
+  box-shadow: var(--shadow-sm);
+}
+
+.mobile-score-card__top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.mobile-score-card__title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--color-navy, #0B3A5C);
+  line-height: 1.35;
+}
+
+.mobile-score-card__meta {
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--color-text-secondary, #6B7280);
+}
+
+.mobile-score-card__row {
+  margin-top: 10px;
+  font-size: 16px;
+}
+
+.mobile-score-card__comment {
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: var(--color-text-secondary, #64748b);
+  line-height: 1.45;
+}
+
+@media (max-width: 767.98px) {
+  .mobile-score-list { display: flex; }
+  .desktop-score-table { display: none; }
+}
 </style>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from "vue"
+import { ref, computed, onMounted, inject } from "vue"
 import { ElMessage, ElMessageBox } from "element-plus"
 import { useTeacherStore } from "@/stores/useTeacherStore"
 import type { ICourseFormData } from "@/types/teacher"
@@ -11,6 +11,7 @@ import LoadingState from "@/components/common/LoadingState.vue"
 import ErrorState from "@/components/common/ErrorState.vue"
 
 const store = useTeacherStore()
+const embedded = inject("tabHubEmbedded", false)
 const loadError = ref("")
 
 const showModal = ref(false)
@@ -124,7 +125,7 @@ onMounted(() => { initPage() })
 
 <template>
   <div class="page">
-    <PageHeader title="课程管理" :subtitle="`共 ${filteredCourses.length} 门课程`" />
+    <PageHeader v-if="!embedded" title="课程管理" :subtitle="`共 ${filteredCourses.length} 门课程`" />
 
     <LoadingState v-if="store.coursesLoading" />
     <ErrorState v-else-if="loadError" :message="loadError" @retry="initPage" />

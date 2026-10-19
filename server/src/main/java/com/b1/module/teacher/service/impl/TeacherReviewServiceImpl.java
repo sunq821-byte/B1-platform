@@ -14,7 +14,9 @@ import com.b1.module.ai.mapper.AiAnalysisMapper;
 import com.b1.module.ai.vo.AiResultVO;
 import com.b1.module.auth.entity.User;
 import com.b1.module.auth.mapper.UserMapper;
+import com.b1.module.course.entity.Course;
 import com.b1.module.course.entity.CourseTeacher;
+import com.b1.module.course.mapper.CourseMapper;
 import com.b1.module.course.mapper.CourseTeacherMapper;
 import com.b1.module.file.entity.FileStorage;
 import com.b1.module.file.mapper.FileStorageMapper;
@@ -49,6 +51,7 @@ import java.util.stream.Collectors;
 public class TeacherReviewServiceImpl implements TeacherReviewService {
 
     private final TrainingTaskMapper trainingTaskMapper;
+    private final CourseMapper courseMapper;
     private final CourseTeacherMapper courseTeacherMapper;
     private final SubmissionMapper submissionMapper;
     private final SubmissionFileMapper submissionFileMapper;
@@ -78,9 +81,13 @@ public class TeacherReviewServiceImpl implements TeacherReviewService {
             throw new BusinessException(ErrorCode.OPERATION_NOT_ALLOWED, "无权访问该任务");
         }
 
+        Course course = courseMapper.selectById(task.getCourseId());
+        String courseName = course != null ? course.getCourseName() : "";
+
         LambdaQueryWrapper<Submission> query = new LambdaQueryWrapper<Submission>()
                 .eq(Submission::getTrainingTaskId, taskId)
-                .eq(Submission::getDeleted, 0);
+                .eq(Submission::getDeleted, 0)
+                .in(Submission::getStatus, List.of("CONFIRMED", "REVIEWING", "PUBLISHED", "REJECTED", "INCOMPLETE"));
         if (StringUtils.hasText(status)) {
             query.eq(Submission::getStatus, status);
         }
@@ -120,6 +127,8 @@ public class TeacherReviewServiceImpl implements TeacherReviewService {
             vo.setSubmissionId(s.getId());
             vo.setTaskId(taskId);
             vo.setTaskName(task.getTaskName());
+            vo.setCourseId(task.getCourseId());
+            vo.setCourseName(courseName);
             vo.setStudentUserId(s.getUserId());
             vo.setStudentName(u != null ? u.getRealName() : "");
             vo.setStudentEmail(u != null ? u.getEmail() : "");
@@ -188,16 +197,17 @@ public class TeacherReviewServiceImpl implements TeacherReviewService {
             for (SubmissionFile sf : submissionFiles) {
                 SubmissionDetailVO.AttachmentVO att = new SubmissionDetailVO.AttachmentVO();
                 att.setFileId(sf.getFileId());
-                att.setFileName(sf.getFileName());
-                att.setFileSize(sf.getFileSize());
-                att.setFileType(sf.getFileType());
-                FileStorage fs = fileMap.get(sf.getFileId());
+                FileStorage fs = sf.getFileId() != null ? fileMap.get(sf.getFileId()) : null;
                 if (fs != null) {
-                    // Generate a fresh presigned URL at read time. The persisted
-                    // FileStorage.accessUrl is never populated on upload, and presigned
-                    // URLs expire, so it must be regenerated whenever a teacher opens
-                    // the submission (same pattern as AiServiceImpl).
+                    att.setFileName(fs.getOriginalName());
+                    att.setFileSize(fs.getFileSize());
+                    att.setFileType(fs.getContentType());
                     att.setDownloadUrl(fileService.getAccessUrl(sf.getFileId()));
+                    att.setPreviewUrl(fileService.getPreviewUrl(sf.getFileId()));
+                } else {
+                    att.setFileName(sf.getFileName());
+                    att.setFileSize(sf.getFileSize());
+                    att.setFileType(sf.getFileType());
                 }
                 attachments.add(att);
             }
@@ -330,7 +340,9 @@ public class TeacherReviewServiceImpl implements TeacherReviewService {
         }
         sr.setStatus(dto.getStatus());
 
-        if (dto.getDimensions() != null && !dto.getDimensions().isEmpty()) {
+        if (dto.getTotalScore() != null) {
+            sr.setTotalScore(dto.getTotalScore());
+        } else if (dto.getDimensions() != null && !dto.getDimensions().isEmpty()) {
             BigDecimal totalScore = dto.getDimensions().stream()
                     .map(ReviewSubmitDTO.DimensionScoreDTO::getScore)
                     .filter(Objects::nonNull)
@@ -353,9 +365,13 @@ public class TeacherReviewServiceImpl implements TeacherReviewService {
         if (sr.getId() != null) { scoreRecordMapper.updateById(sr); } else { scoreRecordMapper.insert(sr); }
 
         if ("PUBLISHED".equals(dto.getStatus())) {
-            submission.setStatus("REVIEWED");
+            submission.setStatus("PUBLISHED");
         } else if ("REJECTED".equals(dto.getStatus())) {
             submission.setStatus("REJECTED");
+            submission.setAiAnalyzeUsedCount(0);
+            submission.setConfirmedTrialId(null);
+            submission.setConfirmedAt(null);
+            submission.setCurrentTrialId(null);
         }
         submissionMapper.updateById(submission);
     }
@@ -386,10 +402,18 @@ public class TeacherReviewServiceImpl implements TeacherReviewService {
         Map<Long, TrainingTask> taskMap = tasks.stream()
                 .collect(Collectors.toMap(TrainingTask::getId, t -> t, (a, b) -> a));
 
+        List<Long> distinctCourseIds = tasks.stream()
+                .map(TrainingTask::getCourseId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        Map<Long, String> courseNameMap = courseMapper.selectBatchIds(distinctCourseIds).stream()
+                .collect(Collectors.toMap(Course::getId, Course::getCourseName, (a, b) -> a));
+
         LambdaQueryWrapper<Submission> query = new LambdaQueryWrapper<Submission>()
                 .in(Submission::getTrainingTaskId, taskIds)
                 .eq(Submission::getDeleted, 0)
-                .eq(Submission::getStatus, "SUBMITTED");
+                .in(Submission::getStatus, List.of("CONFIRMED", "REVIEWING", "PUBLISHED", "REJECTED", "INCOMPLETE"));
         if (StringUtils.hasText(status)) {
             query.eq(Submission::getStatus, status);
         }
@@ -428,6 +452,10 @@ public class TeacherReviewServiceImpl implements TeacherReviewService {
             vo.setSubmissionId(s.getId());
             vo.setTaskId(s.getTrainingTaskId());
             vo.setTaskName(task != null ? task.getTaskName() : "");
+            if (task != null && task.getCourseId() != null) {
+                vo.setCourseId(task.getCourseId());
+                vo.setCourseName(courseNameMap.getOrDefault(task.getCourseId(), ""));
+            }
             vo.setStudentUserId(s.getUserId());
             vo.setStudentName(u != null ? u.getRealName() : "");
             vo.setStudentEmail(u != null ? u.getEmail() : "");

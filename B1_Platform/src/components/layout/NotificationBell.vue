@@ -44,7 +44,7 @@ async function onItemClick(item: INotificationItem): Promise<void> {
   }
   if (item.relatedTaskId) {
     popoverRef.value?.hide()
-    router.push(`/student/tasks/${item.relatedTaskId}`)
+    router.push(`/student/submit/${item.relatedTaskId}`)
   }
 }
 

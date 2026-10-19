@@ -20,6 +20,7 @@ import com.b1.module.submission.entity.Submission;
 import com.b1.module.submission.mapper.SubmissionMapper;
 import com.b1.module.task.entity.TrainingTask;
 import com.b1.module.task.mapper.TrainingTaskMapper;
+import com.b1.module.knowledge.service.TeacherKnowledgeService;
 import com.b1.module.teacher.service.TeacherService;
 import com.b1.module.teacher.vo.TeacherDashboardVO;
 import lombok.RequiredArgsConstructor;
@@ -46,6 +47,7 @@ public class TeacherServiceImpl implements TeacherService {
     private final ScoreRecordMapper scoreRecordMapper;
     private final UserMapper userMapper;
     private final NotificationMapper notificationMapper;
+    private final TeacherKnowledgeService teacherKnowledgeService;
 
     @Override
     public TeacherDashboardVO getDashboard() {
@@ -102,7 +104,7 @@ public class TeacherServiceImpl implements TeacherService {
             List<Submission> submittedSubs = submissionMapper.selectList(
                     new LambdaQueryWrapper<Submission>()
                             .in(Submission::getTrainingTaskId, taskIds)
-                            .eq(Submission::getStatus, "SUBMITTED")
+                            .in(Submission::getStatus, List.of("CONFIRMED", "REVIEWING", "PUBLISHED"))
                             .eq(Submission::getDeleted, 0));
 
             if (!submittedSubs.isEmpty()) {
@@ -297,7 +299,7 @@ public class TeacherServiceImpl implements TeacherService {
         vo.setAiConfidence(aiConfidence);
 
         vo.setSemesterTaskCount(allTasks.size());
-        vo.setKnowledgeEntryCount(0);
+        vo.setKnowledgeEntryCount(teacherKnowledgeService.countByTeacherCourses(courseIds));
 
         return vo;
     }

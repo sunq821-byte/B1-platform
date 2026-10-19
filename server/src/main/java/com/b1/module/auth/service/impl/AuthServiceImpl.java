@@ -105,6 +105,9 @@ public class AuthServiceImpl implements AuthService {
 
         List<UserRole> userRoles = userRoleMapper.selectList(
                 new LambdaQueryWrapper<UserRole>().eq(UserRole::getUserId, user.getId()));
+        if (userRoles.size() > 1) {
+            throw new BusinessException(ErrorCode.OPERATION_NOT_ALLOWED, "账号角色配置异常，请联系管理员");
+        }
         if (userRoles.isEmpty()) {
             vo.setRoles(Collections.emptyList());
         } else {

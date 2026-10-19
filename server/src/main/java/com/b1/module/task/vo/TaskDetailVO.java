@@ -21,6 +21,8 @@ public class TaskDetailVO {
 
     private String description;
 
+    private String requirements;
+
     private LocalDateTime deadline;
 
     private BigDecimal totalScore;
@@ -35,9 +37,15 @@ public class TaskDetailVO {
 
     private String mySubmissionStatus;
 
+    private Long mySubmissionId;
+
+    private java.math.BigDecimal myScore;
+
     private Integer mySubmitCount;
 
     private Integer maxSubmitCount;
+
+    private Integer maxAiAnalyzeCount;
 
     private LocalDateTime createdAt;
 

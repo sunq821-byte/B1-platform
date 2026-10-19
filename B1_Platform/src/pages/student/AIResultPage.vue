@@ -7,18 +7,49 @@ import {
   CheckCircle, Clock, Cpu, Lightbulb, BookOpen, FileText, Code2,
   MessageCircle, Award, TrendingUp,
 } from "lucide-vue-next"
-import PageHeader from "@/components/layout/PageHeader.vue"
 import BaseButton from "@/components/base/BaseButton.vue"
-import LoadingState from "@/components/common/LoadingState.vue"
 import ErrorState from "@/components/common/ErrorState.vue"
+import {
+  ANALYSIS_NA,
+  mapSubmitTypeToMode,
+  mergeScopesWithIssues,
+  resolveAnalysisScopes,
+} from "@/utils/aiAnalysisScope"
+import { shouldUseLiveAIAnalysis } from "@/utils/submissionAIView"
+import type { IAIResultDetail } from "@/types/student"
 
 const route = useRoute()
 const router = useRouter()
 const store = useStudentStore()
 
-const sid = (route.query.sid as string) || ""
-const pageLoading = ref(false)
+const isGradeView = computed(() => route.name === "StudentGrades")
+const sid = computed(() => {
+  if (isGradeView.value) return (route.params.submissionId as string) || ""
+  return (route.query.sid as string) || ""
+})
+const trialId = computed(() => (route.query.trialId as string) || "")
+const scopeMode = ref((route.query.mode as string) || "")
+const scopeFileName = ref((route.query.fileName as string) || "")
+const taskNameFromQuery = computed(() => (route.query.taskName as string) || "")
+
+function applyScopeFromEvaluation() {
+  if (scopeMode.value) return
+  const ev = store.evaluation
+  if (ev?.submitType) {
+    scopeMode.value = mapSubmitTypeToMode(ev.submitType)
+  } else {
+    scopeMode.value = "file"
+  }
+  if (!scopeFileName.value && ev?.attachmentFileName) {
+    scopeFileName.value = ev.attachmentFileName
+  }
+}
+
 const loadError = ref("")
+const confirming = ref(false)
+const pageBooting = ref(true)
+const aiPhase = ref<"analyzing" | "streaming" | "ready" | "failed">("ready")
+const detail = ref<IAIResultDetail | null>(null)
 
 const streamCode = ref("")
 const streamDoc = ref("")
@@ -29,8 +60,21 @@ const readItems = ref<Set<number>>(new Set())
 let timers: ReturnType<typeof setInterval>[] = []
 let timeouts: ReturnType<typeof setTimeout>[] = []
 
+const baseScopes = computed(() =>
+  resolveAnalysisScopes(scopeMode.value || "file", scopeFileName.value),
+)
+
+const analysisScopes = computed(() => {
+  if (!detail.value?.deductions?.length) return baseScopes.value
+  return mergeScopesWithIssues(baseScopes.value, detail.value.deductions)
+})
+
 function typewriter(target: "code" | "doc" | "req", text: string, speed: number): Promise<void> {
   return new Promise((resolve) => {
+    if (!text) {
+      resolve()
+      return
+    }
     let i = 0
     const timer = setInterval(() => {
       i++
@@ -43,16 +87,43 @@ function typewriter(target: "code" | "doc" | "req", text: string, speed: number)
   })
 }
 
-async function startAnimations() {
-  if (!store.aiResultDetail) return
-  await typewriter("code", store.aiResultDetail.codeSummary, 20)
-  await typewriter("doc", store.aiResultDetail.docSummary, 20)
-  await typewriter("req", store.aiResultDetail.reqSummary, 20)
+function setStreamPlaceholder() {
+  const scopes = baseScopes.value
+  streamCode.value = scopes.code ? "正在分析代码…" : ANALYSIS_NA.code
+  streamDoc.value = scopes.doc ? "正在分析文档…" : ANALYSIS_NA.doc
+  streamReq.value = scopes.req ? "正在分析需求符合性…" : ANALYSIS_NA.req
+}
 
-  store.aiResultDetail.deductions.forEach((_, i) => {
+async function startAnimations() {
+  if (!detail.value) return
+  const scopes = analysisScopes.value
+  revealedDeductions.value = new Set()
+
+  if (scopes.code) {
+    const text = detail.value.codeSummary || "未发现明显代码问题。"
+    await typewriter("code", text, 18)
+  } else {
+    streamCode.value = ANALYSIS_NA.code
+  }
+
+  if (scopes.doc) {
+    const text = detail.value.docSummary || "未发现明显文档问题。"
+    await typewriter("doc", text, 18)
+  } else {
+    streamDoc.value = ANALYSIS_NA.doc
+  }
+
+  if (scopes.req) {
+    const text = detail.value.reqSummary || "未发现明显需求偏差。"
+    await typewriter("req", text, 18)
+  } else {
+    streamReq.value = ANALYSIS_NA.req
+  }
+
+  detail.value.deductions.forEach((_, i) => {
     const t = setTimeout(() => {
       revealedDeductions.value = new Set([...revealedDeductions.value, i])
-    }, i * 150)
+    }, i * 120)
     timeouts.push(t)
   })
 }
@@ -66,47 +137,164 @@ function cleanup() {
   timeouts.forEach(clearTimeout)
   timers = []
   timeouts = []
+  store.stopPolling()
 }
 
-onMounted(async () => {
-  if (!sid) return
-  pageLoading.value = true
-  loadError.value = ""
-  try {
-    await Promise.all([
-      store.fetchAIResultDetail(sid),
-      store.fetchEvaluation(sid),
-    ])
-    await nextTick()
-    startAnimations()
-  } catch (e: unknown) {
-    loadError.value = (e as Error)?.message || "加载 AI 诊断失败"
-  } finally {
-    pageLoading.value = false
-  }
-})
+function applyDetailStatically(data: IAIResultDetail) {
+  detail.value = data
+  const scopes = mergeScopesWithIssues(
+    resolveAnalysisScopes(scopeMode.value || "file", scopeFileName.value),
+    data.deductions ?? [],
+  )
+  streamCode.value = scopes.code
+    ? (data.codeSummary || "未发现明显代码问题。")
+    : ANALYSIS_NA.code
+  streamDoc.value = scopes.doc
+    ? (data.docSummary || "未发现明显文档问题。")
+    : ANALYSIS_NA.doc
+  streamReq.value = scopes.req
+    ? (data.reqSummary || "未发现明显需求偏差。")
+    : ANALYSIS_NA.req
+  revealedDeductions.value = new Set((data.deductions ?? []).map((_, i) => i))
+  aiPhase.value = "ready"
+}
 
+async function loadExistingResult(id: string): Promise<boolean> {
+  if (store.aiResult?.status === "FAILED") {
+    aiPhase.value = "failed"
+    loadError.value = "AI 分析失败，请返回修改后重新提交"
+    return false
+  }
+  await store.fetchAIResultDetail(id)
+  if (store.aiResultDetail) {
+    applyDetailStatically(store.aiResultDetail)
+    return true
+  }
+  aiPhase.value = "failed"
+  loadError.value = "暂无 AI 分析结果"
+  return false
+}
+
+async function bootstrap() {
+  const id = sid.value
+  if (!id) return
+  loadError.value = ""
+  pageBooting.value = true
+
+  try {
+    await store.fetchEvaluation(id).catch(() => {})
+    applyScopeFromEvaluation()
+    await store.fetchAIResult(id)
+
+    const submissionStatus = store.evaluation?.status ?? ""
+    const aiStatus = store.aiResult?.status ?? null
+
+    pageBooting.value = false
+
+    if (!shouldUseLiveAIAnalysis(submissionStatus, aiStatus)) {
+      await loadExistingResult(id)
+      return
+    }
+
+    aiPhase.value = "analyzing"
+    setStreamPlaceholder()
+
+    await store.pollAIResult(id)
+    await store.fetchAIResultDetail(id)
+    detail.value = store.aiResultDetail
+    await store.fetchEvaluation(id).catch(() => {})
+
+    if (!detail.value) {
+      aiPhase.value = "failed"
+      loadError.value = "暂无 AI 分析结果"
+      return
+    }
+
+    aiPhase.value = "streaming"
+    await nextTick()
+    await startAnimations()
+    aiPhase.value = "ready"
+  } catch (e: unknown) {
+    if (store.aiResult?.status === "FAILED") {
+      aiPhase.value = "failed"
+      loadError.value = "AI 分析失败，请返回修改后重新提交"
+      return
+    }
+    try {
+      if (await loadExistingResult(id)) return
+    } catch { /* ignore */ }
+    aiPhase.value = "failed"
+    loadError.value = (e as Error)?.message || "AI 分析超时，请稍后刷新页面"
+  } finally {
+    pageBooting.value = false
+  }
+}
+
+onMounted(() => { bootstrap() })
 onUnmounted(cleanup)
 
 // -- computed --
 const eval_ = computed(() => store.evaluation)
+const taskId = computed(() => eval_.value?.taskId || (route.query.taskId as string) || "")
 const teacherEval = computed(() => eval_.value?.teacherEvaluation ?? null)
 const hasTeacher = computed(() => !!teacherEval.value)
+const isTeacherConfirmed = computed(() => {
+  const s = eval_.value?.status ?? ""
+  return ["PUBLISHED", "COMPLETED"].includes(s)
+})
+const showFinalScore = computed(() => isTeacherConfirmed.value && finalScore.value != null)
 const isRejected = computed(() => eval_.value?.status === "REJECTED")
 
-const displayScore = computed(() => {
-  if (eval_.value?.finalScore != null) return eval_.value.finalScore
-  return store.aiResultDetail?.aiScore ?? 0
+const pageTitle = computed(() => {
+  if (isGradeView.value) return eval_.value?.taskName || "我的成绩"
+  return taskNameFromQuery.value || eval_.value?.taskName || "AI 诊断"
+})
+const headerSubtitle = computed(() => {
+  if (aiPhase.value === "analyzing") return "AI 正在分析你的提交…"
+  if (aiPhase.value === "streaming") return "正在生成诊断报告…"
+  const at = detail.value?.analyzedAt
+  return at ? `提交于 ${at.replace("T", " ").substring(0, 19)} · 分析完成` : "分析完成"
 })
 
-const aiScore = computed(() => store.aiResultDetail?.aiScore ?? 0)
+const canConfirmToTeacher = computed(() => {
+  if (aiPhase.value !== "ready" || hasTeacher.value || isRejected.value) return false
+  const s = eval_.value?.status ?? ""
+  if (["CONFIRMED", "REVIEWING", "TEACHER_SCORING", "PUBLISHED", "COMPLETED"].includes(s)) return false
+  return s === "AI_READY" || s === "AI_COMPLETED"
+})
 
-const scoreClass = computed(() => {
-  const s = displayScore.value
+const isSubmittedToTeacher = computed(() => {
+  const s = eval_.value?.status ?? ""
+  return ["CONFIRMED", "REVIEWING", "TEACHER_SCORING", "PUBLISHED", "COMPLETED"].includes(s)
+})
+
+const aiScore = computed(() => {
+  if (aiPhase.value === "analyzing" || aiPhase.value === "streaming") return null
+  return detail.value?.aiScore ?? eval_.value?.aiEvaluation?.overallScore ?? 0
+})
+
+const finalScore = computed(() => {
+  if (!isTeacherConfirmed.value) return null
+  if (eval_.value?.finalScore != null) return eval_.value.finalScore
+  return teacherEval.value?.overallScore ?? null
+})
+
+function scoreLevel(score: number | null): string {
+  const s = score ?? 0
   if (s >= 80) return "good"
   if (s >= 60) return "warn"
   return "danger"
-})
+}
+
+const aiScoreClass = computed(() => scoreLevel(aiScore.value))
+const finalScoreClass = computed(() => scoreLevel(finalScore.value))
+
+const deductions = computed(() => detail.value?.deductions ?? [])
+const improvementNotes = computed(() => detail.value?.improvementNotes ?? [])
+const totalDeductScore = computed(() =>
+  detail.value?.totalDeductScore
+  ?? deductions.value.reduce((sum, d) => sum + d.suggestDeduct, 0),
+)
 
 const dimBars = computed(() => {
   if (!teacherEval.value) return []
@@ -129,8 +317,8 @@ interface LearningResource {
 }
 
 const learningResources = computed<LearningResource[]>(() => {
-  if (!store.aiResultDetail) return []
-  const issues = store.aiResultDetail.deductions.map((d) => d.issueType.toLowerCase())
+  if (!detail.value || aiPhase.value !== "ready") return []
+  const issues = deductions.value.map((d) => d.issueType.toLowerCase())
   const items: LearningResource[] = []
   if (issues.some((s) => s.includes("分页") || s.includes("查询"))) {
     items.push({
@@ -179,37 +367,75 @@ function agentLabel(t?: string): string {
 function handleAskTeacher() {
   ElMessage.info("追问功能将在后续版本开放")
 }
+
+async function handleConfirmSubmit() {
+  if (!taskId.value) {
+    ElMessage.warning("缺少任务信息，请从任务详情重新进入")
+    return
+  }
+  confirming.value = true
+  try {
+    await store.confirmSubmit(taskId.value, trialId.value || undefined)
+    ElMessage.success("已提交教师审核")
+    await store.fetchEvaluation(sid.value)
+  } catch (err: unknown) {
+    ElMessage.error((err as Error)?.message || "提交教师审核失败")
+  } finally {
+    confirming.value = false
+  }
+}
+
+function handleContinueEdit() {
+  if (taskId.value) {
+    router.push(`/student/submit/${taskId.value}`)
+    return
+  }
+  router.push("/student/tasks")
+}
+
+function reloadPage() {
+  cleanup()
+  bootstrap()
+}
+
 </script>
 
 <template>
   <div class="ai-page">
-    <LoadingState v-if="pageLoading" text="加载 AI 诊断..." />
-
     <ErrorState
-      v-else-if="loadError"
+      v-if="loadError && aiPhase === 'failed'"
       :message="loadError"
-      @retry="() => { location.reload() }"
+      @retry="reloadPage"
     />
 
     <template v-else-if="!sid">
       <div class="empty-state">
-        <div class="empty-state-text">缺少提交参数，请从成绩页进入</div>
+        <div class="empty-state-text">
+          {{ isGradeView ? "缺少成绩参数，请从实训任务进入" : "缺少提交参数，请从成绩页进入" }}
+        </div>
         <div class="mt-16">
           <BaseButton type="primary" @click="router.push('/student/tasks')">返回实训任务</BaseButton>
         </div>
       </div>
     </template>
 
-    <template v-else-if="store.aiResultDetail">
+    <template v-else>
+      <div v-if="pageBooting" class="ai-page__booting">正在加载分析结果…</div>
+
+      <template v-else>
       <!-- Header -->
       <div class="ai-header">
-        <div>
-          <PageHeader
-            title="AI 诊断结果"
-            :subtitle="`${store.aiResultDetail.taskName} · 提交于 ${store.aiResultDetail.analyzedAt} · 分析完成`"
-          />
+        <div class="ai-header__main">
+          <div class="ai-header__titles">
+            <h1 class="ai-header__title">{{ pageTitle }}</h1>
+            <p class="ai-header__subtitle">{{ headerSubtitle }}</p>
+          </div>
         </div>
-        <span v-if="hasTeacher" class="reviewed-badge">
+        <span v-if="aiPhase === 'analyzing' || aiPhase === 'streaming'" class="analyzing-badge">
+          <span class="analyzing-badge__dot" />
+          AI 分析中
+        </span>
+        <span v-else-if="isTeacherConfirmed && hasTeacher" class="reviewed-badge">
           <CheckCircle :size="16" />
           教师已审核
         </span>
@@ -222,16 +448,34 @@ function handleAskTeacher() {
 
       <!-- Score Row -->
       <div class="score-row">
-        <!-- Final Score Card -->
-        <div class="final-score-card">
-          <div class="fs-label">{{ hasTeacher ? '最终得分（教师审核后）' : 'AI 综合评分' }}</div>
-          <div class="fs-score" :class="scoreClass">{{ displayScore }}</div>
-          <div class="fs-sub">/ 100</div>
+        <div class="final-score-card" :class="{ 'final-score-card--pending': aiScore === null }">
+          <div class="score-duo" :class="{ 'score-duo--with-final': showFinalScore }">
+            <div class="score-block">
+              <div class="fs-label">AI 综合评分</div>
+              <div class="fs-score" :class="aiScoreClass">
+                <span v-if="aiScore === null" class="fs-score--pending">—</span>
+                <span v-else>{{ aiScore }}</span>
+              </div>
+              <div class="fs-sub">/ 100 · 仅供参考</div>
+            </div>
 
-          <div v-if="hasTeacher && eval_?.aiEvaluation" class="fs-compare">
-            AI 建议：{{ eval_.aiEvaluation.overallScore }} → 教师调整：{{ displayScore }}
-            <span v-if="displayScore !== aiScore" class="fs-compare__delta">
-              （{{ displayScore > aiScore ? '+' : '' }}{{ displayScore - aiScore }} 分）
+            <div v-if="showFinalScore" class="score-block score-block--final">
+              <div class="fs-label">最终评分</div>
+              <div class="fs-score" :class="finalScoreClass">
+                <span v-if="finalScore === null" class="fs-score--pending">—</span>
+                <span v-else>{{ finalScore }}</span>
+              </div>
+              <div class="fs-sub">/ 100 · 教师评定</div>
+            </div>
+          </div>
+
+          <div
+            v-if="showFinalScore && aiScore != null && finalScore != null && finalScore !== aiScore"
+            class="fs-compare"
+          >
+            教师较 AI 参考分调整
+            <span class="fs-compare__delta">
+              {{ finalScore > aiScore ? "+" : "" }}{{ finalScore - aiScore }} 分
             </span>
           </div>
 
@@ -259,28 +503,45 @@ function handleAskTeacher() {
           </div>
         </div>
 
-        <!-- Summary Cards -->
         <div class="summary-cards">
-          <div class="card">
+          <div class="card" :class="{ 'card--na': !analysisScopes.code }">
             <div class="card-title">
               <Code2 :size="14" class="card-title-icon code-icon" />
               代码分析
             </div>
-            <div class="streaming-text">{{ streamCode }}</div>
+            <div
+              class="streaming-text"
+              :class="{
+                'streaming-text--active': aiPhase === 'analyzing' && analysisScopes.code,
+                'streaming-text--na': !analysisScopes.code,
+              }"
+            >{{ streamCode }}</div>
           </div>
-          <div class="card">
+          <div class="card" :class="{ 'card--na': !analysisScopes.doc }">
             <div class="card-title">
               <FileText :size="14" class="card-title-icon doc-icon" />
               文档分析
             </div>
-            <div class="streaming-text">{{ streamDoc }}</div>
+            <div
+              class="streaming-text"
+              :class="{
+                'streaming-text--active': aiPhase === 'analyzing' && analysisScopes.doc,
+                'streaming-text--na': !analysisScopes.doc,
+              }"
+            >{{ streamDoc }}</div>
           </div>
-          <div class="card">
+          <div class="card" :class="{ 'card--na': !analysisScopes.req }">
             <div class="card-title">
               <Award :size="14" class="card-title-icon req-icon" />
               需求分析
             </div>
-            <div class="streaming-text">{{ streamReq }}</div>
+            <div
+              class="streaming-text"
+              :class="{
+                'streaming-text--active': aiPhase === 'analyzing' && analysisScopes.req,
+                'streaming-text--na': !analysisScopes.req,
+              }"
+            >{{ streamReq }}</div>
           </div>
         </div>
       </div>
@@ -291,11 +552,18 @@ function handleAskTeacher() {
         <div class="card">
           <div class="card-header">
             <Cpu :size="16" class="text-primary" />
-            <span class="card-header-title">AI 诊断问题（{{ store.aiResultDetail.deductions.length }} 项）</span>
+            <span class="card-header-title">
+              扣分明细（{{ aiPhase === 'ready' ? deductions.length : '…' }} 项
+              <template v-if="aiPhase === 'ready' && totalDeductScore > 0">，共 -{{ totalDeductScore }} 分</template>）
+            </span>
           </div>
-          <div class="deduction-list">
+          <div v-if="aiPhase === 'analyzing' || aiPhase === 'streaming'" class="deduction-analyzing">
+            <span class="deduction-analyzing__pulse" />
+            正在识别问题条目…
+          </div>
+          <div v-else-if="deductions.length" class="deduction-list">
             <div
-              v-for="(d, i) in store.aiResultDetail.deductions"
+              v-for="(d, i) in deductions"
               :key="i"
               class="deduction-item analysis-block"
               :class="{
@@ -309,7 +577,7 @@ function handleAskTeacher() {
                   <span class="ded-type">{{ d.issueType }}</span>
                 </div>
                 <div class="ded-top-right">
-                  <span class="ded-points">-{{ d.suggestDeduct }}分</span>
+                  <span class="ded-points">-{{ d.suggestDeduct }} 分</span>
                   <button
                     v-if="!readItems.has(i)"
                     class="mark-read-btn"
@@ -319,7 +587,24 @@ function handleAskTeacher() {
                 </div>
               </div>
               <p class="ded-reason">{{ d.reason }}</p>
-              <div class="ded-meta">{{ d.filePath }}:{{ d.lineNumber }} · 置信度 {{ (d.confidence * 100).toFixed(0) }}%</div>
+              <div v-if="d.filePath" class="ded-meta">
+                {{ d.filePath }}<template v-if="d.lineNumber">:{{ d.lineNumber }}</template>
+                · 置信度 {{ (d.confidence * 100).toFixed(0) }}%
+              </div>
+            </div>
+          </div>
+          <div v-else class="deduction-empty">暂无扣分明细</div>
+
+          <div v-if="aiPhase === 'ready' && improvementNotes.length" class="improvement-notes">
+            <div class="improvement-notes__title">改进建议（不扣分）</div>
+            <div
+              v-for="(note, ni) in improvementNotes"
+              :key="`note-${ni}`"
+              class="improvement-note"
+            >
+              <span :class="`ded-tag ded-tag--${(note.agentType || 'CODE').toLowerCase()}`">{{ agentLabel(note.agentType) }}</span>
+              <span class="ded-type">{{ note.issueType }}</span>
+              <p class="ded-reason">{{ note.reason }}</p>
             </div>
           </div>
         </div>
@@ -327,7 +612,7 @@ function handleAskTeacher() {
         <!-- Right: Teacher comment + Learning resources -->
         <div class="right-col">
           <!-- Teacher Comment -->
-          <div v-if="hasTeacher" class="card">
+          <div v-if="hasTeacher && isTeacherConfirmed" class="card">
             <div class="teacher-comment-header">
               <div class="teacher-avatar">{{ teacherEval!.scoredBy.charAt(0) }}</div>
               <div>
@@ -376,45 +661,135 @@ function handleAskTeacher() {
           </div>
 
           <!-- Growth tip -->
-          <div class="growth-tip">
+          <div v-if="aiPhase === 'ready'" class="growth-tip">
             <TrendingUp :size="16" />
-            <span>持续改进，查看 <a class="growth-link" @click="router.push('/student/growth')">成长中心</a> 了解能力变化趋势</span>
+            <span>持续改进，查看 <a class="growth-link" @click="router.push('/student/analytics?tab=growth')">成长轨迹</a> 了解能力变化趋势</span>
           </div>
+        </div>
+      </div>
+
+      <!-- Confirm Banner -->
+      <div v-if="canConfirmToTeacher" class="confirm-banner">
+        <div class="confirm-banner__text">
+          以上为 AI 参考评分，非最终成绩。若满意可确认提交至教师审核；如需修改可继续编辑后重新提交。
         </div>
       </div>
 
       <!-- Actions -->
       <div class="actions-bar">
-        <BaseButton v-if="isRejected" type="primary" @click="router.push(`/student/submit/${store.aiResultDetail.taskId}`)">
+        <BaseButton
+          v-if="canConfirmToTeacher"
+          type="primary"
+          :loading="confirming"
+          @click="handleConfirmSubmit"
+        >
+          确认提交教师审核
+        </BaseButton>
+        <BaseButton v-if="canConfirmToTeacher" @click="handleContinueEdit">
+          继续修改
+        </BaseButton>
+        <BaseButton v-if="isRejected" type="primary" @click="handleContinueEdit">
           重新提交
         </BaseButton>
-        <BaseButton @click="router.push(`/student/tasks/${store.aiResultDetail.taskId}`)">
-          返回任务详情
+        <BaseButton v-if="isSubmittedToTeacher" type="success" disabled>
+          已递交教师审核
         </BaseButton>
-        <BaseButton type="primary" @click="router.push('/student/tasks')">
+        <BaseButton @click="router.push(taskId ? `/student/submit/${taskId}` : '/student/tasks')">
+          返回任务
+        </BaseButton>
+        <BaseButton @click="router.push('/student/tasks')">
           返回实训任务
         </BaseButton>
       </div>
+      </template>
     </template>
-
-    <div v-else class="empty-state">
-      <div class="empty-state-text">暂无 AI 诊断数据</div>
-      <div class="mt-16">
-        <BaseButton type="primary" @click="router.push('/student/tasks')">返回实训任务</BaseButton>
-      </div>
-    </div>
   </div>
 </template>
 
 <style scoped>
-.ai-page { /* width/centering handled by AppLayout */ }
+.ai-page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px 28px 28px;
+  box-sizing: border-box;
+  background: var(--color-bg, #F5F7FA);
+}
+
+.empty-state {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 16px;
+  text-align: center;
+}
+
+.empty-state-text {
+  font-size: 14px;
+  color: var(--color-text-secondary, #64748b);
+}
+
+.mt-16 { margin-top: 16px; }
+
+.ai-page__booting {
+  padding: 48px 0;
+  text-align: center;
+  font-size: 14px;
+  color: var(--color-text-secondary, #64748b);
+}
+
+.confirm-banner {
+  margin-bottom: 16px;
+  padding: 14px 18px;
+  border-radius: var(--radius-md, 8px);
+  background: var(--color-primary-light, #E6F4FF);
+  border: 1px solid var(--color-primary-mid, #91CAFF);
+}
+
+.confirm-banner__text {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--color-text-primary, #1e293b);
+}
 
 /* Header */
 .ai-header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
+  gap: 16px;
   margin-bottom: 20px;
+}
+
+.ai-header__main {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-width: 0;
+}
+
+.ai-header__titles {
+  min-width: 0;
+}
+
+.ai-header__title {
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--color-navy, #0B3A5C);
+  margin: 0;
+  line-height: 1.2;
+}
+
+.ai-header__subtitle {
+  font-size: 13px;
+  color: var(--color-text-secondary, #6B7280);
+  margin: 6px 0 0;
 }
 .reviewed-badge {
   display: inline-flex;
@@ -453,6 +828,59 @@ function handleAskTeacher() {
   margin-top: 4px;
 }
 
+.analyzing-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 500;
+  background: var(--color-primary-light, #E6F4FF);
+  color: var(--color-primary, #1677FF);
+  white-space: nowrap;
+  margin-top: 4px;
+}
+
+.analyzing-badge__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-primary, #1677FF);
+  animation: pulse-dot 1.2s ease-in-out infinite;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 0.35; transform: scale(0.85); }
+  50% { opacity: 1; transform: scale(1); }
+}
+
+.final-score-card--pending .fs-score--pending {
+  animation: pulse-dot 1.2s ease-in-out infinite;
+}
+
+.card--na {
+  background: var(--color-bg, #F5F7FA);
+  border-color: var(--color-border, #E5E7EB);
+}
+
+.deduction-analyzing {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 28px 16px;
+  font-size: 14px;
+  color: var(--color-text-secondary, #64748b);
+}
+
+.deduction-analyzing__pulse {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--color-primary, #1677FF);
+  animation: pulse-dot 1.2s ease-in-out infinite;
+}
+
 /* Score Row */
 .score-row { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 24px; }
 
@@ -464,6 +892,24 @@ function handleAskTeacher() {
   box-shadow: var(--shadow-card);
 }
 .fs-label { font-size: 13px; opacity: 0.8; margin-bottom: 4px; }
+.score-duo {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.score-duo--with-final {
+  flex-direction: row;
+  align-items: flex-end;
+  gap: 24px;
+}
+.score-block { flex: 1; min-width: 0; }
+.score-block--final {
+  padding-left: 24px;
+  border-left: 1px solid rgba(255, 255, 255, 0.25);
+}
+.score-duo--with-final .score-block--final .fs-score {
+  font-size: 64px;
+}
 .fs-score {
   font-family: var(--font-mono);
   font-size: 56px;
@@ -563,7 +1009,21 @@ function handleAskTeacher() {
   color: var(--color-text-secondary, #64748b);
   line-height: 1.7;
   white-space: pre-wrap;
+  min-height: 2.8em;
 }
+
+.streaming-text--na {
+  color: var(--color-text-placeholder, #94a3b8);
+  font-style: normal;
+}
+
+.streaming-text--active::after {
+  content: "▎";
+  animation: blink 1s infinite;
+  color: var(--color-primary, #1677FF);
+  margin-left: 2px;
+}
+
 .streaming-text:empty::after {
   content: "▎";
   animation: blink 1s infinite;
@@ -576,6 +1036,12 @@ function handleAskTeacher() {
 
 /* Deduction List */
 .deduction-list { display: flex; flex-direction: column; gap: 0; }
+.deduction-empty {
+  padding: 24px 16px;
+  text-align: center;
+  font-size: 14px;
+  color: var(--color-text-secondary, #64748b);
+}
 .deduction-item {
   padding: 14px 16px;
   border-bottom: 1px solid #f1f5f9;
@@ -618,7 +1084,29 @@ function handleAskTeacher() {
   color: #009A57;
 }
 
-.ded-reason { font-size: 12px; color: var(--color-text-secondary, #64748b); margin: 0 0 4px; line-height: 1.5; }
+.ded-reason { font-size: 12px; color: var(--color-text-secondary, #64748b); margin: 0 0 4px; line-height: 1.5; white-space: pre-wrap; }
+
+.improvement-notes {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--color-border, #E5E7EB);
+}
+
+.improvement-notes__title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-secondary, #64748b);
+  margin-bottom: 10px;
+}
+
+.improvement-note {
+  padding: 10px 0;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.improvement-note:last-child { border-bottom: none; }
+
+.improvement-note .ded-type { margin-left: 8px; }
 .ded-meta { font-size: 11px; color: var(--color-text-placeholder, #94a3b8); }
 
 /* Teacher comment */
@@ -701,7 +1189,14 @@ function handleAskTeacher() {
 .growth-link:hover { text-decoration: underline; }
 
 /* Actions */
-.actions-bar { display: flex; gap: 10px; }
+.actions-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: auto;
+  padding-top: 24px;
+  flex-shrink: 0;
+}
 
 /* Animation */
 .analysis-block {
@@ -715,9 +1210,39 @@ function handleAskTeacher() {
 }
 
 /* Responsive */
-@media (max-width: 1024px) {
+@media (max-width: 1023.98px) {
+  .ai-page {
+    padding: 16px 20px 24px;
+  }
+
   .score-row { grid-template-columns: 1fr; }
   .body-grid { grid-template-columns: 1fr; }
+  .score-duo--with-final { flex-direction: column; align-items: stretch; }
+  .score-block--final {
+    padding-left: 0;
+    padding-top: 16px;
+    border-left: none;
+    border-top: 1px solid rgba(255, 255, 255, 0.25);
+  }
+}
+
+@media (max-width: 767.98px) {
+  .ai-page {
+    padding: 12px 16px 20px;
+  }
+
+  .ai-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .actions-bar {
+    flex-direction: column;
+  }
+
+  .actions-bar :deep(.base-button) {
+    width: 100%;
+  }
 }
 
 @keyframes blink { 0%,50% { opacity:1; } 51%,100% { opacity:0; } }

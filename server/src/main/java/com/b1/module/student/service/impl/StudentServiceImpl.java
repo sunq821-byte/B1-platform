@@ -19,6 +19,8 @@ import com.b1.module.notification.entity.Notification;
 import com.b1.module.notification.mapper.NotificationMapper;
 import com.b1.module.score.entity.ScoreRecord;
 import com.b1.module.score.mapper.ScoreRecordMapper;
+import com.b1.module.standard.entity.StandardDimension;
+import com.b1.module.standard.mapper.StandardDimensionMapper;
 import com.b1.module.student.service.StudentService;
 import com.b1.module.student.vo.DashboardVO;
 import com.b1.module.student.vo.GrowthProfileVO;
@@ -28,6 +30,8 @@ import com.b1.module.submission.entity.Submission;
 import com.b1.module.submission.mapper.SubmissionMapper;
 import com.b1.module.task.entity.TrainingTask;
 import com.b1.module.task.mapper.TrainingTaskMapper;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -50,10 +54,15 @@ public class StudentServiceImpl implements StudentService {
     private final AiAnalysisMapper aiAnalysisMapper;
     private final ScoreRecordMapper scoreRecordMapper;
     private final AiAnalysisDetailMapper aiAnalysisDetailMapper;
+    private final StandardDimensionMapper standardDimensionMapper;
+
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+    private static final List<Long> DEFAULT_DIMENSION_IDS = List.of(1001L, 1002L, 1003L, 1004L);
 
     private static final List<String> RADAR_CATEGORIES = List.of("代码", "需求", "项目", "协作", "文档", "创新");
     private static final Set<String> PENDING_STATUSES = Set.of("NOT_SUBMITTED", "REJECTED");
-    private static final Set<String> COMPLETED_STATUSES = Set.of("COMPLETED", "GRADED", "REVIEWED");
+    private static final Set<String> COMPLETED_STATUSES = Set.of(
+            "PUBLISHED", "COMPLETED", "GRADED", "REVIEWED");
     private static final Set<String> ANALYZING_STATUSES = Set.of("AI_EVALUATING", "ANALYZING", "PROCESSING");
 
     @Override
@@ -173,6 +182,7 @@ public class StudentServiceImpl implements StudentService {
             String status = sub == null ? "NOT_SUBMITTED" : normalizeStatus(sub.getStatus());
             item.setStatus(status);
             if (sub != null) {
+                item.setSubmissionId(sub.getId());
                 ScoreRecord sr = scoreBySubmission.get(sub.getId());
                 item.setScore(sr != null ? sr.getTotalScore() : null);
             }
@@ -190,9 +200,9 @@ public class StudentServiceImpl implements StudentService {
     private String normalizeStatus(String status) {
         if (status == null || status.isBlank()) return "NOT_SUBMITTED";
         return switch (status) {
-            case "SUBMITTED" -> "TEACHER_SCORING";
-            case "GRADED", "REVIEWED" -> "COMPLETED";
-            case "ANALYZING", "PROCESSING" -> "AI_EVALUATING";
+            case "SUBMITTED" -> "CONFIRMED";
+            case "GRADED", "REVIEWED", "COMPLETED" -> "PUBLISHED";
+            case "PROCESSING" -> "ANALYZING";
             default -> status;
         };
     }
@@ -472,17 +482,24 @@ public class StudentServiceImpl implements StudentService {
                         .eq(Submission::getDeleted, 0));
         vo.setTotalSubmissions(allSubmissions.size());
 
-        Set<Long> completedTaskIds = allSubmissions.stream()
-                .filter(s -> "GRADED".equals(s.getStatus()) || "REVIEWED".equals(s.getStatus()))
-                .map(Submission::getTrainingTaskId)
+        List<ScoreRecord> scores = allSubmissions.isEmpty() ? Collections.emptyList()
+                : scoreRecordMapper.selectList(new LambdaQueryWrapper<ScoreRecord>()
+                .in(ScoreRecord::getSubmissionId, allSubmissions.stream().map(Submission::getId).toList()));
+
+        Set<Long> completedTaskIds = scores.stream()
+                .filter(s -> s.getTotalScore() != null && s.getTotalScore().compareTo(BigDecimal.ZERO) > 0)
+                .map(ScoreRecord::getTrainingTaskId)
                 .collect(Collectors.toSet());
         vo.setCompletedTasks(completedTaskIds.size());
+        if (vo.getTotalTasks() != null && vo.getTotalTasks() > 0) {
+            vo.setCompletionRate(BigDecimal.valueOf(completedTaskIds.size() * 100.0 / vo.getTotalTasks())
+                    .setScale(1, RoundingMode.HALF_UP));
+        } else {
+            vo.setCompletionRate(BigDecimal.ZERO);
+        }
 
         if (!allSubmissions.isEmpty()) {
             List<Long> submissionIds = allSubmissions.stream().map(Submission::getId).toList();
-            List<ScoreRecord> scores = scoreRecordMapper.selectList(
-                    new LambdaQueryWrapper<ScoreRecord>()
-                            .in(ScoreRecord::getSubmissionId, submissionIds));
 
             if (!scores.isEmpty()) {
                 List<BigDecimal> scoreValues = scores.stream()
@@ -506,6 +523,8 @@ public class StudentServiceImpl implements StudentService {
                     scoresBySubmission.computeIfAbsent(s.getSubmissionId(), k -> new ArrayList<>()).add(s);
                 }
             }
+            Map<Long, ScoreRecord> scoreBySubmission = scores.stream()
+                    .collect(Collectors.toMap(ScoreRecord::getSubmissionId, s -> s, (a, b) -> a));
 
             Map<Long, TrainingTask> taskMap = new HashMap<>();
             for (Submission sub : allSubmissions) {
@@ -588,7 +607,9 @@ public class StudentServiceImpl implements StudentService {
             }
             vo.setMonthlyTrends(trends);
 
-            vo.setDimensionRadar(Collections.emptyList());
+            vo.setDimensionRadar(buildDimensionRadar(userId, courseIds, scores));
+            vo.setDimensionInsight(buildDimensionInsight(vo.getDimensionRadar()));
+            vo.setGrowthTimeline(buildGrowthTimeline(allSubmissions, taskMap, courseNameMap, scoreBySubmission));
 
             List<GrowthProfileVO.SubmissionHistoryVO> history = new ArrayList<>();
             for (Submission sub : allSubmissions.stream()
@@ -606,7 +627,7 @@ public class StudentServiceImpl implements StudentService {
                 if (subScores != null && !subScores.isEmpty()) {
                     h.setScore(subScores.get(0).getTotalScore());
                 }
-                h.setResult(sub.getStatus());
+                h.setResult(mapSubmissionResult(sub.getStatus()));
                 h.setSubmittedAt(sub.getSubmitTime());
                 history.add(h);
             }
@@ -615,9 +636,12 @@ public class StudentServiceImpl implements StudentService {
             vo.setAverageScore(null);
             vo.setHighestScore(null);
             vo.setLowestScore(null);
+            vo.setCompletionRate(BigDecimal.ZERO);
             vo.setCourseScores(Collections.emptyList());
             vo.setMonthlyTrends(Collections.emptyList());
             vo.setDimensionRadar(Collections.emptyList());
+            vo.setDimensionInsight(null);
+            vo.setGrowthTimeline(Collections.emptyList());
             vo.setSubmissionHistory(Collections.emptyList());
         }
 
@@ -643,16 +667,17 @@ public class StudentServiceImpl implements StudentService {
                             .in(TrainingTask::getCourseId, courseIds)
                             .eq(TrainingTask::getDeleted, 0)).intValue();
         }
-        Set<Long> completedTaskIds = allSubmissions.stream()
-                .filter(s -> "SUBMITTED".equals(s.getStatus()) || "REVIEWED".equals(s.getStatus())
-                        || "GRADED".equals(s.getStatus()))
-                .map(Submission::getTrainingTaskId)
-                .collect(Collectors.toSet());
 
         List<Long> submissionIds = allSubmissions.stream().map(Submission::getId).toList();
         List<ScoreRecord> scores = submissionIds.isEmpty() ? Collections.emptyList() :
                 scoreRecordMapper.selectList(new LambdaQueryWrapper<ScoreRecord>()
                         .in(ScoreRecord::getSubmissionId, submissionIds));
+
+        Set<Long> completedTaskIds = scores.stream()
+                .filter(s -> s.getTotalScore() != null && s.getTotalScore().compareTo(BigDecimal.ZERO) > 0)
+                .map(ScoreRecord::getTrainingTaskId)
+                .collect(Collectors.toSet());
+
         Map<Long, ScoreRecord> scoreMap = scores.stream()
                 .collect(Collectors.toMap(ScoreRecord::getSubmissionId, s -> s, (a, b) -> a));
 
@@ -670,7 +695,7 @@ public class StudentServiceImpl implements StudentService {
         DateTimeFormatter monthFmt = DateTimeFormatter.ofPattern("yyyy-MM");
         List<String> trendMonths = new ArrayList<>();
         List<BigDecimal> trendValues = new ArrayList<>();
-        for (int i = 3; i >= 0; i--) {
+        for (int i = 5; i >= 0; i--) {
             LocalDateTime monthStart = LocalDateTime.now().minusMonths(i).withDayOfMonth(1).withHour(0).withMinute(0);
             LocalDateTime monthEnd = monthStart.plusMonths(1);
             List<BigDecimal> monthScores = new ArrayList<>();
@@ -691,7 +716,6 @@ public class StudentServiceImpl implements StudentService {
 
         Map<Long, TrainingTask> taskMap = new HashMap<>();
         Map<Long, String> courseNameMap = new HashMap<>();
-        Map<Long, List<BigDecimal>> scoresByCourse = new LinkedHashMap<>();
         for (Submission sub : allSubmissions) {
             TrainingTask task = taskMap.computeIfAbsent(sub.getTrainingTaskId(), trainingTaskMapper::selectById);
             if (task != null) {
@@ -699,21 +723,14 @@ public class StudentServiceImpl implements StudentService {
                     Course c = courseMapper.selectById(cid);
                     return c != null ? c.getCourseName() : "";
                 });
-                ScoreRecord sr = scoreMap.get(sub.getId());
-                if (sr != null && sr.getTotalScore() != null && sr.getTotalScore().compareTo(BigDecimal.ZERO) > 0) {
-                    scoresByCourse.computeIfAbsent(task.getCourseId(), k -> new ArrayList<>()).add(sr.getTotalScore());
-                }
             }
         }
 
-        List<String> radarIndicators = new ArrayList<>();
-        List<BigDecimal> radarValues = new ArrayList<>();
-        for (Map.Entry<Long, List<BigDecimal>> e : scoresByCourse.entrySet()) {
-            radarIndicators.add(courseNameMap.getOrDefault(e.getKey(), ""));
-            List<BigDecimal> vals = e.getValue();
-            radarValues.add(vals.stream().reduce(BigDecimal.ZERO, BigDecimal::add)
-                    .divide(BigDecimal.valueOf(vals.size()), 1, RoundingMode.HALF_UP));
-        }
+        List<GrowthProfileVO.DimensionRadarVO> dimensionRadar = buildDimensionRadar(userId, courseIds, scores);
+        List<String> radarIndicators = dimensionRadar.stream()
+                .map(GrowthProfileVO.DimensionRadarVO::getDimensionName).toList();
+        List<BigDecimal> radarValues = dimensionRadar.stream()
+                .map(GrowthProfileVO.DimensionRadarVO::getMyAvg).toList();
 
         List<StudentReportVO.Row> rows = new ArrayList<>();
         for (Submission sub : allSubmissions.stream()
@@ -743,5 +760,173 @@ public class StudentServiceImpl implements StudentService {
                         .indicators(radarIndicators).values(radarValues).build())
                 .rows(rows)
                 .build();
+    }
+
+    private GrowthProfileVO.DimensionInsightVO buildDimensionInsight(
+            List<GrowthProfileVO.DimensionRadarVO> radar) {
+        if (radar == null || radar.isEmpty()) return null;
+        GrowthProfileVO.DimensionRadarVO strongest = radar.stream()
+                .max(Comparator.comparing(GrowthProfileVO.DimensionRadarVO::getMyAvg))
+                .orElse(null);
+        GrowthProfileVO.DimensionRadarVO weakest = radar.stream()
+                .min(Comparator.comparing(GrowthProfileVO.DimensionRadarVO::getMyAvg))
+                .orElse(null);
+        if (strongest == null || weakest == null) return null;
+
+        GrowthProfileVO.DimensionInsightVO insight = new GrowthProfileVO.DimensionInsightVO();
+        insight.setStrongest(strongest.getDimensionName());
+        insight.setWeakest(weakest.getDimensionName());
+        BigDecimal gap = strongest.getMyAvg().subtract(weakest.getMyAvg());
+        if (gap.compareTo(BigDecimal.valueOf(8)) >= 0) {
+            insight.setSummary("「" + weakest.getDimensionName() + "」与班级均值差距较大，建议优先补强。");
+        } else if (strongest.getMyAvg().compareTo(strongest.getClassAvg()) >= 0) {
+            insight.setSummary("整体表现均衡，「" + strongest.getDimensionName() + "」为当前优势维度。");
+        } else {
+            insight.setSummary("各维度接近班级平均水平，可继续巩固「" + strongest.getDimensionName() + "」。");
+        }
+        return insight;
+    }
+
+    private List<GrowthProfileVO.GrowthTimelineItemVO> buildGrowthTimeline(
+            List<Submission> submissions,
+            Map<Long, TrainingTask> taskMap,
+            Map<Long, String> courseNameMap,
+            Map<Long, ScoreRecord> scoreBySubmission) {
+        DateTimeFormatter dayFmt = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+        List<GrowthProfileVO.GrowthTimelineItemVO> timeline = new ArrayList<>();
+        for (Submission sub : submissions.stream()
+                .sorted(Comparator.comparing(Submission::getSubmitTime, Comparator.nullsLast(Comparator.reverseOrder())))
+                .limit(12).toList()) {
+            TrainingTask task = taskMap.get(sub.getTrainingTaskId());
+            ScoreRecord sr = scoreBySubmission.get(sub.getId());
+            GrowthProfileVO.GrowthTimelineItemVO item = new GrowthProfileVO.GrowthTimelineItemVO();
+            item.setDate(sub.getSubmitTime() != null ? sub.getSubmitTime().format(dayFmt) : "");
+            item.setTitle(task != null ? task.getTaskName() : "实训任务");
+            item.setDescription(task != null ? courseNameMap.getOrDefault(task.getCourseId(), "") : "");
+            if ("REJECTED".equals(sub.getStatus())) {
+                item.setType("reject");
+                item.setDescription("提交被驳回，请根据教师反馈修改后重提");
+            } else if (sr != null && sr.getTotalScore() != null && sr.getTotalScore().compareTo(BigDecimal.ZERO) > 0) {
+                item.setType("score");
+                item.setScore(sr.getTotalScore());
+                item.setDescription("成绩 " + sr.getTotalScore().setScale(1, RoundingMode.HALF_UP) + " 分 · "
+                        + (task != null ? courseNameMap.getOrDefault(task.getCourseId(), "") : ""));
+            } else {
+                item.setType("submit");
+                item.setDescription("已提交，等待 AI 分析或教师复核");
+            }
+            timeline.add(item);
+        }
+        return timeline;
+    }
+
+    private String mapSubmissionResult(String status) {
+        if (status == null) return "PENDING";
+        return switch (status) {
+            case "PUBLISHED", "COMPLETED" -> "PASS";
+            case "REJECTED" -> "REJECT";
+            default -> "PENDING";
+        };
+    }
+
+    private List<GrowthProfileVO.DimensionRadarVO> buildDimensionRadar(
+            Long userId, List<Long> courseIds, List<ScoreRecord> myScores) {
+        Map<Long, String> dimensionNames = loadDimensionNames();
+        Map<Long, List<BigDecimal>> myDimensionScores = aggregateDimensionScores(myScores, dimensionNames);
+
+        List<ScoreRecord> classScores = loadClassmateScoreRecords(userId, courseIds);
+        Map<Long, List<BigDecimal>> classDimensionScores = aggregateDimensionScores(classScores, dimensionNames);
+
+        List<GrowthProfileVO.DimensionRadarVO> radar = new ArrayList<>();
+        for (Long dimensionId : DEFAULT_DIMENSION_IDS) {
+            GrowthProfileVO.DimensionRadarVO item = new GrowthProfileVO.DimensionRadarVO();
+            item.setDimensionName(dimensionNames.getOrDefault(dimensionId, "维度" + dimensionId));
+            item.setMyAvg(averageOf(myDimensionScores.get(dimensionId)));
+            item.setClassAvg(averageOf(classDimensionScores.get(dimensionId)));
+            radar.add(item);
+        }
+        return radar;
+    }
+
+    private Map<Long, String> loadDimensionNames() {
+        List<StandardDimension> dimensions = standardDimensionMapper.selectList(
+                new LambdaQueryWrapper<StandardDimension>()
+                        .in(StandardDimension::getId, DEFAULT_DIMENSION_IDS)
+                        .orderByAsc(StandardDimension::getSortOrder));
+        Map<Long, String> names = new LinkedHashMap<>();
+        for (StandardDimension dimension : dimensions) {
+            names.put(dimension.getId(), dimension.getDimName());
+        }
+        for (Long id : DEFAULT_DIMENSION_IDS) {
+            names.putIfAbsent(id, "维度" + id);
+        }
+        return names;
+    }
+
+    private List<ScoreRecord> loadClassmateScoreRecords(Long userId, List<Long> courseIds) {
+        if (courseIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+        List<Long> classmateIds = courseStudentMapper.selectList(
+                        new LambdaQueryWrapper<CourseStudent>().in(CourseStudent::getCourseId, courseIds))
+                .stream().map(CourseStudent::getUserId).distinct().toList();
+        if (classmateIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+        return scoreRecordMapper.selectList(new LambdaQueryWrapper<ScoreRecord>()
+                .in(ScoreRecord::getUserId, classmateIds)
+                .eq(ScoreRecord::getStatus, "PUBLISHED"));
+    }
+
+    private Map<Long, List<BigDecimal>> aggregateDimensionScores(
+            List<ScoreRecord> records, Map<Long, String> dimensionNames) {
+        Map<Long, List<BigDecimal>> grouped = new LinkedHashMap<>();
+        for (Long dimensionId : dimensionNames.keySet()) {
+            grouped.put(dimensionId, new ArrayList<>());
+        }
+        for (ScoreRecord record : records) {
+            Map<Long, BigDecimal> parsed = parseDimensionScores(record);
+            for (Map.Entry<Long, BigDecimal> entry : parsed.entrySet()) {
+                grouped.computeIfAbsent(entry.getKey(), k -> new ArrayList<>()).add(entry.getValue());
+            }
+        }
+        return grouped;
+    }
+
+    private Map<Long, BigDecimal> parseDimensionScores(ScoreRecord record) {
+        Map<Long, BigDecimal> parsed = new LinkedHashMap<>();
+        if (record.getScoreDetails() != null && !record.getScoreDetails().isBlank()) {
+            try {
+                List<Map<String, Object>> items = OBJECT_MAPPER.readValue(
+                        record.getScoreDetails(), new TypeReference<>() {});
+                for (Map<String, Object> item : items) {
+                    Object dimensionId = item.get("dimensionId");
+                    Object score = item.get("score");
+                    if (dimensionId == null || score == null) {
+                        continue;
+                    }
+                    parsed.put(Long.valueOf(String.valueOf(dimensionId)), new BigDecimal(String.valueOf(score)));
+                }
+            } catch (Exception ignored) {
+                // fall through to total-score estimate
+            }
+        }
+        if (parsed.isEmpty() && record.getTotalScore() != null
+                && record.getTotalScore().compareTo(BigDecimal.ZERO) > 0) {
+            BigDecimal quarter = record.getTotalScore()
+                    .divide(BigDecimal.valueOf(4), 2, RoundingMode.HALF_UP);
+            for (Long dimensionId : DEFAULT_DIMENSION_IDS) {
+                parsed.put(dimensionId, quarter);
+            }
+        }
+        return parsed;
+    }
+
+    private BigDecimal averageOf(List<BigDecimal> values) {
+        if (values == null || values.isEmpty()) {
+            return BigDecimal.ZERO;
+        }
+        return values.stream().reduce(BigDecimal.ZERO, BigDecimal::add)
+                .divide(BigDecimal.valueOf(values.size()), 1, RoundingMode.HALF_UP);
     }
 }

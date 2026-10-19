@@ -53,8 +53,8 @@ public class TrainingTask implements Serializable {
     @TableField("submission_type")
     private String submissionType;
 
-    @TableField("max_submit_count")
-    private Integer maxSubmitCount;
+    @TableField("max_ai_analyze_count")
+    private Integer maxAiAnalyzeCount;
 
     @TableField("max_score")
     private BigDecimal maxScore;

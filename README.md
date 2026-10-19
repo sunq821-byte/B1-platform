@@ -1,6 +1,6 @@
-# B1 智慧实训平台
+# 衡迹（B1）——高校实践教学成果评价与管理平台
 
-基于大模型的软件实训教学检查评价与报表系统。
+基于 AI 的高校实践教学成果评价与管理平台。
 
 ## 技术栈
 
@@ -17,10 +17,42 @@
 B1/
 ├── B1_Platform/       # 前端（Vue 3 + Vite）
 ├── server/            # 后端（Spring Boot）
-├── docs/              # 设计文档
-├── prototypes/        # 原型设计
+├── docs/              # 产品与设计文档（见下方「文档目录」）
+├── deploy/            # 部署说明（含龙芯）
+├── Material/          # 演示素材（源码样例、实训报告、MinIO 种子）
 └── docker-compose.yml # 基础设施编排
 ```
+
+## 文档目录
+
+完整索引与阅读顺序见 [docs/README.md](docs/README.md)。
+
+```
+docs/
+├── README.md                              # 文档索引、阅读顺序与维护原则
+├── 01-PRD-产品需求规格说明书.md              # 产品需求（唯一真理源）
+├── 02-UI-Design-System.md                 # UI 视觉规范与组件样式
+├── 03-Database-Design.md                  # 数据库设计（ER、字段、索引）
+├── 04-API-Contract.md                     # REST API 接口契约
+├── 05-Deployment-Guide.md                 # 本地开发与生产部署
+├── 06-答辩评审问答手册-AI开发与评分体系.md    # 答辩评审 Q&A
+├── 07-版本演进说明-比赛提交版与当前版对比.md  # 比赛版 vs 当前版
+├── 数据库表设计表格.md                        # 核心表摘要（报告粘贴用）
+├── 截图/                                  # 本地，不入库
+├── 立项材料/                              # 本地，不入库
+└── 软著/                                  # 本地，不入库
+```
+
+| 文档 | 用途 |
+|------|------|
+| `01-PRD` | 功能需求、验收标准、用户操作手册 |
+| `02-UI-Design-System` | 配色、布局、组件规范 |
+| `03-Database-Design` | 核心表、Flyway 迁移依据 |
+| `04-API-Contract` | 前后端联调接口定义 |
+| `05-Deployment-Guide` | 环境搭建与上线步骤 |
+| `deploy/README-loongarch.md` | 龙芯 LoongArch64 全 Docker 部署 |
+
+> `docs/截图`、`docs/立项材料`、`docs/软著` 仅本地保留，已由 `.gitignore` 排除。
 
 ## 本地启动（Windows / x86 开发）
 
@@ -66,8 +98,10 @@ mvn spring-boot:run
 ```
 
 - API 地址：http://localhost:8080
-- Swagger 文档：http://localhost:8080/doc.html
+- Swagger 文档：http://localhost:8080/swagger-ui.html
 - 默认管理员：admin / admin123
+
+开发环境默认开启 Material 种子同步（`b1.material.seed-enabled=true`）。生产 / Docker 配置已显式关闭，避免误清 MinIO 与库内种子数据。
 
 ### 4. 启动前端
 
@@ -88,15 +122,24 @@ npm run dev
 | `admin` | `admin123` | 系统管理员 | 管理员 |
 | `teacher1` | `123456` | 张教授 | 教师 |
 | `student1` | `123456` | 李明 | 学生 |
-| `student2` | `123456` | 王芳 | 学生 |
+| `student2` | `123456` | 王芳 | 学生（**待教师审核**《图书管理系统》） |
+| `student3` | `123456` | 赵强 | 学生（**已驳回**，AI 次数已重置，可重新试交） |
+| `student4` | `123456` | 孙丽 | 学生（**待确认提交**《Servlet 会话管理》） |
+| `student5` | `123456` | 周杰 | 学生（**AI 次数已用尽**，仍可确认；教师可「还原 AI 次数」） |
+| `student6` | `123456` | 吴敏 | 学生（未提交） |
+| `student7` | `123456` | 郑浩 | 学生（截止未完成） |
+| `student8` | `123456` | 钱雪 | 学生（**待教师审核**《图书管理系统》） |
+| `teacher2` | `123456` | 陈副教授 | 教师 |
+| `teacher3` | `123456` | 刘讲师 | 教师 |
 
-> 若需新增/修改账号，编辑 `server/src/main/resources/db/migration/V4__test_accounts.sql` 后重新启动即可。
+> 演示素材目录：`Material/`（Flyway 结构/种子迁移 + MinIO 自动同步）。教师复核请用 `teacher1` 登录审核工作台；还原 AI 次数见审核页右上角按钮。
 
 ## 开发说明
 
 - 数据库迁移使用 Flyway，新建迁移文件放在 `server/src/main/resources/db/migration/`，命名格式 `V{序号}__{描述}.sql`
-- 后端接口文档自动生成，启动后访问 `/doc.html`
-- 前端 Mock 数据在 `B1_Platform/src/mock/` 目录
+- 演示素材优先放在 `Material/`，由开发环境 `MaterialSeedRunner` 同步；避免再新增巨型「重置种子」类 Flyway 迁移
+- 后端接口文档自动生成（SpringDoc），启动后访问 `/swagger-ui.html`（OpenAPI JSON：`/v3/api-docs`）
+- 前端默认直连后端 API（Vite 代理，`VITE_API_BASE_URL` 留空即可）
 - 密钥等敏感配置放在 `server/src/main/resources/application-local.yml`（不提交），生产环境通过操作系统环境变量注入
 
 ## 部署
