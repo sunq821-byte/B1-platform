@@ -15,6 +15,7 @@ import com.b1.module.ai.provider.dto.AiResponse;
 import com.b1.module.ai.provider.dto.AiResponse.DimensionResult;
 import com.b1.module.ai.service.AiService;
 import com.b1.module.ai.service.PromptBuilder;
+import com.b1.module.ai.service.RuleCheckService;
 import com.b1.module.ai.vo.AiResultVO;
 import com.b1.module.ai.vo.EvaluationVO;
 import com.b1.module.auth.entity.User;
@@ -76,6 +77,7 @@ public class AiServiceImpl implements AiService {
     private final FileService fileService;
     private final AiProviderRouter providerRouter;
     private final PromptBuilder promptBuilder;
+    private final RuleCheckService ruleCheckService;
     private final Executor aiExecutor;
 
     public AiServiceImpl(
@@ -94,6 +96,7 @@ public class AiServiceImpl implements AiService {
             FileService fileService,
             AiProviderRouter providerRouter,
             PromptBuilder promptBuilder,
+            RuleCheckService ruleCheckService,
             @Qualifier("ai-analysis-executor") Executor aiExecutor) {
         this.submissionMapper = submissionMapper;
         this.submissionTrialMapper = submissionTrialMapper;
@@ -110,6 +113,7 @@ public class AiServiceImpl implements AiService {
         this.fileService = fileService;
         this.providerRouter = providerRouter;
         this.promptBuilder = promptBuilder;
+        this.ruleCheckService = ruleCheckService;
         this.aiExecutor = aiExecutor;
     }
 
@@ -183,15 +187,23 @@ public class AiServiceImpl implements AiService {
                             .eq(SubmissionFile::getSubmissionId, submission.getId())
                             .orderByAsc(SubmissionFile::getSortOrder));
 
-            if (files.isEmpty()) {
+            // L1：确定性规则（文件存在 / 非空 / 扩展名白名单），零幻觉
+            RuleCheckService.RuleCheckResult ruleResult = ruleCheckService.check(files, dimensions);
+            if (ruleResult.criticalFailure()) {
+                for (AiAnalysisDetail detail : ruleResult.details()) {
+                    detail.setAiAnalysisId(aiAnalysis.getId());
+                    aiAnalysisDetailMapper.insert(detail);
+                }
                 aiAnalysis.setAnalysisStatus("FAILED");
-                aiAnalysis.setErrorMessage("没有找到提交文件");
+                aiAnalysis.setErrorMessage("L1 规则检查未通过：请检查是否已上传非空且格式正确的成果文件");
+                aiAnalysis.setModelProvider("RULE");
+                aiAnalysis.setModelName("l1-rule-check");
                 aiAnalysis.setCompleteTime(LocalDateTime.now());
                 aiAnalysisMapper.updateById(aiAnalysis);
                 return;
             }
 
-            List<AiAnalysisDetail> allDetails = new ArrayList<>();
+            List<AiAnalysisDetail> allDetails = new ArrayList<>(ruleResult.details());
             BigDecimal totalWeightedScore = BigDecimal.ZERO;
             BigDecimal totalWeight = BigDecimal.ZERO;
             int totalInputTokens = 0;
@@ -236,7 +248,7 @@ public class AiServiceImpl implements AiService {
                         detail.setSuggestion(dr.getSuggestion());
                         detail.setSuggestDeduct(dr.getSuggestDeduct());
                         detail.setConfidence(dr.getConfidence());
-                        detail.setSortOrder(allDetails.size() + 1);
+                        detail.setSortOrder(allDetails.size());
 
                         StandardDimension matchedDim = findMatchingDimension(dimensions, dr);
                         if (matchedDim != null) {
@@ -512,8 +524,11 @@ public class AiServiceImpl implements AiService {
         return issueVOs;
     }
 
-    /** 将分析明细映射为 CODE / DOC / REQ，供前端分区展示 */
+    /** 将分析明细映射为 RULE / CODE / DOC / REQ，供前端分区展示 */
     private String inferAgentCategory(AiAnalysisDetail detail) {
+        if (RuleCheckService.AGENT_TYPE.equalsIgnoreCase(detail.getAgentType())) {
+            return RuleCheckService.AGENT_TYPE;
+        }
         String path = detail.getFilePath() != null ? detail.getFilePath().toLowerCase() : "";
         if (path.endsWith(".md") || path.endsWith(".doc") || path.endsWith(".docx") || path.endsWith(".pdf")) {
             return "DOC";

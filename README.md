@@ -18,9 +18,9 @@ B1/
 ├── B1_Platform/       # 前端（Vue 3 + Vite）
 ├── server/            # 后端（Spring Boot）
 ├── docs/              # 产品与设计文档（见下方「文档目录」）
-├── deploy/            # 部署说明（含龙芯）
 ├── Material/          # 演示素材（源码样例、实训报告、MinIO 种子）
-└── docker-compose.yml # 基础设施编排
+├── docker-compose.yml # 本地开发：MySQL / Redis / MinIO
+└── docker-compose.prod.yml # 生产：全容器化（Linux x86_64）
 ```
 
 ## 文档目录
@@ -50,14 +50,12 @@ docs/
 | `03-Database-Design` | 核心表、Flyway 迁移依据 |
 | `04-API-Contract` | 前后端联调接口定义 |
 | `05-Deployment-Guide` | 环境搭建与上线步骤 |
-| `deploy/README-loongarch.md` | 龙芯 LoongArch64 全 Docker 部署 |
 
 > `docs/截图`、`docs/立项材料`、`docs/软著` 仅本地保留，已由 `.gitignore` 排除。
 
 ## 本地启动（Windows / x86 开发）
 
-> 适用于 Windows 或 x86 macOS/Linux 开发机。基础设施用 Docker 跑（`docker-compose.yml` 是标准 x86 镜像），前后端跑源码方便热更新调试。
-> 龙芯（LoongArch64）机器请改用全 Docker 部署，见文末「部署」。
+> 适用于 Windows 或 x86 macOS/Linux 开发机。基础设施用 Docker 跑（`docker-compose.yml` 为标准镜像），前后端跑源码方便热更新调试。
 
 ### 1. 启动基础设施
 
@@ -146,7 +144,5 @@ npm run dev
 
 | 场景 | 方式 | 说明 |
 |---|---|---|
-| Windows / x86 开发 | `docker compose up -d` 起三件套 + 本地 `mvn spring-boot:run` / `npm run dev` | 见上文「本地启动」，可热更新调试 |
-| 龙芯（LoongArch64）机器 | 全 Docker：`docker compose -f docker-compose.prod.yml up -d` | 前后端也打进容器，机器无需装 JDK/Node，见 [deploy/README-loongarch.md](deploy/README-loongarch.md) |
-
-> ⚠️ `docker-compose.prod.yml` 使用 loong64 专用镜像，**不能在 x86 Windows 上运行**；反之 x86 的全 Docker 镜像也不能在龙芯上运行。两套编排各自对应目标架构。
+| 本地开发 | `docker compose up -d` 起三件套 + 本地 `mvn spring-boot:run` / `npm run dev` | 见上文「本地启动」，可热更新调试 |
+| 生产（Linux x86_64） | `docker compose -f docker-compose.prod.yml up -d` | 前后端一并容器化；详见 [docs/05-Deployment-Guide.md](docs/05-Deployment-Guide.md) |

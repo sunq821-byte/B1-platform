@@ -1,6 +1,6 @@
 services:
   mysql:
-    image: lcr.loongnix.cn/library/mysql:latest
+    image: mysql:8.0
     container_name: b1-mysql
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
@@ -11,7 +11,7 @@ services:
       - --character-set-server=utf8mb4
       - --collation-server=utf8mb4_unicode_ci
       - --default-time-zone=+08:00
-      - --mysql-native-password=ON
+      - --default-authentication-plugin=mysql_native_password
     volumes:
       - mysql-data:/var/lib/mysql
     networks:
@@ -24,7 +24,7 @@ services:
     restart: unless-stopped
 
   redis:
-    image: lcr.loongnix.cn/library/redis:latest
+    image: redis:7-alpine
     container_name: b1-redis
     command: redis-server --save 60 1 --loglevel warning
     volumes:
@@ -39,7 +39,7 @@ services:
     restart: unless-stopped
 
   minio:
-    image: lcr.loongnix.cn/library/minio:latest
+    image: minio/minio:latest
     container_name: b1-minio
     ports:
       - "9001:9001"
@@ -54,7 +54,7 @@ services:
     restart: unless-stopped
 
   minio-init:
-    image: lcr.loongnix.cn/library/minio:latest
+    image: minio/mc:latest
     container_name: b1-minio-init
     depends_on:
       - minio
@@ -74,8 +74,8 @@ services:
       context: ./server
       dockerfile: Dockerfile
       args:
-        JDK_IMAGE: ${JDK_IMAGE:-lcr.loongnix.cn/library/openjdk:21}
-    image: b1-backend:loong64
+        JDK_IMAGE: ${JDK_IMAGE:-eclipse-temurin:21-jre}
+    image: b1-backend:latest
     container_name: b1-backend
     depends_on:
       mysql:
@@ -103,8 +103,8 @@ services:
       context: ./B1_Platform
       dockerfile: Dockerfile
       args:
-        NGINX_IMAGE: ${NGINX_IMAGE:-lcr.loongnix.cn/library/nginx:latest}
-    image: b1-frontend:loong64
+        NGINX_IMAGE: ${NGINX_IMAGE:-nginx:latest}
+    image: b1-frontend:latest
     container_name: b1-frontend
     depends_on:
       - backend

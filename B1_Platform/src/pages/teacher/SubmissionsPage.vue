@@ -85,6 +85,15 @@ const restoreCandidates = computed(() => {
   return students.filter((s) => TRIAL_STATUSES.has(s.latestStatus))
 })
 
+function agentTypeLabel(t?: string): string {
+  const u = (t || "").toUpperCase()
+  if (u.includes("RULE")) return "规则"
+  if (u.includes("CODE")) return "代码"
+  if (u.includes("DOC")) return "文档"
+  if (u.includes("REQ")) return "需求"
+  return t || "CODE"
+}
+
 function statusLabel(status: string) {
   const map: Record<string, string> = {
     DRAFT: "草稿",
@@ -993,7 +1002,7 @@ onMounted(() => { initPage() })
                 :class="['deduction-item', { 'deduction-item--rejected': d.overridden && d.overrideAction === 'reject' }]"
               >
                 <div class="ded-header">
-                  <span :class="['ded-tag', `ded-tag--${(d.agentType || 'CODE').toLowerCase()}`]">{{ d.agentType || 'CODE' }}</span>
+                  <span :class="['ded-tag', `ded-tag--${(d.agentType || 'CODE').toLowerCase()}`]">{{ agentTypeLabel(d.agentType) }}</span>
                   <span class="ded-type">{{ d.issueType }}</span>
                   <span class="ded-score">
                     <template v-if="d.overridden && d.overrideAction === 'reject'">已驳回</template>
@@ -1448,6 +1457,7 @@ onMounted(() => { initPage() })
 .deduction-item--rejected .ded-reason { text-decoration: line-through; }
 .ded-header { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
 .ded-tag { font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 3px; text-transform: uppercase; }
+.ded-tag--rule { background: #f0f0f0; color: #595959; }
 .ded-tag--code { background: var(--color-primary-light, #E6F4FF); color: var(--color-primary, #1677FF); }
 .ded-tag--doc { background: var(--color-success-light, #E6F7EF); color: #009A57; }
 .ded-tag--req { background: var(--color-warning-light, #fffbeb); color: #b45309; }

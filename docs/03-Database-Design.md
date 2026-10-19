@@ -487,7 +487,7 @@ erDiagram
 |---|---|
 | **表用途** | 定义系统中的角色及其权限码集合 |
 | **当前已实现** | `student`、`teacher`、`admin` |
-| **P1 规划** | `enterprise_mentor`（企业导师）、`enterprise_admin`（企业培训管理员） |
+| **路线图（PRD V2.6 不验收）** | `enterprise_mentor` / `enterprise_admin`（表结构可预留；当前种子与鉴权仅三角色） |
 | **数据来源** | 系统初始化脚本预置 3 条记录 |
 | **关联表** | user_role |
 | **数据生命周期** | 静态数据，几乎不变（除非未来增加角色类型） |
@@ -495,8 +495,8 @@ erDiagram
 | 字段 | 类型 | 可空 | 默认值 | 说明 |
 |---|---|---|---|---|
 | `id` | `BIGINT` | ❌ | Snowflake | 主键 |
-| `role_code` | `VARCHAR(32)` | ❌ | — | 角色编码：`student`, `teacher`, `admin`（已实现）；`enterprise_mentor`, `enterprise_admin`（P1 规划） |
-| `role_name` | `VARCHAR(64)` | ❌ | — | 角色名称：学生、教师、管理员；企业导师、企业培训管理员（P1） |
+| `role_code` | `VARCHAR(32)` | ❌ | — | 角色编码：**当前** `student` / `teacher` / `admin`；路线图可含 `enterprise_*`（不验收） |
+| `role_name` | `VARCHAR(64)` | ❌ | — | 角色名称：学生、教师、管理员（当前交付） |
 | `description` | `VARCHAR(256)` | ✅ | NULL | 角色描述 |
 | `sort_order` | `INT` | ❌ | `0` | 排序号 |
 | `deleted` | `TINYINT` | ❌ | `0` | 逻辑删除标记 |

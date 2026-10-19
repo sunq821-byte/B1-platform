@@ -358,6 +358,7 @@ const learningResources = computed<LearningResource[]>(() => {
 
 function agentLabel(t?: string): string {
   const u = (t || "").toUpperCase()
+  if (u.includes("RULE")) return "规则"
   if (u.includes("CODE")) return "代码"
   if (u.includes("DOC")) return "文档"
   if (u.includes("REQ")) return "需求"
@@ -1059,6 +1060,7 @@ function reloadPage() {
   font-size: 10px; font-weight: 600;
   padding: 2px 6px; border-radius: 3px;
 }
+.ded-tag--rule { background: #f0f0f0; color: #595959; }
 .ded-tag--code { background: #dbeafe; color: #1677FF; }
 .ded-tag--doc { background: #E6F7EF; color: #009A57; }
 .ded-tag--req { background: #fef3c7; color: #b45309; }
